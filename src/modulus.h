@@ -3,8 +3,12 @@
 #include <cstdint>
 #include <array>
 #include <stdexcept>
+#include <unordered_map>
 
+#include "utils/common.h"
+#include "utils/hestdparams.h"
 #include "utils/uintcore.h"
+#include "utils/globals.h"
 
 
 namespace troy {
@@ -342,16 +346,202 @@ namespace troy {
         //     return Serialization::Load(std::bind(&Modulus::load_members, this, _1, _2), in, size, false);
         // }
 
-        // /**
-        // Reduces a given unsigned integer modulo this modulus.
+        /**
+        Reduces a given unsigned integer modulo this modulus.
 
-        // @param[in] value The unsigned integer to reduce
-        // @throws std::logic_error if the Modulus is zero
-        // */
-        // std::uint64_t reduce(std::uint64_t value) const;
+        @param[in] value The unsigned integer to reduce
+        @throws std::logic_error if the Modulus is zero
+        */
+        std::uint64_t reduce(std::uint64_t value) const;
 
 
     };
 
+
+
+
+    /**
+    Represents a standard security level according to the HomomorphicEncryption.org
+    security standard. The value sec_level_type::none signals that no standard
+    security level should be imposed. The value sec_level_type::tc128 provides
+    a very high level of security and is the default security level enforced by
+    Microsoft SEAL when constructing a SEALContext object. Normal users should not
+    have to specify the security level explicitly anywhere.
+    */
+    enum class sec_level_type : int
+    {
+        /**
+        No security level specified.
+        */
+        none = 0,
+
+        /**
+        128-bit security level according to HomomorphicEncryption.org standard.
+        */
+        tc128 = 128,
+
+        /**
+        192-bit security level according to HomomorphicEncryption.org standard.
+        */
+        tc192 = 192,
+
+        /**
+        256-bit security level according to HomomorphicEncryption.org standard.
+        */
+        tc256 = 256
+    };
+
+    /**
+    This class contains static methods for creating a coefficient modulus easily.
+    Note that while these functions take a sec_level_type argument, all security
+    guarantees are lost if the output is used with encryption parameters with
+    a mismatching value for the poly_modulus_degree.
+
+    The default value sec_level_type::tc128 provides a very high level of security
+    and is the default security level enforced by Microsoft SEAL when constructing
+    a SEALContext object. Normal users should not have to specify the security
+    level explicitly anywhere.
+    */
+    class CoeffModulus
+    {
+    public:
+        CoeffModulus() = delete;
+
+        /**
+        Returns the largest bit-length of the coefficient modulus, i.e., bit-length
+        of the product of the primes in the coefficient modulus, that guarantees
+        a given security level when using a given poly_modulus_degree, according
+        to the HomomorphicEncryption.org security standard.
+
+        @param[in] poly_modulus_degree The value of the poly_modulus_degree
+        encryption parameter
+        @param[in] sec_level The desired standard security level
+        */
+        static constexpr int MaxBitCount(
+            std::size_t poly_modulus_degree, sec_level_type sec_level = sec_level_type::tc128) noexcept
+        {
+            switch (sec_level)
+            {
+            case sec_level_type::tc128:
+                return util::seal_he_std_parms_128_tc(poly_modulus_degree);
+
+            case sec_level_type::tc192:
+                return util::seal_he_std_parms_192_tc(poly_modulus_degree);
+
+            case sec_level_type::tc256:
+                return util::seal_he_std_parms_256_tc(poly_modulus_degree);
+
+            case sec_level_type::none:
+                return (std::numeric_limits<int>::max)();
+
+            default:
+                return 0;
+            }
+        }
+
+        /**
+        Returns a default coefficient modulus for the BFV scheme that guarantees
+        a given security level when using a given poly_modulus_degree, according
+        to the HomomorphicEncryption.org security standard. Note that all security
+        guarantees are lost if the output is used with encryption parameters with
+        a mismatching value for the poly_modulus_degree.
+
+        The coefficient modulus returned by this function will not perform well
+        if used with the CKKS scheme.
+
+        @param[in] poly_modulus_degree The value of the poly_modulus_degree
+        encryption parameter
+        @param[in] sec_level The desired standard security level
+        @throws std::invalid_argument if poly_modulus_degree is not a power-of-two
+        or is too large
+        @throws std::invalid_argument if sec_level is sec_level_type::none
+        */
+        static std::vector<Modulus> BFVDefault(
+            std::size_t poly_modulus_degree, sec_level_type sec_level = sec_level_type::tc128);
+
+        /**
+        Returns a custom coefficient modulus suitable for use with the specified
+        poly_modulus_degree. The return value will be a vector consisting of
+        Modulus elements representing distinct prime numbers such that:
+        1) have bit-lengths as given in the bit_sizes parameter (at most 60 bits) and
+        2) are congruent to 1 modulo 2*poly_modulus_degree.
+
+        @param[in] poly_modulus_degree The value of the poly_modulus_degree
+        encryption parameter
+        @param[in] bit_sizes The bit-lengths of the primes to be generated
+        @throws std::invalid_argument if poly_modulus_degree is not a power-of-two
+        or is too large
+        @throws std::invalid_argument if bit_sizes is too large or if its elements
+        are out of bounds
+        @throws std::logic_error if not enough suitable primes could be found
+        */
+        static std::vector<Modulus> Create(std::size_t poly_modulus_degree, std::vector<int> bit_sizes);
+
+        /**
+        Returns a custom coefficient modulus suitable for use with the specified
+        poly_modulus_degree. The return value will be a vector consisting of
+        Modulus elements representing distinct prime numbers such that:
+        1) have bit-lengths as given in the bit_sizes parameter (at most 60 bits) and
+        2) are congruent to 1 modulo LCM(2*poly_modulus_degree, plain_modulus).
+
+        @param[in] poly_modulus_degree The value of the poly_modulus_degree encryption parameter
+        @param[in] plain_modulus The value of the plain_modulus encryption parameter
+        @param[in] bit_sizes The bit-lengths of the primes to be generated
+        @throws std::invalid_argument if poly_modulus_degree is not a power-of-two
+        or is too large
+        @throws std::invalid_argument if bit_sizes is too large or if its elements
+        are out of bounds
+        @throws std::logic_error if LCM(2*poly_modulus_degree, plain_modulus) is more than 64-bit
+        @throws std::logic_error if not enough suitable primes could be found
+        */
+        static std::vector<Modulus> Create(
+            std::size_t poly_modulus_degree, const Modulus &plain_modulus, std::vector<int> bit_sizes);
+    };
+
+    /**
+    This class contains static methods for creating a plaintext modulus easily.
+    */
+    class PlainModulus
+    {
+    public:
+        PlainModulus() = delete;
+
+        /**
+        Creates a prime number Modulus for use as plain_modulus encryption
+        parameter that supports batching with a given poly_modulus_degree.
+
+        @param[in] poly_modulus_degree The value of the poly_modulus_degree
+        encryption parameter
+        @param[in] bit_size The bit-length of the prime to be generated
+        @throws std::invalid_argument if poly_modulus_degree is not a power-of-two
+        or is too large
+        @throws std::invalid_argument if bit_size is out of bounds
+        @throws std::logic_error if a suitable prime could not be found
+        */
+        static inline Modulus Batching(std::size_t poly_modulus_degree, int bit_size)
+        {
+            return CoeffModulus::Create(poly_modulus_degree, { bit_size })[0];
+        }
+
+        /**
+        Creates several prime number Modulus elements that can be used as
+        plain_modulus encryption parameters, each supporting batching with a given
+        poly_modulus_degree.
+
+        @param[in] poly_modulus_degree The value of the poly_modulus_degree
+        encryption parameter
+        @param[in] bit_sizes The bit-lengths of the primes to be generated
+        @throws std::invalid_argument if poly_modulus_degree is not a power-of-two
+        or is too large
+        @throws std::invalid_argument if bit_sizes is too large or if its elements
+        are out of bounds
+        @throws std::logic_error if not enough suitable primes could be found
+        */
+        static inline std::vector<Modulus> Batching(
+            std::size_t poly_modulus_degree, std::vector<int> bit_sizes)
+        {
+            return CoeffModulus::Create(poly_modulus_degree, bit_sizes);
+        }
+    };
 
 }
