@@ -1,5 +1,5 @@
 file(GLOB_RECURSE CURRENT_HEADERS *.h *.hpp *.cuh)
-file(GLOB_RECURSE CURRENT_SOURCES *.cpp *.cu)
+file(GLOB_RECURSE CURRENT_SOURCES *.cpp *.cu *.c)
 
 source_group("Include" FILES ${CURRENT_HEADERS})
 source_group("Source" FILES ${CURRENT_SOURCES})

@@ -368,7 +368,7 @@ namespace troy {
     Microsoft SEAL when constructing a SEALContext object. Normal users should not
     have to specify the security level explicitly anywhere.
     */
-    enum class sec_level_type : int
+    enum class SecurityLevel : int
     {
         /**
         No security level specified.

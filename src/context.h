@@ -1,5 +1,8 @@
 #pragma once
 
+#include "modulus.h"
+#include "encryptionparams.h"
+
 namespace troy {
 
     /**
@@ -184,12 +187,12 @@ namespace troy {
         Tells whether the encryption parameters are secure based on the standard
         parameters from HomomorphicEncryption.org security standard.
         */
-        sec_level_type sec_level;
+        SecurityLevel sec_level;
 
     private:
         EncryptionParameterQualifiers()
             : parameter_error(ErrorType::none), using_fft(false), using_ntt(false), using_batching(false),
-              using_fast_plain_lift(false), using_descending_modulus_chain(false), sec_level(sec_level_type::none)
+              using_fast_plain_lift(false), using_descending_modulus_chain(false), sec_level(SecurityLevel::none)
         {}
 
         friend class SEALContext;
@@ -264,9 +267,9 @@ namespace troy {
             /**
             Returns the parms_id of the current parameters.
             */
-            inline const parms_id_type &parms_id() const noexcept
+            inline const ParmsID &parmsID() const noexcept
             {
-                return parms_.parms_id();
+                return parms_.parmsID();
             }
 
             /**
@@ -285,7 +288,7 @@ namespace troy {
             modulus. The security of the encryption parameters largely depends on the
             bit-length of this product, and on the degree of the polynomial modulus.
             */
-            inline const std::uint64_t *total_coeff_modulus() const noexcept
+            inline const std::uint64_t *totalCoeffModulus() const noexcept
             {
                 return total_coeff_modulus_.get();
             }
@@ -293,7 +296,7 @@ namespace troy {
             /**
             Returns the significant bit count of the total coefficient modulus.
             */
-            inline int total_coeff_modulus_bit_count() const noexcept
+            inline int totalCoeffModulusBitCount() const noexcept
             {
                 return total_coeff_modulus_bit_count_;
             }
@@ -301,7 +304,7 @@ namespace troy {
             /**
             Returns a constant pointer to the RNSTool.
             */
-            inline const util::RNSTool *rns_tool() const noexcept
+            inline const util::RNSTool *rnsTool() const noexcept
             {
                 return rns_tool_.get();
             }
@@ -309,7 +312,7 @@ namespace troy {
             /**
             Returns a constant pointer to the NTT tables.
             */
-            inline const util::NTTTables *small_ntt_tables() const noexcept
+            inline const util::NTTTables *smallNTTTables() const noexcept
             {
                 return small_ntt_tables_.get();
             }
@@ -317,7 +320,7 @@ namespace troy {
             /**
             Returns a constant pointer to the NTT tables.
             */
-            inline const util::NTTTables *plain_ntt_tables() const noexcept
+            inline const util::NTTTables *plainNTTTables() const noexcept
             {
                 return plain_ntt_tables_.get();
             }
@@ -325,7 +328,7 @@ namespace troy {
             /**
             Returns a constant pointer to the GaloisTool.
             */
-            inline const util::GaloisTool *galois_tool() const noexcept
+            inline const util::GaloisTool *galoisTool() const noexcept
             {
                 return galois_tool_.get();
             }
@@ -334,7 +337,7 @@ namespace troy {
             Return a pointer to BFV "Delta", i.e. coefficient modulus divided by
             plaintext modulus.
             */
-            inline const util::MultiplyUIntModOperand *coeff_div_plain_modulus() const noexcept
+            inline const util::MultiplyUIntModOperand *coeffDivPlainModulus() const noexcept
             {
                 return coeff_div_plain_modulus_.get();
             }
@@ -343,7 +346,7 @@ namespace troy {
             Return the threshold for the upper half of integers modulo plain_modulus.
             This is simply (plain_modulus + 1) / 2.
             */
-            inline std::uint64_t plain_upper_half_threshold() const noexcept
+            inline std::uint64_t plainUpperHalfThreshold() const noexcept
             {
                 return plain_upper_half_threshold_;
             }
@@ -354,7 +357,7 @@ namespace troy {
             for the full product coeff_modulus if using_fast_plain_lift is false and is
             otherwise represented modulo each of the coeff_modulus primes in order.
             */
-            inline const std::uint64_t *plain_upper_half_increment() const noexcept
+            inline const std::uint64_t *plainUpperHalfIncrement() const noexcept
             {
                 return plain_upper_half_increment_.get();
             }
@@ -363,7 +366,7 @@ namespace troy {
             Return a pointer to the upper half threshold with respect to the total
             coefficient modulus. This is needed in CKKS decryption.
             */
-            inline const std::uint64_t *upper_half_threshold() const noexcept
+            inline const std::uint64_t *upperHalfThreshold() const noexcept
             {
                 return upper_half_threshold_.get();
             }
@@ -379,7 +382,7 @@ namespace troy {
             this operation is only done for negative message coefficients, i.e. those
             that exceed plain_upper_half_threshold.
             */
-            inline const std::uint64_t *upper_half_increment() const noexcept
+            inline const std::uint64_t *upperHalfIncrement() const noexcept
             {
                 return upper_half_increment_.get();
             }
@@ -387,7 +390,7 @@ namespace troy {
             /**
             Return the non-RNS form of upper_half_increment which is q mod t.
             */
-            inline std::uint64_t coeff_modulus_mod_plain_modulus() const noexcept
+            inline std::uint64_t coeffModulusModPlainModulus() const noexcept
             {
                 return coeff_modulus_mod_plain_modulus_;
             }
@@ -397,7 +400,7 @@ namespace troy {
             in the modulus switching chain. If the current data is the first one in the
             chain, then the result is nullptr.
             */
-            inline std::shared_ptr<const ContextData> prev_context_data() const noexcept
+            inline std::shared_ptr<const ContextData> prevContextData() const noexcept
             {
                 return prev_context_data_.lock();
             }
@@ -407,7 +410,7 @@ namespace troy {
             in the modulus switching chain. If the current data is the last one in the
             chain, then the result is nullptr.
             */
-            inline std::shared_ptr<const ContextData> next_context_data() const noexcept
+            inline std::shared_ptr<const ContextData> nextContextData() const noexcept
             {
                 return next_context_data_;
             }
@@ -416,21 +419,15 @@ namespace troy {
             Returns the index of the parameter set in a chain. The initial parameters
             have index 0 and the index increases sequentially in the parameter chain.
             */
-            inline std::size_t chain_index() const noexcept
+            inline std::size_t chainIndex() const noexcept
             {
                 return chain_index_;
             }
 
         private:
-            ContextData(EncryptionParameters parms, MemoryPoolHandle pool) : pool_(std::move(pool)), parms_(parms)
+            ContextData(EncryptionParameters parms) : parms_(parms)
             {
-                if (!pool_)
-                {
-                    throw std::invalid_argument("pool is uninitialized");
-                }
             }
-
-            MemoryPoolHandle pool_;
 
             EncryptionParameters parms_;
 
@@ -602,7 +599,7 @@ namespace troy {
         Returns a parms_id_type corresponding to the last encryption parameters
         that are used for data.
         */
-        inline const parms_id_type &last_parms_id() const noexcept
+        inline const ParmsID &last_parms_id() const noexcept
         {
             return last_parms_id_;
         }
@@ -642,22 +639,20 @@ namespace troy {
         Otherwise, returns the parms_id of the next parameter and appends the next
         context_data to the chain.
         */
-        parms_id_type create_next_context_data(const parms_id_type &prev_parms);
+        ParmsID create_next_context_data(const ParmsID &prev_parms);
 
-        MemoryPoolHandle pool_;
+        ParmsID key_parms_id_;
 
-        parms_id_type key_parms_id_;
+        ParmsID first_parms_id_;
 
-        parms_id_type first_parms_id_;
+        ParmsID last_parms_id_;
 
-        parms_id_type last_parms_id_;
-
-        std::unordered_map<parms_id_type, std::shared_ptr<const ContextData>> context_data_map_{};
+        std::unordered_map<ParmsID, std::shared_ptr<const ContextData>> context_data_map_{};
 
         /**
         Is HomomorphicEncryption.org security standard enforced?
         */
-        sec_level_type sec_level_;
+        SecurityLevel sec_level_;
 
         /**
         Is keyswitching supported by the encryption parameters?

@@ -8,6 +8,20 @@ namespace troy { namespace util {
 template <typename T> class DeviceArray;
 
 template <typename T>
+class HostPointer {
+    friend class HostArray<T>;
+    T* ptr;
+    HostPointer(T* p) : ptr(p) {}
+public:
+    HostPointer(): ptr(nullptr) {}
+    bool isNull() {return ptr == nullptr;}
+    T* get() {return ptr;}
+    HostPointer<T> operator+ (size_t d) const {
+        return HostPointer<T>(ptr+d);
+    }
+};
+
+template <typename T>
 class HostArray {
     T* data;
     int len;
@@ -45,6 +59,12 @@ public:
         if (data) delete[] data;
     }
     HostArray& operator = (const HostArray& r) = delete;
+    HostArray& operator = (HostArray&& from) {
+        data = from.data;
+        len = from.len;
+        from.data = nullptr;
+        from.len = 0;
+    }
     HostArray(const HostArray& r) = delete;
     HostArray copy() const {
         return HostArray(data, len);
@@ -58,8 +78,8 @@ public:
     // }
     T* get() {return data;}
     const T* get() const {return data;}
+    HostPointer<T> operator +(size_t d) const {return HostPointer<T>(data + d);}
+
 };
-
-
 
 }}

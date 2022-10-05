@@ -116,6 +116,35 @@ namespace troy { namespace util {
         return static_cast<T>(value);
     }
 
+    inline constexpr uint32_t reverseBits(uint32_t operand) noexcept {
+        operand = (((operand & uint32_t(0xaaaaaaaa)) >> 1) | ((operand & uint32_t(0x55555555)) << 1));
+        operand = (((operand & uint32_t(0xcccccccc)) >> 2) | ((operand & uint32_t(0x33333333)) << 2));
+        operand = (((operand & uint32_t(0xf0f0f0f0)) >> 4) | ((operand & uint32_t(0x0f0f0f0f)) << 4));
+        operand = (((operand & uint32_t(0xff00ff00)) >> 8) | ((operand & uint32_t(0x00ff00ff)) << 8));
+        return static_cast<uint32_t>(operand >> 16) | static_cast<uint32_t>(operand << 16);
+    }
+
+    inline constexpr uint64_t reverseBits(uint64_t operand) noexcept {
+        return static_cast<uint64_t>(reverseBits(static_cast<std::uint32_t>(operand >> 32))) |
+                (static_cast<uint64_t>(reverseBits(static_cast<std::uint32_t>(operand & uint64_t(0xFFFFFFFF)))) << 32);
+    }
+
+    inline uint32_t reverseBits(uint32_t operand, int bit_count)
+    {
+        // Just return zero if bit_count is zero
+        return (bit_count == 0) ? uint32_t(0)
+                                : reverseBits(operand) >> (sizeof(uint32_t) * static_cast<std::size_t>(bitsPerByte) -
+                                                            static_cast<std::size_t>(bit_count));
+    }
+
+    inline uint64_t reverseBits(uint64_t operand, int bit_count)
+    {
+        // Just return zero if bit_count is zero
+        return (bit_count == 0) ? uint64_t(0)
+                                : reverseBits(operand) >> (sizeof(uint64_t) * static_cast<std::size_t>(bitsPerByte) -
+                                                            static_cast<std::size_t>(bit_count));
+    }
+
     template <
         typename T, typename S, typename = std::enable_if_t<std::is_integral<T>::value>,
         typename = std::enable_if_t<std::is_integral<S>::value>>
