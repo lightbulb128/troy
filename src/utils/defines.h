@@ -11,6 +11,10 @@
 
 #define SEAL_SUB_BORROW_UINT64(operand1, operand2, borrow, result) _subborrow_u64(borrow, operand1, operand2, result)
 
+// Bit-length of internally used coefficient moduli, e.g., auxiliary base in BFV
+#define SEAL_INTERNAL_MOD_BIT_COUNT 61
+
+
 // Bounds for bit-length of user-defined coefficient moduli
 #define SEAL_USER_MOD_BIT_COUNT_MAX 60
 #define SEAL_USER_MOD_BIT_COUNT_MIN 2

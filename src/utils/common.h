@@ -30,7 +30,7 @@ namespace troy { namespace util {
 
     template <typename T, typename S, typename = std::enable_if_t<std::is_arithmetic<T>::value>,
         typename = std::enable_if_t<std::is_arithmetic<S>::value>>
-    inline constexpr bool fits_in(S value) noexcept
+    inline constexpr bool fitsIn(S value) noexcept
     {
         bool result = false;
 
@@ -108,7 +108,7 @@ namespace troy { namespace util {
     {
         if constexpr(!std::is_same<T, S>::value)
         {
-            if (!fits_in<T>(value))
+            if (!fitsIn<T>(value))
             {
                 throw std::logic_error("cast failed");
             }
@@ -237,6 +237,10 @@ namespace troy { namespace util {
         return static_cast<T>(in1 * in2);
     }
     
+    template <typename T> 
+    inline constexpr bool productFitsIn(T in1, T in2) {
+        return fitsIn<T>(mul_safe(in1, in2));
+    }
 
     template <
     typename T, typename S, typename = std::enable_if_t<std::is_integral<T>::value>,
