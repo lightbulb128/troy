@@ -126,6 +126,7 @@ namespace troy {
 
         // FIXME: allocate related action
         uint64_t *param_data = new uint64_t[total_uint64_count];
+        for (size_t i = 0; i < total_uint64_count; i++) param_data[i] = 0;
         uint64_t *param_data_ptr = param_data;
 
         // Write the scheme identifier
@@ -142,7 +143,7 @@ namespace troy {
         util::setUint(plain_modulus_.data(), plain_modulus_.uint64Count(), param_data_ptr);
         param_data_ptr += plain_modulus_.uint64Count();
 
-        util::HashFunction::hash(param_data_ptr, total_uint64_count, parms_id_);
+        util::HashFunction::hash(param_data, total_uint64_count, parms_id_);
 
         // Did we somehow manage to get a zero block as result? This is reserved for
         // plaintexts to indicate non-NTT-transformed form.

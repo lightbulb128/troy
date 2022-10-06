@@ -46,9 +46,18 @@ namespace troy {
         return o;
     }
 
+    inline std::ostream& operator <<(std::ostream& o, const ParmsID& p) {
+        for (size_t i = 0; i < p.size(); i++) {
+            std::cout << std::hex << p[i];
+            if (i!=p.size()-1) std::cout << "-";
+        }
+        std::cout << std::dec;
+        return o;
+    }
+
     inline std::ostream& operator <<(std::ostream& o, const EncryptionParameters& p) {
         o << p.scheme();
-        o << " {\n";
+        o << " " << p.parmsID() << " {\n";
         o << "    plain modulus: " << p.plainModulus() << "\n";
         o << "    coeff moduli : " << p.coeffModulus() << "\n";
         o << "} ";

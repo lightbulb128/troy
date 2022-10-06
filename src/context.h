@@ -1,7 +1,10 @@
 #pragma once
 
+#include "utils/rns.h"
 #include "modulus.h"
 #include "encryptionparams.h"
+#include "memory.h"
+#include <unordered_map>
 
 namespace troy {
 
@@ -221,14 +224,14 @@ namespace troy {
     first one in the chain corresponds to special encryption parameters that are reserved
     to be used by the various key classes (SecretKey, PublicKey, etc.). These are the exact
     same encryption parameters that are created by the user and passed to th constructor of
-    SEALContext. The functions key_context_data() and key_parms_id() return the ContextData
+    SEALContext. The functions key_context_data() and keyParmsID() return the ContextData
     and the parms_id corresponding to these special parameters. The rest of the ContextData
     instances in the chain correspond to encryption parameters that are derived from the
     first encryption parameters by always removing the last one of the moduli in the
     coeff_modulus, until the resulting parameters are no longer valid, e.g., there are no
     more primes left. These derived encryption parameters are used by ciphertexts and
     plaintexts and their respective ContextData can be accessed through the
-    get_context_data(parms_id_type) function. The functions first_context_data() and
+    get_context_data(ParmsID) function. The functions first_context_data() and
     last_context_data() return the ContextData corresponding to the first and the last
     set of parameters in the "data" part of the chain, i.e., the second and the last element
     in the full chain. The chain itself is a doubly linked list, and is referred to as the
@@ -433,27 +436,27 @@ namespace troy {
 
             EncryptionParameterQualifiers qualifiers_;
 
-            util::Pointer<util::RNSTool> rns_tool_;
+            util::HostObject<util::RNSTool> rns_tool_;
 
-            util::Pointer<util::NTTTables> small_ntt_tables_;
+            util::HostArray<util::NTTTables> small_ntt_tables_;
 
-            util::Pointer<util::NTTTables> plain_ntt_tables_;
+            util::HostArray<util::NTTTables> plain_ntt_tables_;
 
             util::Pointer<util::GaloisTool> galois_tool_;
 
-            util::Pointer<std::uint64_t> total_coeff_modulus_;
+            util::HostArray<std::uint64_t> total_coeff_modulus_;
 
             int total_coeff_modulus_bit_count_ = 0;
 
-            util::Pointer<util::MultiplyUIntModOperand> coeff_div_plain_modulus_;
+            util::HostArray<util::MultiplyUIntModOperand> coeff_div_plain_modulus_;
 
             std::uint64_t plain_upper_half_threshold_ = 0;
 
-            util::Pointer<std::uint64_t> plain_upper_half_increment_;
+            util::HostArray<std::uint64_t> plain_upper_half_increment_;
 
-            util::Pointer<std::uint64_t> upper_half_threshold_;
+            util::HostArray<std::uint64_t> upper_half_threshold_;
 
-            util::Pointer<std::uint64_t> upper_half_increment_;
+            util::HostArray<std::uint64_t> upper_half_increment_;
 
             std::uint64_t coeff_modulus_mod_plain_modulus_ = 0;
 
@@ -475,10 +478,8 @@ namespace troy {
         enforced according to HomomorphicEncryption.org security standard
         */
         SEALContext(
-            const EncryptionParameters &parms, bool expand_mod_chain = true,
-            sec_level_type sec_level = sec_level_type::tc128)
-            : SEALContext(parms, expand_mod_chain, sec_level, MemoryManager::GetPool())
-        {}
+            EncryptionParameters parms, bool expand_mod_chain = true,
+            SecurityLevel sec_level = SecurityLevel::tc128);
 
         /**
         Creates a new SEALContext by copying a given one.
@@ -515,7 +516,7 @@ namespace troy {
 
         @param[in] parms_id The parms_id of the encryption parameters
         */
-        inline std::shared_ptr<const ContextData> get_context_data(parms_id_type parms_id) const
+        inline std::shared_ptr<const ContextData> getContextData(ParmsID parms_id) const
         {
             auto data = context_data_map_.find(parms_id);
             return (data != context_data_map_.end()) ? data->second : std::shared_ptr<ContextData>{ nullptr };
@@ -525,7 +526,7 @@ namespace troy {
         Returns the ContextData corresponding to encryption parameters that are
         used for keys.
         */
-        inline std::shared_ptr<const ContextData> key_context_data() const
+        inline std::shared_ptr<const ContextData> keyContextData() const
         {
             auto data = context_data_map_.find(key_parms_id_);
             return (data != context_data_map_.end()) ? data->second : std::shared_ptr<ContextData>{ nullptr };
@@ -535,7 +536,7 @@ namespace troy {
         Returns the ContextData corresponding to the first encryption parameters
         that are used for data.
         */
-        inline std::shared_ptr<const ContextData> first_context_data() const
+        inline std::shared_ptr<const ContextData> firstContextData() const
         {
             auto data = context_data_map_.find(first_parms_id_);
             return (data != context_data_map_.end()) ? data->second : std::shared_ptr<ContextData>{ nullptr };
@@ -545,7 +546,7 @@ namespace troy {
         Returns the ContextData corresponding to the last encryption parameters
         that are used for data.
         */
-        inline std::shared_ptr<const ContextData> last_context_data() const
+        inline std::shared_ptr<const ContextData> lastContextData() const
         {
             auto data = context_data_map_.find(last_parms_id_);
             return (data != context_data_map_.end()) ? data->second : std::shared_ptr<ContextData>{ nullptr };
@@ -554,9 +555,9 @@ namespace troy {
         /**
         Returns whether the first_context_data's encryption parameters are valid.
         */
-        inline bool parameters_set() const
+        inline bool parametersSet() const
         {
-            return first_context_data() ? first_context_data()->qualifiers_.parameters_set() : false;
+            return firstContextData() ? firstContextData()->qualifiers_.parametersSet() : false;
         }
 
         /**
@@ -564,7 +565,7 @@ namespace troy {
         */
         inline const char *paramterErrorName() const
         {
-            return first_context_data() ? first_context_data()->qualifiers_.paramterErrorName()
+            return firstContextData() ? firstContextData()->qualifiers_.paramterErrorName()
                                         : "SEALContext is empty";
         }
 
@@ -573,33 +574,33 @@ namespace troy {
         */
         inline const char *paramterErrorMessage() const
         {
-            return first_context_data() ? first_context_data()->qualifiers_.paramterErrorMessage()
+            return firstContextData() ? firstContextData()->qualifiers_.paramterErrorMessage()
                                         : "SEALContext is empty";
         }
 
         /**
-        Returns a parms_id_type corresponding to the set of encryption parameters
+        Returns a ParmsID corresponding to the set of encryption parameters
         that are used for keys.
         */
-        inline const parms_id_type &key_parms_id() const noexcept
+        inline const ParmsID &keyParmsID() const noexcept
         {
             return key_parms_id_;
         }
 
         /**
-        Returns a parms_id_type corresponding to the first encryption parameters
+        Returns a ParmsID corresponding to the first encryption parameters
         that are used for data.
         */
-        inline const parms_id_type &first_parms_id() const noexcept
+        inline const ParmsID &firstParmsID() const noexcept
         {
             return first_parms_id_;
         }
 
         /**
-        Returns a parms_id_type corresponding to the last encryption parameters
+        Returns a ParmsID corresponding to the last encryption parameters
         that are used for data.
         */
-        inline const ParmsID &last_parms_id() const noexcept
+        inline const ParmsID &lastParmsID() const noexcept
         {
             return last_parms_id_;
         }
@@ -617,19 +618,19 @@ namespace troy {
         }
 
     private:
-        /**
-        Creates an instance of SEALContext, and performs several pre-computations
-        on the given EncryptionParameters.
+        // /**
+        // Creates an instance of SEALContext, and performs several pre-computations
+        // on the given EncryptionParameters.
 
-        @param[in] parms The encryption parameters
-        @param[in] expand_mod_chain Determines whether the modulus switching chain
-        should be created
-        @param[in] sec_level Determines whether a specific security level should be
-        enforced according to HomomorphicEncryption.org security standard
-        @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
-        @throws std::invalid_argument if pool is uninitialized
-        */
-        SEALContext(EncryptionParameters parms, bool expand_mod_chain, sec_level_type sec_level, MemoryPoolHandle pool);
+        // @param[in] parms The encryption parameters
+        // @param[in] expand_mod_chain Determines whether the modulus switching chain
+        // should be created
+        // @param[in] sec_level Determines whether a specific security level should be
+        // enforced according to HomomorphicEncryption.org security standard
+        // @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
+        // @throws std::invalid_argument if pool is uninitialized
+        // */
+        // SEALContext(EncryptionParameters parms, bool expand_mod_chain, SecurityLevel sec_level);
 
         ContextData validate(EncryptionParameters parms);
 
@@ -639,7 +640,7 @@ namespace troy {
         Otherwise, returns the parms_id of the next parameter and appends the next
         context_data to the chain.
         */
-        ParmsID create_next_context_data(const ParmsID &prev_parms);
+        ParmsID createNextContextData(const ParmsID &prev_parms);
 
         ParmsID key_parms_id_;
 

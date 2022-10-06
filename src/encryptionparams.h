@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <iostream>
 
 #include "utils/defines.h"
 #include "utils/hash.h"
@@ -157,6 +158,7 @@ namespace troy {
             }
 
             // Set the degree
+            std::cout << "reset polydeg " <<  poly_modulus_degree_ << " -> " << poly_modulus_degree << std::endl;
             poly_modulus_degree_ = poly_modulus_degree;
 
             // Re-compute the parms_id
@@ -293,7 +295,7 @@ namespace troy {
         /**
         Returns a pointer to the random number generator factory to use for encryption.
         */
-        inline std::shared_ptr<UniformRandomGeneratorFactory> random_generator() const noexcept
+        inline std::shared_ptr<UniformRandomGeneratorFactory> randomGenerator() const noexcept
         {
             return random_generator_;
         }
@@ -450,6 +452,9 @@ namespace troy {
         */
         struct EncryptionParametersPrivateHelper;
 
+        
+        void computeParmsID();
+
     private:
         /**
         Helper function to determine whether given std::uint8_t represents a valid
@@ -475,7 +480,6 @@ namespace troy {
             return false;
         }
 
-        void computeParmsID();
 
         // void save_members(std::ostream &stream) const;
 

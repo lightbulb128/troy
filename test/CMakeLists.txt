@@ -12,6 +12,7 @@ target_sources(troytest PRIVATE
     utils/uintarithmod.cpp
     utils/uintarithsmallmod.cpp
     utils/uintcore.cpp
+    encryptionparams.cpp
     modulus.cpp
 )
 target_link_libraries(troytest gtest gtest_main troy)
