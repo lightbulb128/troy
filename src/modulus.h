@@ -362,8 +362,8 @@ namespace troy {
 
     /**
     Represents a standard security level according to the HomomorphicEncryption.org
-    security standard. The value sec_level_type::none signals that no standard
-    security level should be imposed. The value sec_level_type::tc128 provides
+    security standard. The value SecurityLevel::none signals that no standard
+    security level should be imposed. The value SecurityLevel::tc128 provides
     a very high level of security and is the default security level enforced by
     Microsoft SEAL when constructing a SEALContext object. Normal users should not
     have to specify the security level explicitly anywhere.
@@ -393,11 +393,11 @@ namespace troy {
 
     /**
     This class contains static methods for creating a coefficient modulus easily.
-    Note that while these functions take a sec_level_type argument, all security
+    Note that while these functions take a SecurityLevel argument, all security
     guarantees are lost if the output is used with encryption parameters with
     a mismatching value for the poly_modulus_degree.
 
-    The default value sec_level_type::tc128 provides a very high level of security
+    The default value SecurityLevel::tc128 provides a very high level of security
     and is the default security level enforced by Microsoft SEAL when constructing
     a SEALContext object. Normal users should not have to specify the security
     level explicitly anywhere.
@@ -418,20 +418,20 @@ namespace troy {
         @param[in] sec_level The desired standard security level
         */
         static constexpr int MaxBitCount(
-            std::size_t poly_modulus_degree, sec_level_type sec_level = sec_level_type::tc128) noexcept
+            std::size_t poly_modulus_degree, SecurityLevel sec_level = SecurityLevel::tc128) noexcept
         {
             switch (sec_level)
             {
-            case sec_level_type::tc128:
+            case SecurityLevel::tc128:
                 return util::seal_he_std_parms_128_tc(poly_modulus_degree);
 
-            case sec_level_type::tc192:
+            case SecurityLevel::tc192:
                 return util::seal_he_std_parms_192_tc(poly_modulus_degree);
 
-            case sec_level_type::tc256:
+            case SecurityLevel::tc256:
                 return util::seal_he_std_parms_256_tc(poly_modulus_degree);
 
-            case sec_level_type::none:
+            case SecurityLevel::none:
                 return (std::numeric_limits<int>::max)();
 
             default:
@@ -454,10 +454,10 @@ namespace troy {
         @param[in] sec_level The desired standard security level
         @throws std::invalid_argument if poly_modulus_degree is not a power-of-two
         or is too large
-        @throws std::invalid_argument if sec_level is sec_level_type::none
+        @throws std::invalid_argument if sec_level is SecurityLevel::none
         */
         static std::vector<Modulus> BFVDefault(
-            std::size_t poly_modulus_degree, sec_level_type sec_level = sec_level_type::tc128);
+            std::size_t poly_modulus_degree, SecurityLevel sec_level = SecurityLevel::tc128);
 
         /**
         Returns a custom coefficient modulus suitable for use with the specified

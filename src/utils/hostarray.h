@@ -6,6 +6,7 @@
 namespace troy { namespace util {
     
 template <typename T> class DeviceArray;
+template <typename T> class HostArray;
 
 template <typename T>
 class HostPointer {
@@ -34,11 +35,12 @@ public:
     HostObject(const HostObject& copy) = delete;
     HostObject& operator=(const HostObject& copy) = delete;
     HostObject(HostObject&& move) {
-        ptr = move.ptr; move.ptr = null;
+        ptr = move.ptr; move.ptr = nullptr;
     }
     HostObject& operator=(HostObject&& move) {
         if (ptr) delete ptr;
-        ptr = move.ptr; move.ptr = null;
+        ptr = move.ptr; move.ptr = nullptr;
+        return *this;
     }
     bool isNull() {return ptr == nullptr;}
     const T* get() const {return ptr;}
@@ -96,12 +98,13 @@ public:
         len = from.len;
         from.data = nullptr;
         from.len = 0;
+        return *this;
     }
     HostArray(const HostArray& r) = delete;
     HostArray copy() const {
         return HostArray(data, len);
     }
-    T operator[](std::size_t i) const {return data[i];}
+    const T& operator[](std::size_t i) const {return data[i];}
     T& operator[](std::size_t i) {return data[i];}
     // DeviceArray<T> toDevice() {
     //     T* copied = KernelProvider::malloc<T>(len);

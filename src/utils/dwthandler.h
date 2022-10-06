@@ -161,7 +161,7 @@ namespace troy
                     for (std::size_t i = 0; i < m; i++)
                     {
                         r = *++roots;
-                        scaled_r = arithmetic_.mul_root_scalar(r, *scalar);
+                        scaled_r = arithmetic_.mulRootScalar(r, *scalar);
                         u = arithmetic_.mulScalar(arithmetic_.guard(values[0]), *scalar);
                         v = arithmetic_.mulRoot(values[1], scaled_r);
                         values[0] = arithmetic_.add(u, v);
@@ -266,7 +266,7 @@ namespace troy
                 if (scalar != nullptr)
                 {
                     r = *++roots;
-                    RootType scaled_r = arithmetic_.mul_root_scalar(r, *scalar);
+                    RootType scaled_r = arithmetic_.mulRootScalar(r, *scalar);
                     x = values;
                     y = x + gap;
                     if (gap < 4)

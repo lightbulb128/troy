@@ -22,9 +22,6 @@ namespace troy
 
             RNSBase(const RNSBase &copy);
 
-            RNSBase(const RNSBase &copy) : RNSBase(copy)
-            {}
-
             RNSBase &operator=(const RNSBase &assign) = delete;
 
             inline const Modulus &operator[](std::size_t index) const

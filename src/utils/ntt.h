@@ -68,6 +68,8 @@ namespace troy
             using NTTHandler = DWTHandler<std::uint64_t, MultiplyUIntModOperand, MultiplyUIntModOperand>;
 
         public:
+            NTTTables() {}
+
             NTTTables(NTTTables &&source) = default;
 
             NTTTables(NTTTables &copy)

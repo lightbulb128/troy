@@ -50,26 +50,26 @@ namespace troy {
         return util::barrettReduce64(value, *this);
     }
 
-    vector<Modulus> CoeffModulus::BFVDefault(size_t poly_modulus_degree, sec_level_type sec_level)
+    vector<Modulus> CoeffModulus::BFVDefault(size_t poly_modulus_degree, SecurityLevel sec_level)
     {
         if (!MaxBitCount(poly_modulus_degree, sec_level))
         {
             throw invalid_argument("non-standard poly_modulus_degree");
         }
-        if (sec_level == sec_level_type::none)
+        if (sec_level == SecurityLevel::none)
         {
             throw invalid_argument("invalid security level");
         }
 
         switch (sec_level)
         {
-        case sec_level_type::tc128:
+        case SecurityLevel::tc128:
             return util::global_variables::GetDefaultCoeffModulus128().at(poly_modulus_degree);
 
-        case sec_level_type::tc192:
+        case SecurityLevel::tc192:
             return util::global_variables::GetDefaultCoeffModulus192().at(poly_modulus_degree);
 
-        case sec_level_type::tc256:
+        case SecurityLevel::tc256:
             return util::global_variables::GetDefaultCoeffModulus256().at(poly_modulus_degree);
 
         default:
