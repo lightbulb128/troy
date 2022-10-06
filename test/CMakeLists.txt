@@ -2,6 +2,16 @@ enable_testing()
 
 add_executable(troytest)
 target_sources(troytest PRIVATE 
+    utils/common.cpp
+    utils/hash.cpp
+    utils/ntt.cpp
+    utils/numth.cpp
+    utils/polyarithsmallmod.cpp
+    utils/rns.cpp
+    utils/uintarith.cpp
+    utils/uintarithmod.cpp
+    utils/uintarithsmallmod.cpp
+    utils/uintcore.cpp
     modulus.cpp
 )
 target_link_libraries(troytest gtest gtest_main troy)

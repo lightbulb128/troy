@@ -75,7 +75,7 @@ namespace troy
             NTTTables(NTTTables &copy)
                 : root_(copy.root_), coeff_count_power_(copy.coeff_count_power_),
                   coeff_count_(copy.coeff_count_), modulus_(copy.modulus_), inv_degree_modulo_(copy.inv_degree_modulo_),
-                  root_powers_(coeff_count_), inv_root_powers_(coeff_count_)
+                  root_powers_(copy.coeff_count_), inv_root_powers_(copy.coeff_count_)
             {
                 // FIXME: allocate related action
                 // root_powers_ = allocate<MultiplyUIntModOperand>(coeff_count_, pool_);

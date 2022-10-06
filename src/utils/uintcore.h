@@ -215,6 +215,8 @@ namespace troy {
             }
         }
 
+        // NOTE: This implementation is different from SEAL.
+        // Actually it copies the content every time it is called.
         inline HostArray<uint64_t> duplicateUintIfNeeded(
             const uint64_t *input, std::size_t uint64_count, std::size_t new_uint64_count, bool force)
         {

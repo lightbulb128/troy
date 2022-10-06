@@ -332,7 +332,7 @@ namespace troy {
             return isPrimitiveRoot(destination, degree, modulus);
         }
 
-        bool try_minimal_primitive_root(uint64_t degree, const Modulus &modulus, uint64_t &destination)
+        bool tryMinimalPrimitiveRoot(uint64_t degree, const Modulus &modulus, uint64_t &destination)
         {
             uint64_t root;
             if (!tryPrimitiveRoot(degree, modulus, root))

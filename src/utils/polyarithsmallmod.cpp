@@ -10,7 +10,7 @@ namespace troy
 {
     namespace util
     {
-        void moduloPolyCoeffs(HostPointer<uint64_t> poly, std::size_t coeff_count, const Modulus &modulus, HostPointer<uint64_t> result)
+        void moduloPolyCoeffs(ConstHostPointer<uint64_t> poly, std::size_t coeff_count, const Modulus &modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_count; i++) {
                 result[i] = barrettReduce64(poly[i], modulus);
@@ -18,7 +18,7 @@ namespace troy
         }
 
         void addPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
             HostPointer<uint64_t> result)
         {
             const uint64_t modulusValue = modulus.value();
@@ -29,7 +29,7 @@ namespace troy
         }
 
         void subPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
             HostPointer<uint64_t> result)
         {
             const uint64_t modulus_value = modulus.value();
@@ -41,7 +41,7 @@ namespace troy
         }
 
         void addPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, size_t coeff_count, uint64_t scalar, const Modulus &modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly, size_t coeff_count, uint64_t scalar, const Modulus &modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_count; i++) {
                 const uint64_t x = poly[i];
@@ -50,7 +50,7 @@ namespace troy
         }
 
         void subPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, size_t coeff_count, uint64_t scalar, const Modulus &modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly, size_t coeff_count, uint64_t scalar, const Modulus &modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_count; i++) {
                 const uint64_t x = poly[i];
@@ -59,7 +59,7 @@ namespace troy
         }
 
         void multiplyPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, size_t coeff_count, MultiplyUIntModOperand scalar, const Modulus &modulus,
+            ConstHostPointer<uint64_t> poly, size_t coeff_count, MultiplyUIntModOperand scalar, const Modulus &modulus,
             HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_count; i++) {
@@ -69,7 +69,7 @@ namespace troy
         }
 
         void dyadicProductCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, size_t coeff_count, const Modulus &modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, size_t coeff_count, const Modulus &modulus,
             HostPointer<uint64_t> result)
         {
             const uint64_t modulus_value = modulus.value();
@@ -126,7 +126,7 @@ namespace troy
         }
 
         void negacyclicShiftPolyCoeffmod(
-            HostPointer<uint64_t> poly, size_t coeff_count, size_t shift, const Modulus &modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly, size_t coeff_count, size_t shift, const Modulus &modulus, HostPointer<uint64_t> result)
         {
             // Nothing to do
             if (shift == 0)

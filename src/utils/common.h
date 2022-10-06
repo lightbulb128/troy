@@ -129,6 +129,10 @@ namespace troy { namespace util {
                 (static_cast<uint64_t>(reverseBits(static_cast<std::uint32_t>(operand & uint64_t(0xFFFFFFFF)))) << 32);
     }
 
+    inline constexpr unsigned long long reverseBits(unsigned long long operand) noexcept {
+        return static_cast<unsigned long long>(reverseBits(static_cast<uint64_t>(operand)));
+    }
+
     inline uint32_t reverseBits(uint32_t operand, int bit_count)
     {
         // Just return zero if bit_count is zero
@@ -143,6 +147,11 @@ namespace troy { namespace util {
         return (bit_count == 0) ? uint64_t(0)
                                 : reverseBits(operand) >> (sizeof(uint64_t) * static_cast<std::size_t>(bitsPerByte) -
                                                             static_cast<std::size_t>(bit_count));
+    }
+
+    inline unsigned long long reverseBits(unsigned long long operand, int bit_count)
+    {
+        return static_cast<unsigned long long>(reverseBits(static_cast<uint64_t>(operand), bit_count));
     }
 
     template <

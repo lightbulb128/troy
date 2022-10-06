@@ -174,7 +174,7 @@ namespace troy {
             uint64_t* ptr = operand.get();
             for (std::size_t i = 0; i < n; i++, ptr++) {
                 // Note: I must be passed to the lambda by reference.
-                uint64_t& I = ptr[i]; 
+                uint64_t& I = *ptr; 
                 if (I >= two_times_modulus)
                 {
                     I -= two_times_modulus;
@@ -183,7 +183,7 @@ namespace troy {
                 {
                     I -= modulus;
                 }
-            };
+            }
         }
 
         void inverseNttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, const NTTTables &tables)
@@ -204,7 +204,7 @@ namespace troy {
             uint64_t* ptr = operand.get();
             for (std::size_t i = 0; i < n; i++, ptr++) {
                 // Note: I must be passed to the lambda by reference.
-                uint64_t& I = ptr[i]; 
+                uint64_t& I = *ptr; 
                 if (I >= modulus)
                 {
                     I -= modulus;

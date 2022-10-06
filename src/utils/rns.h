@@ -140,12 +140,12 @@ namespace troy
                 return obase_;
             }
 
-            void fastConvert(HostPointer<uint64_t> in, HostPointer<uint64_t> out) const;
+            void fastConvert(ConstHostPointer<uint64_t> in, HostPointer<uint64_t> out) const;
 
-            void fastConvertArray(HostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t count) const;
+            void fastConvertArray(ConstHostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t count) const;
 
             // The exact base convertion function, only supports obase size of 1.
-            void exactConvertArray(HostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t in_count) const;
+            void exactConvertArray(ConstHostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t in_count) const;
 
         private:
             BaseConverter(const BaseConverter &copy) = delete;
@@ -187,27 +187,27 @@ namespace troy
             /**
             Shenoy-Kumaresan conversion from Bsk to q
             */
-            void fastbconvSk(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
+            void fastbconvSk(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
 
             /**
             Montgomery reduction mod q; changes base from Bsk U {m_tilde} to Bsk
             */
-            void smMrq(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
+            void smMrq(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
 
             /**
             Divide by q and fast floor from q U Bsk to Bsk
             */
-            void fastFloor(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
+            void fastFloor(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
 
             /**
             Fast base conversion from q to Bsk U {m_tilde}
             */
-            void fastbconvmTilde(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
+            void fastbconvmTilde(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const;
 
             /**
             Compute round(t/q * |input|_q) mod t exactly
             */
-            void decryptScaleAndRound(HostPointer<uint64_t> phase, HostPointer<uint64_t> destination) const;
+            void decryptScaleAndRound(ConstHostPointer<uint64_t> phase, HostPointer<uint64_t> destination) const;
 
             /**
             Remove the last q for bgv ciphertext
@@ -217,7 +217,7 @@ namespace troy
             /**
             Compute mod t
             */
-            void decryptModt(HostPointer<uint64_t> phase, HostPointer<uint64_t> destination) const;
+            void decryptModt(ConstHostPointer<uint64_t> phase, HostPointer<uint64_t> destination) const;
 
             inline auto invqLastModq() const noexcept
             {

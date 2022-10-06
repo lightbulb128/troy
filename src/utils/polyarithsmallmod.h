@@ -16,10 +16,10 @@ namespace troy
 {
     namespace util
     {
-        void moduloPolyCoeffs(HostPointer<uint64_t> poly, std::size_t coeff_count, const Modulus &modulus, HostPointer<uint64_t> result);
+        void moduloPolyCoeffs(ConstHostPointer<uint64_t> poly, std::size_t coeff_count, const Modulus &modulus, HostPointer<uint64_t> result);
 
         inline void moduloPolyCoeffs(
-            HostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
                 moduloPolyCoeffs(poly + i * poly_modulus_degree, poly_modulus_degree, modulus[i], result + i * poly_modulus_degree);
@@ -27,7 +27,7 @@ namespace troy
         }
 
         inline void moduloPolyCoeffs(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -36,7 +36,7 @@ namespace troy
         }
 
         inline void negatePolyCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, const Modulus &modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, const Modulus &modulus, HostPointer<uint64_t> result)
         {
             const uint64_t modulus_value = modulus.value();
             for (std::size_t i = 0; i < coeff_count; i++) {
@@ -47,7 +47,7 @@ namespace troy
         }
 
         inline void negatePolyCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
                 negatePolyCoeffmod(poly + i * poly_modulus_degree, poly_modulus_degree, modulus[i], result + i * poly_modulus_degree);
@@ -55,7 +55,7 @@ namespace troy
         }
 
         inline void negatePolyCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -64,11 +64,11 @@ namespace troy
         }
 
         void addPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
             HostPointer<uint64_t> result);
 
         inline void addPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             
@@ -84,7 +84,7 @@ namespace troy
         }
 
         inline void addPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -93,11 +93,11 @@ namespace troy
         }
 
         void subPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
             HostPointer<uint64_t> result);
 
         inline void subPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -112,7 +112,7 @@ namespace troy
         }
 
         inline void subPolyCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -124,14 +124,14 @@ namespace troy
         @param[in] scalar Must be less than modulus.value().
         */
         void addPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t scalar, const Modulus &modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t scalar, const Modulus &modulus,
             HostPointer<uint64_t> result);
 
         /**
         @param[in] scalar Must be less than modulus.value().
         */
         inline void addPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t scalar, const Modulus* modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t scalar, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -143,7 +143,7 @@ namespace troy
         @param[in] scalar Must be less than modulus.value().
         */
         inline void addPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t scalar, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t scalar, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -155,14 +155,14 @@ namespace troy
         @param[in] scalar Must be less than modulus.value().
         */
         void subPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t scalar, const Modulus &modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t scalar, const Modulus &modulus,
             HostPointer<uint64_t> result);
 
         /**
         @param[in] scalar Must be less than modulus.value().
         */
         inline void subPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t scalar, const Modulus* modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t scalar, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -174,7 +174,7 @@ namespace troy
         @param[in] scalar Must be less than modulus.value().
         */
         inline void subPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t scalar, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t scalar, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -183,11 +183,11 @@ namespace troy
         }
 
         void multiplyPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, MultiplyUIntModOperand scalar, const Modulus &modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, MultiplyUIntModOperand scalar, const Modulus &modulus,
             HostPointer<uint64_t> result);
 
         inline void multiplyPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t scalar, const Modulus &modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t scalar, const Modulus &modulus,
             HostPointer<uint64_t> result)
         {
             // Scalar must be first reduced modulo modulus
@@ -197,7 +197,7 @@ namespace troy
         }
 
         inline void multiplyPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t scalar, const Modulus* modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t scalar, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -206,7 +206,7 @@ namespace troy
         }
 
         inline void multiplyPolyScalarCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t scalar, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t scalar, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -215,11 +215,11 @@ namespace troy
         }
 
         void dyadicProductCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_count, const Modulus &modulus,
             HostPointer<uint64_t> result);
 
         inline void dyadicProductCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus,
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             
@@ -231,7 +231,7 @@ namespace troy
         }
 
         inline void dyadicProductCoeffmod(
-            HostPointer<uint64_t> operand1, HostPointer<uint64_t> operand2, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> operand1, ConstHostPointer<uint64_t> operand2, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -242,10 +242,10 @@ namespace troy
         std::uint64_t polyInftyNormCoeffmod(HostPointer<uint64_t> operand, std::size_t coeff_count, const Modulus &modulus);
 
         void negacyclicShiftPolyCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, std::size_t shift, const Modulus &modulus, HostPointer<uint64_t> result);
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, std::size_t shift, const Modulus &modulus, HostPointer<uint64_t> result);
 
         inline void negacyclicShiftPolyCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::size_t shift, const Modulus* modulus,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::size_t shift, const Modulus* modulus,
             HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -254,7 +254,7 @@ namespace troy
         }
 
         inline void negacyclicShiftPolyCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::size_t shift, const Modulus* modulus, HostPointer<uint64_t> result)
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::size_t shift, const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
@@ -263,7 +263,7 @@ namespace troy
         }
 
         inline void negacyclicMultiplyPolyMonoCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t mono_coeff, std::size_t mono_exponent,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_count, std::uint64_t mono_coeff, std::size_t mono_exponent,
             const Modulus &modulus, HostPointer<uint64_t> result)
         {
             // FIXME: Frequent allocation
@@ -273,7 +273,7 @@ namespace troy
         }
 
         inline void negacyclicMultiplyPolyMonoCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t mono_coeff, std::size_t mono_exponent,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t mono_coeff, std::size_t mono_exponent,
             const Modulus* modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -282,7 +282,7 @@ namespace troy
         }
 
         inline void negacyclicMultiplyPolyMonoCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, std::uint64_t mono_coeff, std::size_t mono_exponent,
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, std::uint64_t mono_coeff, std::size_t mono_exponent,
             const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;
@@ -292,7 +292,7 @@ namespace troy
         }
 
         inline void negacyclicMultiplyPolyMonoCoeffmod(
-            HostPointer<uint64_t> poly, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, HostPointer<uint64_t> mono_coeff, std::size_t mono_exponent,
+            ConstHostPointer<uint64_t> poly, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, HostPointer<uint64_t> mono_coeff, std::size_t mono_exponent,
             const Modulus* modulus, HostPointer<uint64_t> result)
         {
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
@@ -301,7 +301,7 @@ namespace troy
         }
 
         inline void negacyclicMultiplyPolyMonoCoeffmod(
-            HostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size, HostPointer<uint64_t> mono_coeff, std::size_t mono_exponent,
+            ConstHostPointer<uint64_t> poly_array, std::size_t poly_size, std::size_t coeff_modulus_size, std::size_t poly_modulus_degree, HostPointer<uint64_t> mono_coeff, std::size_t mono_exponent,
             const Modulus* modulus, HostPointer<uint64_t> result)
         {
             std::size_t d = poly_modulus_degree * coeff_modulus_size;

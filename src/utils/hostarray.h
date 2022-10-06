@@ -10,20 +10,37 @@ template <typename T> class HostArray;
 
 template <typename T>
 class HostPointer {
-    friend class HostArray<T>;
     T* ptr;
-    HostPointer(T* p) : ptr(p) {}
 public:
+    HostPointer(T* p) : ptr(p) {}
     HostPointer(): ptr(nullptr) {}
     bool isNull() {return ptr == nullptr;}
     T* get() {return ptr;}
+    const T* get() const {return ptr;}
     HostPointer<T> operator+ (size_t d) const {
         return HostPointer<T>(ptr+d);
     }
     T& operator[](std::size_t i) {return ptr[i];}
-    T operator[](std::size_t i) const {return ptr[i];}
+    const T& operator[](std::size_t i) const {return ptr[i];}
     T* operator->() {return ptr;}
     T& operator*() {return *ptr;}
+};
+
+template <typename T>
+class ConstHostPointer {
+    const T* ptr;
+public:
+    ConstHostPointer(const T* p) : ptr(p) {}
+    ConstHostPointer(): ptr(nullptr) {}
+    ConstHostPointer(const HostPointer<T>& h): ptr(h.get()) {}
+    bool isNull() {return ptr == nullptr;}
+    const T* get() {return ptr;}
+    ConstHostPointer<T> operator+ (size_t d) const {
+        return ConstHostPointer<T>(ptr+d);
+    }
+    const T& operator[](std::size_t i) const {return ptr[i];}
+    const T* operator->() {return ptr;}
+    const T& operator*() {return *ptr;}
 };
 
 template <typename T>
@@ -65,7 +82,8 @@ public:
         data = nullptr; len = 0;
     }
     HostArray(std::size_t cnt) {
-        data = new T[cnt];
+        if (cnt > 0) data = new T[cnt];
+        else data = nullptr;
         len = cnt;
     }
 
@@ -73,6 +91,7 @@ public:
         data(data), len(cnt) {}
 
     HostArray(const T* copyfrom, std::size_t cnt) {
+        if (cnt == 0) {data = nullptr; len = 0; return;}
         data = new T[cnt];
         for (std::size_t i=0; i<cnt; i++) data[i] = copyfrom[i];
         len = cnt;

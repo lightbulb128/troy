@@ -9,6 +9,8 @@
 #include "uintarithsmallmod.h"
 #include <algorithm>
 
+#include <iostream>
+
 using std::size_t;
 using std::invalid_argument;
 using std::logic_error;
@@ -389,13 +391,13 @@ namespace troy
                     for (size_t j = 0; j < size_; j++) {
                         uint64_t temp_prod = multiplyUintMod(temp_array[i * size_ + j], inv_punctured_prod_mod_base_array_[j], base_[j]);
                         multiplyUint(punctured_prod_array_.get() + j * size_, size_, temp_prod, size_, temp_mpi.get());
-                        addUintUintMod(temp_mpi.get(), temp_array.get() + i * size_, base_prod_.get(), size_, temp_array.get() + i * size_);
+                        addUintUintMod(temp_mpi.get(), value + i * size_, base_prod_.get(), size_, value + i * size_);
                     }
                 }
             }
         }
 
-        void BaseConverter::fastConvert(HostPointer<uint64_t> in, HostPointer<uint64_t> out) const
+        void BaseConverter::fastConvert(ConstHostPointer<uint64_t> in, HostPointer<uint64_t> out) const
         {
             size_t ibase_size = ibase_.size();
             size_t obase_size = obase_.size();
@@ -410,7 +412,7 @@ namespace troy
             }
         }
 
-        void BaseConverter::fastConvertArray(HostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t count) const
+        void BaseConverter::fastConvertArray(ConstHostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t count) const
         {
 #ifdef SEAL_DEBUG
             if (in.poly_modulus_degree() != out.poly_modulus_degree())
@@ -457,7 +459,7 @@ namespace troy
         }
 
         // See "An Improved RNS Variant of the BFV Homomorphic Encryption Scheme" (CT-RSA 2019) for details
-        void BaseConverter::exactConvertArray(HostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t in_count) const
+        void BaseConverter::exactConvertArray(ConstHostPointer<uint64_t> in, HostPointer<uint64_t> out, size_t in_count) const
         {
             size_t ibase_size = ibase_.size();
             size_t obase_size = obase_.size();
@@ -876,7 +878,7 @@ namespace troy
             }
         }
 
-        void RNSTool::fastbconvSk(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
+        void RNSTool::fastbconvSk(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
         {
             /*
             Require: Input in base Bsk
@@ -937,7 +939,7 @@ namespace troy
             }
         }
 
-        void RNSTool::smMrq(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
+        void RNSTool::smMrq(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
         {
             /*
             Require: Input in base Bsk U {m_tilde}
@@ -947,7 +949,7 @@ namespace troy
             size_t base_Bsk_size = base_Bsk_->size();
 
             // The last component of the input is mod m_tilde
-            HostPointer<uint64_t> input_m_tilde = input + base_Bsk_size * coeff_count_;
+            ConstHostPointer<uint64_t> input_m_tilde = input + base_Bsk_size * coeff_count_;
             const uint64_t m_tilde_div_2 = m_tilde_.value() >> 1;
 
             // Compute r_m_tilde
@@ -979,7 +981,7 @@ namespace troy
             }
         }
 
-        void RNSTool::fastFloor(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
+        void RNSTool::fastFloor(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
         {
             /*
             Require: Input in base q U Bsk
@@ -1006,7 +1008,7 @@ namespace troy
             }
         }
 
-        void RNSTool::fastbconvmTilde(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
+        void RNSTool::fastbconvmTilde(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
         {
             /*
             Require: Input in q
@@ -1024,7 +1026,7 @@ namespace troy
             // FIXME: allocate related action
             auto temp = HostArray<uint64_t>(coeff_count_ * base_q_size);
             // SEAL_ALLOCATE_GET_RNS_ITER(temp, coeff_count_, base_q_size, pool);
-            multiplyPolyScalarCoeffmod(input, coeff_count_, base_q_size, m_tilde_.value(), base_q_->base(), temp.asPointer());
+            multiplyPolyScalarCoeffmod(input, base_q_size, coeff_count_, m_tilde_.value(), base_q_->base(), temp.asPointer());
 
             // Now convert to Bsk
             base_q_to_Bsk_conv_->fastConvertArray(temp.asPointer(), destination, coeff_count_);
@@ -1033,7 +1035,7 @@ namespace troy
             base_q_to_m_tilde_conv_->fastConvertArray(temp.asPointer(), destination + base_Bsk_size * coeff_count_, coeff_count_);
         }
 
-        void RNSTool::decryptScaleAndRound(HostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
+        void RNSTool::decryptScaleAndRound(ConstHostPointer<uint64_t> input, HostPointer<uint64_t> destination) const
         {
             size_t base_q_size = base_q_->size();
             size_t base_t_gamma_size = base_t_gamma_->size();
@@ -1136,7 +1138,7 @@ namespace troy
             }
         }
 
-        void RNSTool::decryptModt(HostPointer<uint64_t> phase, HostPointer<uint64_t> destination) const
+        void RNSTool::decryptModt(ConstHostPointer<uint64_t> phase, HostPointer<uint64_t> destination) const
         {
             // Use exact base convension rather than convert the base through the compose API
             base_q_to_t_conv_->exactConvertArray(phase, destination, coeff_count_);
