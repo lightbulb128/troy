@@ -46,31 +46,10 @@ void ASSERT_TRUE(bool p) {}
 void ASSERT_FALSE(bool p) {}
 
 void test() {
-    
-        auto encryption_parameters_compare = [](SchemeType scheme) {
-            EncryptionParameters parms1(scheme);
-            parms1.setCoeffModulus(CoeffModulus::Create(64, { 30 }));
-            if (scheme == SchemeType::bfv || scheme == SchemeType::bgv)
-                parms1.setPlainModulus(1 << 6);
-            parms1.setPolyModulusDegree(64);
-            parms1.setRandomGenerator(UniformRandomGeneratorFactory::DefaultFactory());
 
-            std::cout << "--- compute id A --- \n";
-            parms1.computeParmsID();
-            std::cout << parms1 << std::endl;
-            std::cout << "before reset" << std::endl;
+    HostDynamicArray<uint64_t> a(10);
+    a[0] = 12;
 
-            EncryptionParameters parms2(parms1);
-
-            parms2.setCoeffModulus(CoeffModulus::Create(64, { 32 }));
-            std::cout << "--- compute id B --- \n";
-            parms1.computeParmsID();
-
-            std::cout << parms1 << std::endl;
-            std::cout << parms2 << std::endl;
-        };
-        encryption_parameters_compare(SchemeType::bfv);
-        // encryption_parameters_compare(SchemeType::bgv);
 }
 
 int main() {

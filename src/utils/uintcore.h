@@ -10,40 +10,40 @@
 namespace troy {
     namespace util {
         
-        // SEAL_NODISCARD std::string uint_to_hex_string(const uint64_t *value, std::size_t uint64_count);
+        std::string uintToHexString(const uint64_t *value, std::size_t uint64_count);
 
-        // SEAL_NODISCARD std::string uint_to_dec_string(
-        //     const uint64_t *value, std::size_t uint64_count, MemoryPool &pool);
+        std::string uintToDecString(
+            const uint64_t *value, std::size_t uint64_count);
 
-        // inline void hex_string_to_uint(
-        //     const char *hex_string, int char_count, std::size_t uint64_count, uint64_t *result)
-        // {
-        //     const char *hex_string_ptr = hex_string + char_count;
-        //     for (std::size_t uint64_index = 0; uint64_index < uint64_count; uint64_index++)
-        //     {
-        //         uint64_t value = 0;
-        //         for (int bit_index = 0; bit_index < bitsPerUint64; bit_index += bits_per_nibble)
-        //         {
-        //             if (hex_string_ptr == hex_string)
-        //             {
-        //                 break;
-        //             }
-        //             char hex = *--hex_string_ptr;
-        //             int nibble = hex_to_nibble(hex);
-        //             if (nibble == -1)
-        //             {
-        //                 throw std::invalid_argument("hex_value");
-        //             }
-        //             value |= static_cast<uint64_t>(nibble) << bit_index;
-        //         }
-        //         result[uint64_index] = value;
-        //     }
-        // }
+        inline void hexStringToUint(
+            const char *hex_string, int char_count, std::size_t uint64_count, uint64_t *result)
+        {
+            const char *hex_string_ptr = hex_string + char_count;
+            for (std::size_t uint64_index = 0; uint64_index < uint64_count; uint64_index++)
+            {
+                uint64_t value = 0;
+                for (int bit_index = 0; bit_index < bitsPerUint64; bit_index += bitsPerNibble)
+                {
+                    if (hex_string_ptr == hex_string)
+                    {
+                        break;
+                    }
+                    char hex = *--hex_string_ptr;
+                    int nibble = hexToNibble(hex);
+                    if (nibble == -1)
+                    {
+                        throw std::invalid_argument("hex_value");
+                    }
+                    value |= static_cast<uint64_t>(nibble) << bit_index;
+                }
+                result[uint64_index] = value;
+            }
+        }
 
-        // SEAL_NODISCARD inline auto allocate_uint(std::size_t uint64_count, MemoryPool &pool)
-        // {
-        //     return allocate<uint64_t>(uint64_count, pool);
-        // }
+        inline HostArray<uint64_t> allocateUint(std::size_t uint64_count)
+        {
+            return HostArray<uint64_t>(uint64_count);
+        }
 
         inline void setZeroUint(std::size_t uint64_count, uint64_t *result)
         {

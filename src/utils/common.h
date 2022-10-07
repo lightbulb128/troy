@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <type_traits>
 #include <stdexcept>
@@ -26,6 +27,65 @@ namespace troy { namespace util {
         unsigned long result = 0;
         result = 63UL - static_cast<unsigned long>(__builtin_clzll(value));
         return static_cast<int>(result + 1);
+    }
+
+    inline bool isHexChar(char hex)
+    {
+        if (hex >= '0' && hex <= '9')
+        {
+            return true;
+        }
+        if (hex >= 'A' && hex <= 'F')
+        {
+            return true;
+        }
+        if (hex >= 'a' && hex <= 'f')
+        {
+            return true;
+        }
+        return false;
+    }
+
+    inline char nibbleToUpperHex(int nibble)
+    {
+        if (nibble < 10)
+        {
+            return static_cast<char>(nibble + static_cast<int>('0'));
+        }
+        return static_cast<char>(nibble + static_cast<int>('A') - 10);
+    }
+
+    inline int hexToNibble(char hex)
+    {
+        if (hex >= '0' && hex <= '9')
+        {
+            return static_cast<int>(hex) - static_cast<int>('0');
+        }
+        if (hex >= 'A' && hex <= 'F')
+        {
+            return static_cast<int>(hex) - static_cast<int>('A') + 10;
+        }
+        if (hex >= 'a' && hex <= 'f')
+        {
+            return static_cast<int>(hex) - static_cast<int>('a') + 10;
+        }
+        return -1;
+    }
+
+    inline int getHexStringBitCount(const char *hex_string, int char_count)
+    {
+        for (int i = 0; i < char_count; i++)
+        {
+            char hex = *hex_string++;
+            int nibble = hexToNibble(hex);
+            if (nibble != 0)
+            {
+                int nibble_bits = getSignificantBitCount(static_cast<std::uint64_t>(nibble));
+                int remaining_nibbles = (char_count - i - 1) * bitsPerNibble;
+                return nibble_bits + remaining_nibbles;
+            }
+        }
+        return 0;
     }
 
     template <typename T, typename S, typename = std::enable_if_t<std::is_arithmetic<T>::value>,
@@ -259,9 +319,33 @@ namespace troy { namespace util {
         return static_cast<std::uint64_t>(in1) < static_cast<std::uint64_t>(in2);
     }
 
+    template <
+    typename T, typename S, typename = std::enable_if_t<std::is_integral<T>::value>,
+    typename = std::enable_if_t<std::is_integral<S>::value>>
+    inline constexpr bool unsigned_gt(T in1, S in2) noexcept
+    {
+        return static_cast<std::uint64_t>(in1) > static_cast<std::uint64_t>(in2);
+    }
+
     template <typename T>
     inline T divideRoundUp(T value, T divisor) {
         return (add_safe(value, divisor - 1)) / divisor;
+    }
+
+    template <typename T>
+    constexpr double epsilon = std::numeric_limits<T>::epsilon();
+
+    template <typename T, typename = std::enable_if_t<std::is_floating_point<T>::value>>
+    inline bool areClose(T value1, T value2) noexcept
+    {
+        double scale_factor = std::max<T>({ std::fabs(value1), std::fabs(value2), T{ 1.0 } });
+        return std::fabs(value1 - value2) < epsilon<T> * scale_factor;
+    }
+
+    template <typename T, typename = std::enable_if_t<std::is_integral<T>::value>>
+    inline constexpr bool isZero(T value) noexcept
+    {
+        return value == T{ 0 };
     }
 
 }}

@@ -81,7 +81,7 @@ class HostArray {
     std::size_t len;
 public:
     std::size_t length() const {return len;}
-
+    std::size_t size() const {return len;}
     HostArray() {
         data = nullptr; len = 0;
     }
@@ -139,6 +139,99 @@ public:
     HostPointer<T> operator +(size_t d) const {return HostPointer<T>(data + d);}
     HostPointer<T> asPointer() {return HostPointer<T>(data);}
 
+};
+
+template <typename T> 
+class HostDynamicArray {
+    HostArray<T> internal;
+    size_t size_;
+
+    void move(size_t newCapacity) {
+        if (newCapacity == internal.size()) return;
+        HostArray<T> n(newCapacity);
+        for (size_t i = 0; i < size_; i++) {
+            n[i] = internal[i]; // copy
+        }
+        internal = std::move(n);
+    }
+
+public:
+
+    HostDynamicArray(): internal(), size_(0) {}
+    HostDynamicArray(size_t len): internal(len), size_(len) {}
+    HostDynamicArray(size_t capacity, size_t size): internal(capacity), size_(size) {}
+    HostDynamicArray(HostArray<T>&& move, size_t size): 
+        internal(move), size_(size) {}
+
+    HostDynamicArray<T> copy() {
+        return HostDynamicArray(internal.copy(), size_);
+    }
+
+    HostDynamicArray(const HostDynamicArray<T>& copy) {
+        size_ = copy.size();
+        internal = std::move(copy.internal.copy());
+    }
+
+    HostDynamicArray(HostArray<T>&& move): 
+        size_(move.size()), internal(move) {} 
+    HostDynamicArray(HostDynamicArray<T>&& move) {
+        size_ = move.size();
+        internal = std::move(move.internal);
+    }
+
+    HostDynamicArray& operator = (const HostDynamicArray& copy) {
+        size_ = copy.size();
+        internal = std::move(copy.internal.copy());
+    }
+    HostDynamicArray& operator = (HostArray<T>&& move) {
+        size_ = move.size();
+        internal = std::move(move);
+        return *this;
+    } 
+    HostDynamicArray& operator = (HostDynamicArray<T>&& move) {
+        size_ = move.size();
+        internal = std::move(move.internal);
+        return *this;
+    }
+    
+    size_t size() const {return size_;}
+    size_t capacity() const {return internal.size();}
+
+    void reserve(size_t newCapacity) {
+        if (capacity() >= newCapacity) return;
+        move(newCapacity);
+    }
+
+    void shrinkToFit() {
+        if (capacity() == size_) return;
+        move(size_);
+    }
+
+    void release() {
+        internal = std::move(HostArray<T>());
+        size = 0;
+    }
+
+    void resize(size_t newSize) {
+        if (newSize > capacity()) move(newSize);
+        size = newSize;
+    }
+
+    T& operator[](size_t i) {return internal[i];}
+    const T& operator[](size_t i) const {return internal[i];}
+
+    T& at(size_t i) {return operator[](i);}
+    const T& at(size_t i) const {return operator[](i);}
+
+    T* begin() {return internal.get();}
+    T* end() {return internal.get() + size_;}
+    const T* cbegin() const {return internal.get();}
+    const T* cend() const {return internal.get() + size_;}
+
+    inline std::size_t maxSize() const noexcept {
+        return (std::numeric_limits<std::size_t>::max)();
+    }
+    
 };
 
 }}
