@@ -501,3 +501,30 @@ namespace troy {
     };
 
 }
+
+namespace std
+{
+    template <>
+    struct hash<troy::ParmsID>
+    {
+        std::size_t operator()(const troy::ParmsID &parms_id) const
+        {
+            std::uint64_t result = 17;
+            result = 31 * result + parms_id[0];
+            result = 31 * result + parms_id[1];
+            result = 31 * result + parms_id[2];
+            result = 31 * result + parms_id[3];
+            return static_cast<std::size_t>(result);
+        }
+    };
+
+    template <>
+    struct hash<troy::EncryptionParameters>
+    {
+        std::size_t operator()(const troy::EncryptionParameters &parms) const
+        {
+            hash<troy::ParmsID> parms_id_hash;
+            return parms_id_hash(parms.parms_id_);
+        }
+    };
+} // namespace std

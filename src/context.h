@@ -1,9 +1,10 @@
 #pragma once
 
 #include "utils/rns.h"
+#include "utils/galois.h"
 #include "modulus.h"
 #include "encryptionparams.h"
-#include "memory.h"
+#include <memory>
 #include <unordered_map>
 
 namespace troy {
@@ -118,12 +119,12 @@ namespace troy {
         /**
         Returns the name of parameter_error.
         */
-        const char *paramterErrorName() const noexcept;
+        const char *parameterErrorName() const noexcept;
 
         /**
         Returns a comprehensive message that interprets parameter_error.
         */
-        const char *paramterErrorMessage() const noexcept;
+        const char *parameterErrorMessage() const noexcept;
 
         /**
         Tells whether parameter_error is ErrorType::success.
@@ -442,7 +443,7 @@ namespace troy {
 
             util::HostArray<util::NTTTables> plain_ntt_tables_;
 
-            util::Pointer<util::GaloisTool> galois_tool_;
+            util::HostObject<util::GaloisTool> galois_tool_;
 
             util::HostArray<std::uint64_t> total_coeff_modulus_;
 
@@ -563,18 +564,18 @@ namespace troy {
         /**
         Returns the name of encryption parameters' error.
         */
-        inline const char *paramterErrorName() const
+        inline const char *parameterErrorName() const
         {
-            return firstContextData() ? firstContextData()->qualifiers_.paramterErrorName()
+            return firstContextData() ? firstContextData()->qualifiers_.parameterErrorName()
                                         : "SEALContext is empty";
         }
 
         /**
         Returns a comprehensive message that interprets encryption parameters' error.
         */
-        inline const char *paramterErrorMessage() const
+        inline const char *parameterErrorMessage() const
         {
-            return firstContextData() ? firstContextData()->qualifiers_.paramterErrorMessage()
+            return firstContextData() ? firstContextData()->qualifiers_.parameterErrorMessage()
                                         : "SEALContext is empty";
         }
 

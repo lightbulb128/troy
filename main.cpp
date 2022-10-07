@@ -1,5 +1,4 @@
 #include <iostream>
-#include <seal/seal.h>
 
 #include "src/utils/ntt.h"
 #include "src/utils/hostarray.h"

@@ -2,8 +2,6 @@
 // Licensed under the MIT license.
 
 
-/*
-
 #include "context.h"
 #include "utils/numth.h"
 // #include "utils/pointer.h"
@@ -23,7 +21,7 @@ using ErrorType = troy::EncryptionParameterQualifiers::ErrorType;
 
 namespace troy
 {
-    const char *EncryptionParameterQualifiers::paramterErrorName() const noexcept
+    const char *EncryptionParameterQualifiers::parameterErrorName() const noexcept
     {
         switch (parameter_error)
         {
@@ -80,7 +78,7 @@ namespace troy
         }
     }
 
-    const char *EncryptionParameterQualifiers::paramterErrorMessage() const noexcept
+    const char *EncryptionParameterQualifiers::parameterErrorMessage() const noexcept
     {
         switch (parameter_error)
         {
@@ -419,7 +417,7 @@ namespace troy
         }
 
         // Create GaloisTool
-        context_data.galois_tool_ = allocate<GaloisTool>(pool_, coeff_count_power, pool_);
+        context_data.galois_tool_ = HostObject(new GaloisTool(coeff_count_power));
 
         // Done with validation and pre-computations
         return context_data;
@@ -463,7 +461,7 @@ namespace troy
     {
 
         // Set random generator
-        if (!parms.random_generator())
+        if (!parms.randomGenerator())
         {
             parms.setRandomGenerator(UniformRandomGeneratorFactory::DefaultFactory());
         }
@@ -523,6 +521,3 @@ namespace troy
         }
     }
 } // namespace seal
-
-
-*/

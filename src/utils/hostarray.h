@@ -24,6 +24,8 @@ public:
     const T& operator[](std::size_t i) const {return ptr[i];}
     T* operator->() {return ptr;}
     T& operator*() {return *ptr;}
+    HostPointer& operator++() {ptr++; return *this;}
+    HostPointer operator++(int) {HostPointer copied = *this; ptr++; return copied;}
 };
 
 template <typename T>
@@ -41,6 +43,8 @@ public:
     const T& operator[](std::size_t i) const {return ptr[i];}
     const T* operator->() {return ptr;}
     const T& operator*() {return *ptr;}
+    ConstHostPointer& operator++() {ptr++; return *this;}
+    ConstHostPointer operator++(int) {ConstHostPointer copied = *this; ptr++; return copied;}
 };
 
 template <typename T>

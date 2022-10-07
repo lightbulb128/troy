@@ -3,6 +3,7 @@ enable_testing()
 add_executable(troytest)
 target_sources(troytest PRIVATE 
     utils/common.cpp
+    utils/galois.cpp
     utils/hash.cpp
     utils/ntt.cpp
     utils/numth.cpp
@@ -12,6 +13,7 @@ target_sources(troytest PRIVATE
     utils/uintarithmod.cpp
     utils/uintarithsmallmod.cpp
     utils/uintcore.cpp
+    context.cpp
     encryptionparams.cpp
     modulus.cpp
 )
