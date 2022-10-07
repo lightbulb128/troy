@@ -141,18 +141,6 @@ namespace troy
         Ciphertext(Ciphertext &&source) = default;
 
         /**
-        Creates a new ciphertext by copying a given one.
-
-        @param[in] copy The ciphertext to copy from
-        @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
-        @throws std::invalid_argument if pool is uninitialized
-        */
-        Ciphertext(const Ciphertext &copy) : Ciphertext()
-        {
-            *this = copy;
-        }
-
-        /**
         Allocates enough memory to accommodate the backing array of a ciphertext
         with given capacity. In addition to the capacity, the allocation size is
         determined by the encryption parameters corresponing to the given
@@ -686,7 +674,7 @@ namespace troy
             return (data_.size() && (size_ == 2)) ? (data(1)[0] == 0xFFFFFFFFFFFFFFFFULL) : false;
         }
 
-        ParmsID parms_id_ = parms_id_zero;
+        ParmsID parms_id_ = parmsIDZero;
 
         bool is_ntt_form_ = false;
 

@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <stdexcept>
+#include <algorithm>
 
 typedef __int128 int128_t;
 typedef unsigned __int128 uint128_t;

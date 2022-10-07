@@ -46,6 +46,9 @@ public:
     T& operator*() {return *ptr;}
     HostPointer& operator++() {ptr++; return *this;}
     HostPointer operator++(int) {HostPointer copied = *this; ptr++; return copied;}
+    HostPointer& operator+=(size_t p) {
+        ptr += p; return *this;
+    }
     ConstHostPointer<T> toConst() {return ConstHostPointer<T>(ptr);}
 };
 
@@ -187,6 +190,7 @@ public:
     HostDynamicArray& operator = (const HostDynamicArray& copy) {
         size_ = copy.size();
         internal = std::move(copy.internal.copy());
+        return *this;
     }
     HostDynamicArray& operator = (HostArray<T>&& move) {
         size_ = move.size();
@@ -214,12 +218,12 @@ public:
 
     void release() {
         internal = std::move(HostArray<T>());
-        size = 0;
+        size_ = 0;
     }
 
     void resize(size_t newSize) {
         if (newSize > capacity()) move(newSize);
-        size = newSize;
+        size_ = newSize;
     }
 
     T& operator[](size_t i) {return internal[i];}

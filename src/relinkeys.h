@@ -3,13 +3,12 @@
 
 #pragma once
 
-#include "seal/ciphertext.h"
-#include "seal/kswitchkeys.h"
-#include "seal/memorymanager.h"
-#include "seal/util/defines.h"
+#include "ciphertext.h"
+#include "kswitchkeys.h"
+#include "utils/defines.h"
 #include <vector>
 
-namespace seal
+namespace troy
 {
     /**
     Class to store relinearization keys.
@@ -55,7 +54,7 @@ namespace seal
         @param[in] key_power The power of the secret key
         @throws std::invalid_argument if key_power is less than 2
         */
-        inline static std::size_t get_index(std::size_t key_power)
+        inline static std::size_t getIndex(std::size_t key_power)
         {
             if (key_power < 2)
             {
@@ -71,9 +70,9 @@ namespace seal
         @param[in] key_power The power of the secret key
         @throws std::invalid_argument if key_power is less than 2
         */
-        inline bool has_key(std::size_t key_power) const
+        inline bool hasKey(std::size_t key_power) const
         {
-            std::size_t index = get_index(key_power);
+            std::size_t index = getIndex(key_power);
             return data().size() > index && !data()[index].empty();
         }
 
@@ -86,7 +85,7 @@ namespace seal
         */
         inline auto &key(std::size_t key_power) const
         {
-            return KSwitchKeys::data(get_index(key_power));
+            return KSwitchKeys::data(getIndex(key_power));
         }
     };
 } // namespace seal

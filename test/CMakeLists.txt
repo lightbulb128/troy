@@ -15,6 +15,7 @@ target_sources(troytest PRIVATE
     utils/uintcore.cpp
     context.cpp
     encryptionparams.cpp
+    keygenerator.cpp
     modulus.cpp
 )
 target_link_libraries(troytest gtest gtest_main troy)

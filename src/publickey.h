@@ -245,15 +245,6 @@ namespace troy
         struct PublicKeyPrivateHelper;
 
     private:
-        /**
-        Creates an empty public key. This is needed for loading KSwitchKeys with
-        the keys residing in a single memory pool.
-
-        @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
-        @throws std::invalid_argument if pool is uninitialized
-        */
-        PublicKey() : pk_()
-        {}
 
         Ciphertext pk_;
     };

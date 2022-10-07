@@ -109,6 +109,6 @@ namespace troy
         */
         void encryptZeroSymmetric(
             const SecretKey &secret_key, const SEALContext &context, ParmsID parms_id, bool is_ntt_form,
-            bool save_seed, Ciphertext &destination);
+            Ciphertext &destination);
     } // namespace util
 } // namespace seal
