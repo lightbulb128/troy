@@ -311,6 +311,15 @@ namespace troy { namespace util {
         return fitsIn<T>(mul_safe(in1, in2));
     }
 
+    
+    inline constexpr int hammingWeight(unsigned char value)
+    {
+        int t = static_cast<int>(value);
+        t -= (t >> 1) & 0x55;
+        t = (t & 0x33) + ((t >> 2) & 0x33);
+        return (t + (t >> 4)) & 0x0F;
+    }
+
     template <
     typename T, typename S, typename = std::enable_if_t<std::is_integral<T>::value>,
     typename = std::enable_if_t<std::is_integral<S>::value>>

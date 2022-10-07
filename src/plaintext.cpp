@@ -150,7 +150,7 @@ namespace troy
         // If string is empty, then done.
         if (assign_coeff_count == 0 || assign_coeff_bit_count == 0)
         {
-            set_zero();
+            setZero();
             return *this;
         }
 

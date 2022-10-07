@@ -179,20 +179,18 @@ namespace troy
 
         void nttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, const NTTTables &tables);
 
-        inline void nttNegacyclicHarveyLazy(
-            HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+        inline void nttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
-            assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower());
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
                 nttNegacyclicHarveyLazy(operand + d * i, tables[i]);
             }
         }
 
-        inline void nttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+        inline void nttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
             if (poly_size == 0) return;
-            assert(tables.length() > 0);
+            // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower()) * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
                 nttNegacyclicHarveyLazy(operand + d * i, coeff_modulus_size, tables);
@@ -201,19 +199,18 @@ namespace troy
 
         void nttNegacyclicHarvey(HostPointer<uint64_t> operand, const NTTTables &tables);
 
-        inline void nttNegacyclicHarvey(HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+        inline void nttNegacyclicHarvey(HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
-            assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower());
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
                 nttNegacyclicHarvey(operand + d * i, tables[i]);
             }
         }
 
-        inline void nttNegacyclicHarvey(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+        inline void nttNegacyclicHarvey(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
             if (poly_size == 0) return;
-            assert(tables.length() > 0);
+            // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower()) * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
                 nttNegacyclicHarvey(operand + d * i, coeff_modulus_size, tables);
@@ -223,19 +220,19 @@ namespace troy
         void inverseNttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, const NTTTables &tables);
 
         inline void inverseNttNegacyclicHarveyLazy(
-            HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+            HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
-            assert(tables.length() > 0);
+            // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower());
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
                 inverseNttNegacyclicHarveyLazy(operand + d * i, tables[i]);
             }
         }
 
-        inline void inverseNttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+        inline void inverseNttNegacyclicHarveyLazy(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
             if (poly_size == 0) return;
-            assert(tables.length() > 0);
+            // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower()) * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
                 inverseNttNegacyclicHarveyLazy(operand + d * i, coeff_modulus_size, tables);
@@ -245,19 +242,19 @@ namespace troy
         void inverseNttNegacyclicHarvey(HostPointer<uint64_t> operand, const NTTTables &tables);
 
         inline void inverseNttNegacyclicHarvey(
-            HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+            HostPointer<uint64_t> operand, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
-            assert(tables.length() > 0);
+            // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower());
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
                 inverseNttNegacyclicHarvey(operand + d * i, tables[i]);
             }
         }
 
-        inline void inverseNttNegacyclicHarvey(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const HostArray<NTTTables>& tables)
+        inline void inverseNttNegacyclicHarvey(HostPointer<uint64_t> operand, std::size_t poly_size, std::size_t coeff_modulus_size, const NTTTables* tables)
         {
             if (poly_size == 0) return;
-            assert(tables.length() > 0);
+            // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower()) * coeff_modulus_size;
             for (std::size_t i = 0; i < poly_size; i++) {
                 inverseNttNegacyclicHarvey(operand + d * i, coeff_modulus_size, tables);

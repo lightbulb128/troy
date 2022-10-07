@@ -311,7 +311,7 @@ namespace troy
         /**
         Sets the plaintext polynomial to zero.
         */
-        inline void set_zero()
+        inline void setZero()
         {
             std::fill(data_.begin(), data_.end(), pt_coeff_type(0));
         }
@@ -319,7 +319,7 @@ namespace troy
         /**
         Returns a reference to the backing DynArray object.
         */
-        inline const auto &dyn_array() const noexcept
+        inline const auto &dynArray() const noexcept
         {
             return data_;
         }
@@ -674,7 +674,7 @@ namespace troy
 
         @see EncryptionParameters for more information about parms_id.
         */
-        inline ParmsID &parms_id() noexcept
+        inline ParmsID &parmsID() noexcept
         {
             return parms_id_;
         }
@@ -685,7 +685,7 @@ namespace troy
 
         @see EncryptionParameters for more information about parms_id.
         */
-        inline const ParmsID &parms_id() const noexcept
+        inline const ParmsID &parmsID() const noexcept
         {
             return parms_id_;
         }

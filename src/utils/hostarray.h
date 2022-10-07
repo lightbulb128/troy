@@ -7,6 +7,26 @@ namespace troy { namespace util {
     
 template <typename T> class DeviceArray;
 template <typename T> class HostArray;
+template <typename T> class HostPointer;
+
+template <typename T>
+class ConstHostPointer {
+    const T* ptr;
+public:
+    ConstHostPointer(const T* p) : ptr(p) {}
+    ConstHostPointer(): ptr(nullptr) {}
+    ConstHostPointer(const HostPointer<T>& h): ptr(h.get()) {}
+    bool isNull() {return ptr == nullptr;}
+    const T* get() {return ptr;}
+    ConstHostPointer<T> operator+ (size_t d) const {
+        return ConstHostPointer<T>(ptr+d);
+    }
+    const T& operator[](std::size_t i) const {return ptr[i];}
+    const T* operator->() {return ptr;}
+    const T& operator*() {return *ptr;}
+    ConstHostPointer& operator++() {ptr++; return *this;}
+    ConstHostPointer operator++(int) {ConstHostPointer copied = *this; ptr++; return copied;}
+};
 
 template <typename T>
 class HostPointer {
@@ -26,25 +46,7 @@ public:
     T& operator*() {return *ptr;}
     HostPointer& operator++() {ptr++; return *this;}
     HostPointer operator++(int) {HostPointer copied = *this; ptr++; return copied;}
-};
-
-template <typename T>
-class ConstHostPointer {
-    const T* ptr;
-public:
-    ConstHostPointer(const T* p) : ptr(p) {}
-    ConstHostPointer(): ptr(nullptr) {}
-    ConstHostPointer(const HostPointer<T>& h): ptr(h.get()) {}
-    bool isNull() {return ptr == nullptr;}
-    const T* get() {return ptr;}
-    ConstHostPointer<T> operator+ (size_t d) const {
-        return ConstHostPointer<T>(ptr+d);
-    }
-    const T& operator[](std::size_t i) const {return ptr[i];}
-    const T* operator->() {return ptr;}
-    const T& operator*() {return *ptr;}
-    ConstHostPointer& operator++() {ptr++; return *this;}
-    ConstHostPointer operator++(int) {ConstHostPointer copied = *this; ptr++; return copied;}
+    ConstHostPointer<T> toConst() {return ConstHostPointer<T>(ptr);}
 };
 
 template <typename T>
@@ -124,8 +126,11 @@ public:
         return *this;
     }
     HostArray(const HostArray& r) = delete;
-    HostArray copy() const {
-        return HostArray(data, len);
+    HostArray<T> copy() const {
+        // need to cast data into const pointer
+        // to make sure the contents are copied.
+        const T* constptr = static_cast<const T*>(data);
+        return HostArray<T>(constptr, len);
     }
     const T& operator[](std::size_t i) const {return data[i];}
     T& operator[](std::size_t i) {return data[i];}
@@ -161,9 +166,9 @@ public:
     HostDynamicArray(size_t len): internal(len), size_(len) {}
     HostDynamicArray(size_t capacity, size_t size): internal(capacity), size_(size) {}
     HostDynamicArray(HostArray<T>&& move, size_t size): 
-        internal(move), size_(size) {}
+        internal(std::move(move)), size_(size) {}
 
-    HostDynamicArray<T> copy() {
+    HostDynamicArray<T> copy() const {
         return HostDynamicArray(internal.copy(), size_);
     }
 
