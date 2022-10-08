@@ -292,6 +292,16 @@ namespace troy
         */
         struct KeyGeneratorPrivateHelper;
 
+        void setSecretKeyFromExternal(uint64_t* x) {
+            assert(secret_key_array_size_ == 1);
+            assert(secret_key_.data().dynArray().size() == secret_key_array_.size());
+            size_t n = secret_key_array_.size();
+            for (size_t i = 0; i < n; i++) {
+                secret_key_.data().data()[i] = x[i];
+                secret_key_array_[i] = x[i];
+            }
+        }
+
     private:
         KeyGenerator(const KeyGenerator &copy) = delete;
 

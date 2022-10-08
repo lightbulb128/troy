@@ -131,9 +131,7 @@ namespace troy
         // Therefore, we can (integer) divide by Delta and the answer will round down to m.
 
         // Make a temp destination for all the arithmetic mod qi before calling FastBConverse
-        auto tmp_dest_modq = HostArray<uint64_t>(coeff_count * coeff_modulus_size);
-        for (size_t i = 0; i < coeff_count * coeff_modulus_size; i++)
-            tmp_dest_modq[i] = 0;
+        auto tmp_dest_modq = allocateZeroPoly(coeff_count, coeff_modulus_size);
         // SEAL_ALLOCATE_ZERO_GET_RNS_ITER(tmp_dest_modq, coeff_count, coeff_modulus_size, pool);
 
         // put < (c_1 , c_2, ... , c_{count-1}) , (s,s^2,...,s^{count-1}) > mod q in destination
@@ -339,6 +337,8 @@ namespace troy
             // The secret key powers are already NTT transformed.
             auto encrypted_copy = HostArray<uint64_t>((encrypted_size - 1) * coeff_count * coeff_modulus_size);
             size_t poly_coeff_count = coeff_count * coeff_modulus_size;
+            size_t key_poly_coeff_count = coeff_count * key_coeff_modulus_size;
+            // assert(key_poly_coeff_count == poly_coeff_count);
             setPolyArray(encrypted.data(1), encrypted_size - 1, coeff_count, coeff_modulus_size, encrypted_copy.get());
 
             // Transform c_1, c_2, ... to NTT form unless they already are
@@ -349,7 +349,7 @@ namespace troy
 
             // Compute dyadic product with secret power array
             for (size_t i = 0; i < encrypted_size - 1; i++) {
-                dyadicProductCoeffmod(encrypted_copy + i * poly_coeff_count, secret_key_array_ + i * poly_coeff_count, 
+                dyadicProductCoeffmod(encrypted_copy + i * poly_coeff_count, secret_key_array_ + i * key_poly_coeff_count, 
                     coeff_modulus_size, coeff_count, &coeff_modulus[0], encrypted_copy + i * poly_coeff_count);
             }
 

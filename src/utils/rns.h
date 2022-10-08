@@ -226,6 +226,7 @@ namespace troy
 
             inline auto baseBskNttTables() const noexcept
             {
+                // std::cout << "baseBskNttTables count = " << base_Bsk_ntt_tables_.size() << std::endl;
                 return base_Bsk_ntt_tables_.get();
             }
 

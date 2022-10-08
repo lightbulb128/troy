@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <cstdint>
 #include <stdexcept>
+#include <iostream>
+#include <iomanip>
 
 namespace troy
 {
@@ -224,6 +226,10 @@ namespace troy
         {
             
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
+                // std::cout << " xpoly oper2 i = " << i << ": "; 
+                // for (size_t j=0; j<poly_modulus_degree; j++) {
+                //     std::cout << std::hex << operand2[j] << ", ";
+                // } std::cout << std::endl;
                 dyadicProductCoeffmod(
                     operand1 + i * poly_modulus_degree, operand2 + i * poly_modulus_degree,
                     poly_modulus_degree, modulus[i], result + i * poly_modulus_degree);

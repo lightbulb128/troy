@@ -20,6 +20,7 @@ target_sources(troytest PRIVATE
     context.cpp
     encryptionparams.cpp
     encryptor.cpp
+    evaluator.cpp
     keygenerator.cpp
     modulus.cpp
 )

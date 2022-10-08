@@ -318,6 +318,7 @@ namespace troy {
             */
             inline const util::NTTTables *smallNTTTables() const noexcept
             {
+                // std::cout << "get small ntt tables: size = " << small_ntt_tables_.size() << std::endl;
                 return small_ntt_tables_.get();
             }
 

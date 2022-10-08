@@ -40,6 +40,9 @@ public:
     HostPointer<T> operator+ (size_t d) const {
         return HostPointer<T>(ptr+d);
     }
+    HostPointer<T> operator- (size_t d) const {
+        return HostPointer<T>(ptr-d);
+    }
     T& operator[](std::size_t i) {return ptr[i];}
     const T& operator[](std::size_t i) const {return ptr[i];}
     T* operator->() {return ptr;}
@@ -159,6 +162,9 @@ class HostDynamicArray {
         HostArray<T> n(newCapacity);
         for (size_t i = 0; i < size_; i++) {
             n[i] = internal[i]; // copy
+        }
+        for (size_t i = size_; i < newCapacity; i++) {
+            n[i] = T();
         }
         internal = std::move(n);
     }

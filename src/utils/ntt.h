@@ -8,6 +8,7 @@
 #include "uintcore.h"
 #include "hostarray.h"
 #include <stdexcept>
+#include <iostream>
 
 namespace troy
 {
@@ -225,7 +226,9 @@ namespace troy
             // assert(tables.length() > 0);
             std::size_t d = (1 << tables[0].coeffCountPower());
             for (std::size_t i = 0; i < coeff_modulus_size; i++) {
+                // std::cout << "inverseNttNegacyclicHarveyLazy i = " << i << std::endl;
                 inverseNttNegacyclicHarveyLazy(operand + d * i, tables[i]);
+                // std::cout << "inverseNttNegacyclicHarveyLazy i = " << i << std::endl;
             }
         }
 

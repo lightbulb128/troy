@@ -151,7 +151,7 @@ namespace troy
 
         // Assume the secret key is already transformed into NTT form.
         ConstHostPointer secret_key(secret_key_array_.get());
-        generateKswitchKeys(secret_key + 1, count, static_cast<KSwitchKeys &>(relin_keys));
+        generateKswitchKeys(secret_key + coeff_count * coeff_modulus_size, count, static_cast<KSwitchKeys &>(relin_keys));
 
         // Set the parms_id
         relin_keys.parmsID() = context_data.parmsID();
@@ -281,7 +281,14 @@ namespace troy
 
         // Acquire new array
         secret_key_array_size_ = new_size;
+
+        // for (size_t i = 0; i < secret_key_array.size(); i++) {
+        //     std::cout << secret_key_array[i] << ", ";
+        // }
+        // std::cout << "\n";
+
         secret_key_array_ = std::move(secret_key_array);
+
     }
 
     void KeyGenerator::generateOneKswitchKey(ConstHostPointer<uint64_t> new_key, vector<PublicKey> &destination)

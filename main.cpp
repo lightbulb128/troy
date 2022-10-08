@@ -9,12 +9,12 @@
 #include "src/helper.h"
 #include "src/encryptor.h"
 #include "src/decryptor.h"
+#include "src/evaluator.h"
 #include "src/keygenerator.h"
 #include "src/utils/scalingvariant.h"
 
 #include <seal/seal.h>
-#include <seal/util/rlwe.h>
-#include <seal/util/scalingvariant.h>
+#include "sealhelper.h"
 
 using namespace troy;
 using namespace troy::util;
@@ -47,139 +47,124 @@ void kernel() {
 
 }
 
-#define ASSERT_TRUE(p) if (!(p)) std::cout << "===== Assert failed: line " << __LINE__ << "\n"
-#define ASSERT_FALSE(p) if ((p)) std::cout << "===== Assert failed: line " << __LINE__ << "\n"
+#define ASSERT_TRUE(p) if (!(p)) std::cout << "===== Assert failed: line " << std::dec << __LINE__ << "\n"; \
+    else std::cout << "ooooo Assert accept: line " << std::dec << __LINE__ << std::endl;
+#define ASSERT_FALSE(p) if ((p)) std::cout << "===== Assert failed: line " << std::dec << __LINE__ << "\n"; \
+    else std::cout << "ooooo Assert accept: line " << std::dec << __LINE__ << std::endl;
 #define ASSERT_EQ(a, b) ASSERT_TRUE((a)==(b))
 
 template <typename T>
-void copy(T* a, T* b, size_t count) {
+void copy(const T* a, T* b, size_t count) {
     for (int i=0; i<count; i++) b[i] = a[i];
 }
 
-void multiply_add_plain_with_scaling_variant(
-    const seal::Plaintext &plain, const seal::SEALContext::ContextData &context_data, seal::util::RNSIter destination)
-{
-    auto &parms = context_data.parms();
-    size_t plain_coeff_count = plain.coeff_count();
-    size_t coeff_count = parms.poly_modulus_degree();
-    auto &coeff_modulus = parms.coeff_modulus();
-    size_t coeff_modulus_size = coeff_modulus.size();
-    auto plain_modulus = context_data.parms().plain_modulus();
-    auto coeff_div_plain_modulus = context_data.coeff_div_plain_modulus();
-    uint64_t plain_upper_half_threshold = context_data.plain_upper_half_threshold();
-    uint64_t q_mod_t = context_data.coeff_modulus_mod_plain_modulus();
-    // Coefficients of plain m multiplied by coeff_modulus q, divided by plain_modulus t,
-    // and rounded to the nearest integer (rounded up in case of a tie). Equivalent to
-    // floor((q * m + floor((t+1) / 2)) / t).
-    std::for_each_n(seal::util::iter(plain.data(), size_t(0)), plain_coeff_count, [&](auto I) {
-        // Compute numerator = (q mod t) * m[i] + (t+1)/2
-        unsigned long long prod[2]{ 0, 0 };
-        uint64_t numerator[2]{ 0, 0 };
-        seal::util::multiply_uint64(std::get<0>(I), q_mod_t, prod);
-        unsigned char carry = seal::util::add_uint64(*prod, plain_upper_half_threshold, numerator);
-        numerator[1] = static_cast<uint64_t>(prod[1]) + static_cast<uint64_t>(carry);
-
-        // Compute fix[0] = floor(numerator / t)
-        uint64_t fix[2] = { 0, 0 };
-        seal::util::divide_uint128_inplace(numerator, plain_modulus.value(), fix);
-
-        // Add to ciphertext: floor(q / t) * m + increment
-        size_t coeff_index = std::get<1>(I);
-        std::for_each_n(
-            seal::util::iter(destination, coeff_modulus, coeff_div_plain_modulus, size_t(0)), coeff_modulus_size, [&](auto J) {
-                size_t i = std::get<1>(I), j = std::get<3>(J);
-                uint64_t scaled_rounded_coeff = seal::util::multiply_add_uint_mod(std::get<0>(I), std::get<2>(J), fix[0], std::get<1>(J));
-                // std::cout << std::get<0>(J)[coeff_index] << std::endl;
-                std::get<0>(J)[coeff_index] = seal::util::add_uint_mod(std::get<0>(J)[coeff_index], scaled_rounded_coeff, std::get<1>(J));
-                // std::cout << "seal " << i << "," << j << " d[" << (j * plain_coeff_count + i) << "]=" << std::get<0>(J)[coeff_index] << std::endl;
-            });
-    });
-}
 
 void test() {
 
-        EncryptionParameters parms(SchemeType::bfv);
-        Modulus plain_modulus(1 << 6);
+        uint64_t plain_modulus_ = 65;
+        size_t degree = 128;
+        auto qs = {60, 60, 60, 60};
 
-        seal::EncryptionParameters s_parms(seal::scheme_type::bfv);
-        seal::Modulus s_plain_modulus(1<<6);
+        EncryptionParameters parms(SchemeType::bgv);
+        Modulus plain_modulus(plain_modulus_);
+
+        seal::EncryptionParameters s_parms(seal::scheme_type::bgv);
+        seal::Modulus s_plain_modulus(plain_modulus_);
 
         parms.setPlainModulus(plain_modulus);
         s_parms.set_plain_modulus(s_plain_modulus);
         {
-            parms.setPolyModulusDegree(256);
-            parms.setCoeffModulus(CoeffModulus::Create(256, { 40, 40, 40 }));
+            parms.setPolyModulusDegree(degree);
+            parms.setCoeffModulus(CoeffModulus::Create(degree, qs));
 
-            s_parms.set_poly_modulus_degree(256);
-            s_parms.set_coeff_modulus(seal::CoeffModulus::Create(256, { 40, 40, 40 }));
+            s_parms.set_poly_modulus_degree(degree);
+            s_parms.set_coeff_modulus(seal::CoeffModulus::Create(degree, qs));
 
-            SEALContext context(parms, false, SecurityLevel::none);
-            KeyGenerator keygen(context);
-            PublicKey pk;
-            keygen.createPublicKey(pk);
-            SecretKey sk = keygen.secretKey();
 
             seal::SEALContext s_context(s_parms, false, seal::sec_level_type::none);
             seal::KeyGenerator s_keygen(s_context);
             seal::PublicKey s_pk;
-            s_keygen.create_public_key(s_pk);
+            seal::RelinKeys s_rlk;
             seal::SecretKey s_sk = s_keygen.secret_key();
 
+            SEALContext context(parms, false, SecurityLevel::none);
+            KeyGenerator keygen(context);
+            PublicKey pk;
+            RelinKeys rlk;
+            SecretKey sk = keygen.secretKey();
+
+            // // copy keys from troy to seal
+            // copy(sk.data().data(), s_sk.data().data(), sk.data().dynArray().size());
+            keygen.setSecretKeyFromExternal(s_sk.data().data());
+            // copy(s_sk.data().data(), sk.data().data(), sk.data().dynArray().size());
+
+            // sealhelper::compute_secret_key_array(s_sk.data().data(), *s_context.key_context_data(), 2);
+            
+            s_keygen.create_public_key(s_pk);
+            s_keygen.create_relin_keys(s_rlk);
+            keygen.createPublicKey(pk);
+            keygen.createRelinKeys(rlk);
+
             copy(pk.data().data(), s_pk.data().data(), pk.data().dynArray().size());
-            copy(sk.data().data(), s_sk.data().data(), sk.data().dynArray().size());
+            for (size_t i = 0; i < rlk.data().size(); i++) {
+                for (size_t j = 0; j < rlk.data()[i].size(); j++) 
+                    copy(rlk.data()[i][j].data().data(), 
+                        s_rlk.data()[i][j].data().data(),
+                        rlk.data()[i][j].data().dynArray().size());
+            }
+
+            // copy(s_pk.data().data(), pk.data().data(), pk.data().dynArray().size());
+            // assert(rlk.data().size() == s_rlk.data().size());
+            // for (size_t i = 0; i < rlk.data().size(); i++) {
+            //     assert(rlk.data()[i].size() == s_rlk.data()[i].size());
+            //     for (size_t j = 0; j < rlk.data()[i].size(); j++) 
+            //         copy(s_rlk.data()[i][j].data().data(), 
+            //             rlk.data()[i][j].data().data(),
+            //             rlk.data()[i][j].data().dynArray().size());
+            // }
+
+            std::cout << "  pk: "; printArray(pk.data().data(), pk.data().dynArray().size());
+            std::cout << "s_pk: "; printArray(s_pk.data().data(), s_pk.data().dyn_array().size());
 
             Encryptor encryptor(context, pk);
             Decryptor decryptor(context, keygen.secretKey());
-            encryptor.setSecretKey(keygen.secretKey());
+            Evaluator evaluator(context);
+            encryptor.setSecretKey(sk);
 
             seal::Encryptor s_encryptor(s_context, s_pk);
             seal::Decryptor s_decryptor(s_context, s_sk);
+            seal::Evaluator s_evaluator(s_context);
             s_encryptor.set_secret_key(s_sk);
             
-
-            string hex_poly =
-                "1x^28 + 1x^25 + 1x^21 + 1x^20 + 1x^18 + 1x^14 + 1x^12 + 1x^10 + 1x^9 + 1x^6 + 1x^5 + 1x^4 + 1x^3";
-
-            Ciphertext encrypted;
-            Plaintext plain(hex_poly);
-            seal::Ciphertext s_encrypted;
-            seal::Plaintext s_plain(hex_poly);
-            Ciphertext& destination = encrypted;
-            seal::Ciphertext& s_destination = s_encrypted;
-
-            encryptor.encryptZero(destination);
-            s_encryptor.encrypt_zero(s_destination);
-            std::cout << "size = " << destination.dynArray().size() << std::endl;
-            ASSERT_EQ(destination.dynArray().size(), s_destination.dyn_array().size());
-            copy(destination.data(), s_destination.data(), destination.dynArray().size());
-            ::multiply_add_plain_with_scaling_variant(s_plain, *s_context.first_context_data(), seal::util::RNSIter(s_destination.data(0), 256));
-
-            // Multiply plain by scalar coeff_div_plaintext and reposition if in upper-half.
-            // Result gets added into the c_0 term of ciphertext (c_0,c_1).
-
-            // encryptZeroInternal(context.firstParmsID(), true, destination);
-            util::multiplyAddPlainWithScalingVariant(plain, *context.firstContextData(), HostPointer(destination.data()));
+            Plaintext plain, plain1, plain2;
+            Plaintext plain_multiplier;
+            Ciphertext encrypted, encrypted1, encrypted2;
+            seal::Plaintext s_plain, s_plain1, s_plain2;
+            seal::Plaintext s_plain_multiplier;
+            seal::Ciphertext s_encrypted, s_encrypted1, s_encrypted2;
 
 
-            // encryptor.encrypt(Plaintext(hex_poly), encrypted);
-            // copy(s_encrypted.data(), encrypted.data(), s_encrypted.dyn_array().size());
-            decryptor.decrypt(encrypted, plain);
-            ASSERT_EQ(hex_poly, plain.to_string());
-            ASSERT_TRUE(encrypted.parmsID() == context.firstParmsID());
-            
-            // s_encryptor.encrypt(seal::Plaintext(hex_poly), s_encrypted);
-            s_decryptor.decrypt(s_encrypted, s_plain);
-            ASSERT_EQ(hex_poly, s_plain.to_string());
-            ASSERT_TRUE(s_encrypted.parms_id() == s_context.first_parms_id());
+            plain = 0;
+            encryptor.encrypt(plain, encrypted);
 
-            // copy(encrypted.data(), s_encrypted.data(), encrypted.dynArray().size());
-            // s_decryptor.decrypt(s_encrypted, s_plain);
-            // ASSERT_EQ(hex_poly, s_plain.to_string());
+            s_plain = 0;
+            s_encryptor.encrypt(s_plain, s_encrypted);
+            copy(encrypted.data(), s_encrypted.data(), encrypted.dynArray().size());
 
-            ASSERT_EQ(encrypted.dynArray().size(), s_encrypted.dyn_array().size());
-            copy(s_encrypted.data(), encrypted.data(), encrypted.dynArray().size());
-            decryptor.decrypt(encrypted, plain);
-            ASSERT_EQ(hex_poly, plain.to_string());
+            evaluator.squareInplace(encrypted);
+            s_evaluator.square_inplace(s_encrypted);
+
+            std::cout << "square troy: "; printArray(encrypted.data(), encrypted.dynArray().size());
+            std::cout << "square seal: "; printArray(s_encrypted.data(), encrypted.dynArray().size());
+
+            evaluator.relinearizeInplace(encrypted, rlk);
+            sealhelper::relinearize_internal(s_context, s_encrypted, s_rlk, 2);
+
+            decryptor.decrypt(encrypted, plain2);
+            s_decryptor.decrypt(s_encrypted, s_plain2);
+
+            ASSERT_TRUE(plain == plain2);
+            ASSERT_TRUE(s_plain == s_plain2);
 
         }
 }
