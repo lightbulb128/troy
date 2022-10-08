@@ -182,7 +182,7 @@ namespace troy
             void divideAndRoundqLastInplace(HostPointer<uint64_t> input) const;
 
             void divideAndRoundqLastNttInplace(
-                HostPointer<uint64_t> input, const HostArray<NTTTables>& rns_ntt_tables) const;
+                HostPointer<uint64_t> input, const NTTTables* rns_ntt_tables) const;
 
             /**
             Shenoy-Kumaresan conversion from Bsk to q

@@ -16,6 +16,9 @@ add_subdirectory(src)
 add_executable(main main.cpp)
 target_link_libraries(main SEAL::seal troy)
 
+add_executable(comparison comparison.cpp)
+target_link_libraries(comparison SEAL::seal)
+
 enable_testing()
 add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
 add_subdirectory(test)

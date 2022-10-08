@@ -158,7 +158,7 @@ namespace troy {
             }
 
             // Set the degree
-            std::cout << "reset polydeg " <<  poly_modulus_degree_ << " -> " << poly_modulus_degree << std::endl;
+            // std::cout << "reset polydeg " <<  poly_modulus_degree_ << " -> " << poly_modulus_degree << std::endl;
             poly_modulus_degree_ = poly_modulus_degree;
 
             // Re-compute the parms_id
@@ -504,8 +504,7 @@ namespace troy {
 
 namespace std
 {
-    template <>
-    struct hash<troy::ParmsID>
+    struct TroyHashParmsID
     {
         std::size_t operator()(const troy::ParmsID &parms_id) const
         {
@@ -523,7 +522,7 @@ namespace std
     {
         std::size_t operator()(const troy::EncryptionParameters &parms) const
         {
-            hash<troy::ParmsID> parms_id_hash;
+            TroyHashParmsID parms_id_hash;
             return parms_id_hash(parms.parms_id_);
         }
     };

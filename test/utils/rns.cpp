@@ -1018,7 +1018,7 @@ namespace troytest
             vector<uint64_t> in(poly_modulus_degree * rns_tool->baseq()->size());
             setZeroUint(in.size(), in.data());
             HostPointer in_iter(in.data());
-            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt);
+            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt.get());
             ASSERT_EQ(0ULL, in[0]);
             ASSERT_EQ(0ULL, in[1]);
 
@@ -1031,7 +1031,7 @@ namespace troytest
             nttNegacyclicHarvey(in.data() + poly_modulus_degree, ntt[1]);
 
             // We expect to get a zero output also in this case
-            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt);
+            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt.get());
             inverseNttNegacyclicHarvey(in.data(), ntt[0]);
             ASSERT_EQ(0ULL, in[0]);
             ASSERT_EQ(0ULL, in[1]);
@@ -1044,7 +1044,7 @@ namespace troytest
             nttNegacyclicHarvey(in.data(), ntt[0]);
             nttNegacyclicHarvey(in.data() + poly_modulus_degree, ntt[1]);
 
-            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt);
+            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt.get());
             inverseNttNegacyclicHarvey(in.data(), ntt[0]);
             ASSERT_TRUE((53ULL + 1ULL - in[0]) % 53ULL <= 1);
             ASSERT_TRUE((53ULL + 2ULL - in[1]) % 53ULL <= 1);
@@ -1057,7 +1057,7 @@ namespace troytest
             nttNegacyclicHarvey(in.data(), ntt[0]);
             nttNegacyclicHarvey(in.data() + poly_modulus_degree, ntt[1]);
 
-            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt);
+            rns_tool->divideAndRoundqLastNttInplace(in_iter, ntt.get());
             inverseNttNegacyclicHarvey(in.data(), ntt[0]);
             ASSERT_TRUE((53ULL + 2ULL - in[0]) % 53ULL <= 1);
             ASSERT_TRUE((53ULL + 3ULL - in[1]) % 53ULL <= 1);

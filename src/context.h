@@ -649,7 +649,7 @@ namespace troy {
 
         ParmsID last_parms_id_;
 
-        std::unordered_map<ParmsID, std::shared_ptr<const ContextData>> context_data_map_{};
+        std::unordered_map<ParmsID, std::shared_ptr<const ContextData>, std::TroyHashParmsID> context_data_map_{};
 
         /**
         Is HomomorphicEncryption.org security standard enforced?

@@ -1,5 +1,7 @@
 enable_testing()
 
+find_package(SEAL 4.0 REQUIRED)
+
 add_executable(troytest)
 target_sources(troytest PRIVATE 
     utils/common.cpp
@@ -13,8 +15,11 @@ target_sources(troytest PRIVATE
     utils/uintarithmod.cpp
     utils/uintarithsmallmod.cpp
     utils/uintcore.cpp
+    batchencoder.cpp
+    ckks.cpp
     context.cpp
     encryptionparams.cpp
+    encryptor.cpp
     keygenerator.cpp
     modulus.cpp
 )

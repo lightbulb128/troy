@@ -831,7 +831,7 @@ namespace troy
         }
 
         void RNSTool::divideAndRoundqLastNttInplace(
-            HostPointer<uint64_t> input, const HostArray<NTTTables>& rns_ntt_tables) const
+            HostPointer<uint64_t> input, const NTTTables* rns_ntt_tables) const
         {
             size_t base_q_size = base_q_->size();
             auto last_input = input + (base_q_size - 1) * coeff_count_;
