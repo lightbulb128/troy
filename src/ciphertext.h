@@ -51,6 +51,9 @@ namespace troy
     */
     class Ciphertext
     {
+
+        friend class CiphertextCuda;
+
     public:
         using ct_coeff_type = std::uint64_t;
 

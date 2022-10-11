@@ -15,8 +15,10 @@ namespace troy {
 
     class Modulus {
 
+        friend class DeviceHelper;
+
         uint64_t value_ = 0;
-        std::array<uint64_t, 3> const_ratio_ { {0,0,0} };
+        uint64_t const_ratio_[3];
         std::size_t uint64_count_ = 0;
         int bit_count_ = 0;
         bool is_prime_ = false;
@@ -35,6 +37,7 @@ namespace troy {
         */
         Modulus(std::uint64_t value = 0)
         {
+            for (size_t i = 0; i < 3; i++) const_ratio_[i] = 0;
             setValue(value);
         }
 
@@ -118,6 +121,10 @@ namespace troy {
         inline auto &constRatio() const noexcept
         {
             return const_ratio_;
+        }
+
+        inline const uint64_t* constRatioData() const noexcept {
+            return &const_ratio_[0];
         }
 
         /**

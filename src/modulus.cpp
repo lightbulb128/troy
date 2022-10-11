@@ -18,7 +18,7 @@ namespace troy {
             bit_count_ = 0;
             uint64_count_ = 1;
             value_ = 0;
-            const_ratio_ = { { 0, 0, 0 } };
+            for (size_t i = 0; i < 3 ; i++) const_ratio_[i] = 0;
             is_prime_ = false;
         } else if ((value >> SEAL_MOD_BIT_COUNT_MAX != 0) || (value == 1)) {
             throw std::invalid_argument("Value can be at most 61-bit and cannot be 1.");

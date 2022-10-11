@@ -243,6 +243,9 @@ namespace troy {
     */
     class SEALContext
     {
+
+        friend class SEALContextCuda;
+
     public:
         /**
         Class to hold pre-computation data for a given set of encryption parameters.
@@ -250,6 +253,8 @@ namespace troy {
         class ContextData
         {
             friend class SEALContext;
+            friend class SEALContextCuda;
+            friend class ContextDataCuda;
 
         public:
             ContextData() = delete;

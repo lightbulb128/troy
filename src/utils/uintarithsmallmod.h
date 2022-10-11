@@ -97,7 +97,7 @@ namespace troy {
             // input allocation size must be 128 bits
 
             uint64_t tmp1, tmp2[2], tmp3, carry;
-            const std::uint64_t *const_ratio = modulus.constRatio().data();
+            const std::uint64_t *const_ratio = modulus.constRatio();
 
             // Multiply input and const_ratio
             // Round 1
@@ -129,7 +129,7 @@ namespace troy {
             // Reduces input using base 2^64 Barrett reduction
             // floor(2^64 / mod) == floor( floor(2^128 / mod) )
             uint64_t tmp[2];
-            const std::uint64_t *const_ratio = modulus.constRatio().data();
+            const std::uint64_t *const_ratio = modulus.constRatio();
             multiplyUint64HW64(input, const_ratio[1], tmp + 1);
 
             // Barrett subtraction

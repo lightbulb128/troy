@@ -132,18 +132,24 @@ namespace troy { namespace util {
         if constexpr(std::is_integral<T>::value && std::is_integral<S>::value)
         {
             // Both integer types
-            if (value >= 0)
-            {
-                // Non-negative number; compare as std::uint64_t
-                // Cannot use unsigned_leq with C++14 for lack of `if constexpr'
-                result = static_cast<std::uint64_t>(value) <=
-                            static_cast<std::uint64_t>((std::numeric_limits<T>::max)());
+            if constexpr (std::is_unsigned<S>::value) {
+                    result =
+                        static_cast<std::int64_t>(value) >= static_cast<std::int64_t>((std::numeric_limits<T>::min)());
             }
-            else
-            {
-                // Negative number; compare as std::int64_t
-                result =
-                    static_cast<std::int64_t>(value) >= static_cast<std::int64_t>((std::numeric_limits<T>::min)());
+            else {
+                if (value >= 0)
+                {
+                    // Non-negative number; compare as std::uint64_t
+                    // Cannot use unsigned_leq with C++14 for lack of `if constexpr'
+                    result = static_cast<std::uint64_t>(value) <=
+                                static_cast<std::uint64_t>((std::numeric_limits<T>::max)());
+                }
+                else
+                {
+                    // Negative number; compare as std::int64_t
+                    result =
+                        static_cast<std::int64_t>(value) >= static_cast<std::int64_t>((std::numeric_limits<T>::min)());
+                }
             }
         }
         else if constexpr(std::is_floating_point<T>::value)

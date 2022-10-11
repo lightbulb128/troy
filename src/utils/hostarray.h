@@ -152,14 +152,20 @@ public:
 
 };
 
+template <typename T> class DeviceDynamicArray;
+
 template <typename T> 
 class HostDynamicArray {
+
+    friend class DeviceDynamicArray<T>;
+
     HostArray<T> internal;
     size_t size_;
 
     void move(size_t newCapacity) {
         if (newCapacity == internal.size()) return;
         HostArray<T> n(newCapacity);
+        if (newCapacity < size_) size_ = newCapacity;
         for (size_t i = 0; i < size_; i++) {
             n[i] = internal[i]; // copy
         }
@@ -186,8 +192,10 @@ public:
         internal = std::move(copy.internal.copy());
     }
 
-    HostDynamicArray(HostArray<T>&& move): 
-        size_(move.size()), internal(move) {} 
+    HostDynamicArray(HostArray<T>&& move) {
+        size_ = move.size();
+        internal = std::move(move);
+    } 
     HostDynamicArray(HostDynamicArray<T>&& move) {
         size_ = move.size();
         internal = std::move(move.internal);
