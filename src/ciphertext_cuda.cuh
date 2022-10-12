@@ -25,7 +25,7 @@ namespace troy {
             correction_factor_(host.correction_factor_),
             data_(host.data_) {}
 
-        Ciphertext cpu() {
+        Ciphertext cpu() const {
             Ciphertext ret;
             ret.parms_id_ = parms_id_;
             ret.is_ntt_form_ = is_ntt_form_;
@@ -61,7 +61,10 @@ namespace troy {
         }
         inline ParmsID& parmsID() noexcept {return parms_id_;}
         inline const ParmsID& parmsID() const noexcept {return parms_id_;}
-        
+        inline bool isNttForm() const noexcept {return is_ntt_form_;}
+        inline double& scale() noexcept {return scale_;}
+        inline double scale() const noexcept {return scale_;}
+
     private:
 
         void resizeInternal(size_t size, size_t poly_modulus_degree, size_t coeff_modulus_size) {

@@ -37,6 +37,9 @@ namespace troy {
             inline const ParmsID& parmsID() const noexcept {
                 return parms_.parmsID();
             }
+            inline int totalCoeffModulusBitCount() const {
+                return total_coeff_modulus_bit_count_;
+            }
 
         private:
 
@@ -90,6 +93,9 @@ namespace troy {
                         = context_data_map_.at(next->parmsID());
                 }
             }
+            key_parms_id_ = context.keyParmsID();
+            first_parms_id_ = context.firstParmsID();
+            last_parms_id_ = context.lastParmsID();
         }
         
         SEALContextCuda(const SEALContextCuda& copy) = default;
@@ -101,6 +107,18 @@ namespace troy {
                 (data != context_data_map_.end()) ?
                 data->second : std::shared_ptr<ContextDataCuda>{nullptr};
         }
+
+        inline std::shared_ptr<ContextDataCuda> firstContextData() const {
+            return getContextData(first_parms_id_);
+        }
+
+        inline std::shared_ptr<ContextDataCuda> lastContextData() const {
+            return getContextData(last_parms_id_);
+        }
+
+        inline std::shared_ptr<ContextDataCuda> keyContextData() const {
+            return getContextData(key_parms_id_);
+        }
     
     private:
 
@@ -108,7 +126,7 @@ namespace troy {
         
         ParmsID key_parms_id_;
         ParmsID first_parms_id_;
-        ParmsID last_parms_id;
+        ParmsID last_parms_id_;
 
         std::unordered_map<ParmsID, std::shared_ptr<ContextDataCuda>, std::TroyHashParmsID> context_data_map_{};
 

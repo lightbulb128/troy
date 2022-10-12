@@ -26,6 +26,8 @@ public:
     ConstDevicePointer<T> operator+(size_t d) {
         return ConstDevicePointer(ptr+d);
     }
+    ConstDevicePointer(const DeviceArray<T>& arr):
+        ptr(arr.get()) {}
 };
 
 template <typename T>
@@ -34,7 +36,7 @@ class DevicePointer {
     T* ptr;
     DevicePointer(T* ptr): ptr(ptr) {}
 public:
-    explicit DevicePointer(const DeviceArray<T>& r): ptr(r.get()) {}
+    DevicePointer(const DeviceArray<T>& r): ptr(r.get()) {}
     DevicePointer() {
         ptr = nullptr;
     }
@@ -89,12 +91,12 @@ public:
 
 template <typename T>
 class DeviceArray {
-    T* data; int len;
+    T* data; size_t len;
 public:
     DeviceArray() {
         data = nullptr; len = 0;
     }
-    DeviceArray(int cnt) {
+    DeviceArray(size_t cnt) {
         data = KernelProvider::malloc<T>(cnt);
         len = cnt;
     }
@@ -103,7 +105,7 @@ public:
     size_t size() const {return len;}
 
     // Directly use the given pointer.
-    DeviceArray(T* data, int length):
+    DeviceArray(T* data, size_t length):
         data(data), len(length) {}
 
     DeviceArray(DeviceArray&& a) {
@@ -137,7 +139,7 @@ public:
         return DeviceArray(copied, len);
     }
 
-    HostArray<T> toHost() {
+    HostArray<T> toHost() const {
         T* ret = new T[len];
         KernelProvider::retrieve(ret, data, len);
         return HostArray<T>(ret, len);
@@ -249,7 +251,7 @@ public:
         return (std::numeric_limits<std::size_t>::max)();
     }
 
-    HostDynamicArray<T> toHost() {
+    HostDynamicArray<T> toHost() const {
         return HostDynamicArray<T>(std::move(internal.toHost()));
     }
     

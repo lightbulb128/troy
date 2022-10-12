@@ -209,6 +209,7 @@ namespace troy
         // Check that the buffer size is correct
         if (in.dynArray().size() != mul_safe(in.size(), mul_safe(in.coeffModulusSize(), in.polyModulusDegree())))
         {
+            std::cout << "buffer not valid\n"; // TODO: delete this
             return false;
         }
 
@@ -304,6 +305,7 @@ namespace troy
         // Check metadata
         if (!isMetadataValidFor(in, context))
         {
+            std::cout << "metadata not valid\n"; // TODO: delete this
             return false;
         }
 
@@ -325,6 +327,7 @@ namespace troy
                 {
                     if (*ptr >= modulus)
                     {
+                        std::cout << "data not valid\n"; // TODO: delete this
                         return false;
                     }
                 }
