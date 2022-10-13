@@ -85,6 +85,11 @@ namespace troy {
             return static_cast<unsigned char>(*result < operand1);
         }
 
+        __device__ inline unsigned char dAddUint128(uint64_t* operand1, uint64_t* operand2, uint64_t* result) {
+            unsigned char carry = dAddUint64(operand1[0], operand2[0], result);
+            return dAddUint64(operand1[1], operand2[1], carry, result + 1);
+        }
+
 
         __device__ inline void dMultiplyUint64HW64(uint64_t operand1, uint64_t operand2, uint64_t *hw64) {                                                         
             *hw64 = static_cast<uint64_t>( 
@@ -309,7 +314,45 @@ namespace troy {
             }
         }
 
+        __device__ inline uint64_t dDotProductMod(
+            const uint64_t *operand1, const uint64_t *operand2, size_t count, const Modulus &modulus)
+        {
+            static_assert(SEAL_MULTIPLY_ACCUMULATE_MOD_MAX >= 16, "SEAL_MULTIPLY_ACCUMULATE_MOD_MAX");
+            uint64_t accumulator[2]{ 0, 0 };
+            uint64_t qword[2];
+            for (size_t i = 0; i < count; i++) {
+                dMultiplyUint64(operand1[i], operand2[i], qword);
+                dAddUint128(qword, accumulator, accumulator);
+                accumulator[0] = dBarrettReduce128(accumulator, modulus);
+                accumulator[1] = 0;
+            }
+            return accumulator[0];
+        }
 
+        
+        __device__ inline unsigned char dSubUint64(
+            uint64_t operand1, uint64_t operand2, unsigned char borrow, unsigned long long *result)
+        {
+            auto diff = operand1 - operand2;
+            *result = diff - (borrow != 0);
+            return (diff > operand1) || (diff < borrow);
+        }
+
+        __device__ inline uint64_t dSubUintMod(
+            std::uint64_t operand1, std::uint64_t operand2, const Modulus &modulus)
+        {
+            unsigned long long temp;
+            int64_t borrow = static_cast<std::int64_t>(dSubUint64(operand1, operand2, 0, &temp));
+            return static_cast<std::uint64_t>(temp) + (DeviceHelper::getModulusValue(modulus) & static_cast<std::uint64_t>(-borrow));
+        }
+
+        __device__ inline std::uint64_t dMultiplyUintMod(
+            std::uint64_t operand1, std::uint64_t operand2, const Modulus &modulus)
+        {
+            uint64_t z[2];
+            dMultiplyUint64(operand1, operand2, z);
+            return dBarrettReduce128(z, modulus);
+        }
 
 
         

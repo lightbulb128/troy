@@ -252,7 +252,7 @@ void test_ckks() {
         std::cout << "Finished, destruction." << std::endl;
     }
 
-    if (true) { // 
+    if (false) { // test rns base
         auto primes = getPrimes(1024 * 2, 60, 4);
         RNSBase basecpu(primes);
         RNSBaseCuda base(basecpu);
@@ -265,15 +265,41 @@ void test_ckks() {
         HostArray<uint64_t> ha(values);
         DeviceArray<uint64_t> da(ha);
         basecpu.decomposeArray(ha.get(), 4);
-        base.decomposeArray(da.asPointer(), 1, 4);
+        base.decomposeArray(da.asPointer(), 4);
         auto retrieved = da.toHost();
         printVector(ha);
         printVector(retrieved);
         basecpu.composeArray(ha.get(), 4);
-        base.composeArray(da.asPointer(), 1, 4);
+        base.composeArray(da.asPointer(), 4);
         retrieved = da.toHost();
         printVector(ha);
         printVector(retrieved);
+    }
+
+    if (false) { // test base converter fast convert
+        BaseConverter bctcpu(RNSBase({ 2, 3 }), RNSBase({ 3, 4, 5 }));
+        BaseConverterCuda bct(bctcpu);
+        HostArray<uint64_t> rcpu({ 0, 1, 1, 0, 1, 2 });
+        DeviceArray<uint64_t> r(rcpu);
+        DeviceArray<uint64_t> rout(9);
+        bct.fastConvertArray(r.asPointer(), rout.asPointer(), 3);
+        // expect { 0, 1, 2, 0, 3, 1, 0, 2, 0 }
+        auto retrieved = rout.toHost();
+        printVector(retrieved, true);
+    }
+
+    if (true) { // test base converter exact convert
+        BaseConverter bctcpu(RNSBase({ 3, 4, 5 }), RNSBase({ 7 }));
+        BaseConverterCuda bct(bctcpu);
+        HostArray<uint64_t> rcpu({ 0, 1, 2, 0, 3, 1, 0, 2, 0  });
+        HostArray<uint64_t> routcpu(3);
+        DeviceArray<uint64_t> r(rcpu);
+        DeviceArray<uint64_t> rout(3);
+        bct.exactConvertArray(r.asPointer(), rout.asPointer(), 3);
+        bctcpu.exactConvertArray(rcpu.asPointer(), routcpu.asPointer(), 3);
+        auto retrieved = rout.toHost();
+        printVector(retrieved, true);
+        printVector(routcpu, true);
     }
 
     if (false) { // BFV multiply inplace

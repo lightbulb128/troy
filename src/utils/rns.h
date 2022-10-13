@@ -114,6 +114,7 @@ namespace troy
 
         class BaseConverter
         {
+            friend class BaseConverterCuda;
         public:
             BaseConverter(const RNSBase &ibase, const RNSBase &obase)
                 : ibase_(ibase), obase_(obase)

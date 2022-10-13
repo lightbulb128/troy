@@ -529,6 +529,9 @@ namespace troy
                 aggregated_v += 0.5;
                 aggregated_rounded_v[i] = static_cast<uint64_t>(aggregated_v);
             }
+            
+            // for (size_t i = 0; i < temp.size(); i++)
+            //     std::cout << "temp[" << i << "]=" << temp[i] << std::endl;
 
             const auto& p = obase_.base()[0];
             auto q_mod_p = moduloUint(ibase_.baseProd(), ibase_size, p);
