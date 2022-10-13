@@ -67,7 +67,8 @@ namespace troy
         {
             using ModArithLazy = Arithmetic<uint64_t, MultiplyUIntModOperand, MultiplyUIntModOperand>;
             using NTTHandler = DWTHandler<std::uint64_t, MultiplyUIntModOperand, MultiplyUIntModOperand>;
-
+            friend class NTTTablesCuda;
+            
         public:
             NTTTables() {}
 

@@ -4,6 +4,7 @@
 #include "defines.h"
 #include "numth.h"
 #include "uintarith.h"
+#include <iostream>
 
 namespace troy {
     namespace util {
@@ -181,6 +182,11 @@ namespace troy {
                 setQuotient(modulus);
             }
         };
+
+        inline std::ostream& operator <<(std::ostream& o, const MultiplyUIntModOperand& p) {
+            o << "(" << p.operand << "," << p.quotient << ")";
+            return o;
+        }
 
         /**
         Returns x * y mod modulus.

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "batchencoder.h"
 #include "ckks.h"
 #include "context.h"
 #include "decryptor.h"

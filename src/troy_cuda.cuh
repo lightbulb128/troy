@@ -4,3 +4,4 @@
 #include "context_cuda.cuh"
 #include "encryptionparams_cuda.cuh"
 #include "evaluator_cuda.cuh"
+#include "utils/rns_cuda.cuh"

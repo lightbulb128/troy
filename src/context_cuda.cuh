@@ -2,6 +2,7 @@
 
 #include "context.h"
 #include "encryptionparams_cuda.cuh"
+#include "utils/ntt_cuda.cuh"
 
 namespace troy {
 
@@ -31,7 +32,21 @@ namespace troy {
                 prev_context_data_(),
                 next_context_data_(nullptr),
                 chain_index_(contextData.chainIndex())
-            {}
+            {
+                size_t n = contextData.small_ntt_tables_.size();
+                small_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
+                for (size_t i = 0; i < n; i++) {
+                    small_ntt_tables_support_[i] = util::NTTTablesCuda(contextData.small_ntt_tables_[i]);
+                }
+                small_ntt_tables_ = util::DeviceArray(small_ntt_tables_support_);
+
+                n = contextData.plain_ntt_tables_.size();
+                plain_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
+                for (size_t i = 0; i < n; i++) {
+                    plain_ntt_tables_support_[i] = util::NTTTablesCuda(contextData.plain_ntt_tables_[i]);
+                }
+                plain_ntt_tables_ = util::DeviceArray(plain_ntt_tables_support_);
+            }
 
             const EncryptionParametersCuda& parms() const {return parms_;}
             inline const ParmsID& parmsID() const noexcept {
@@ -40,15 +55,26 @@ namespace troy {
             inline int totalCoeffModulusBitCount() const {
                 return total_coeff_modulus_bit_count_;
             }
+            
+            inline util::ConstDevicePointer<util::NTTTablesCuda> smallNTTTables() const {
+                return small_ntt_tables_.asPointer();
+            }
+            
+            inline util::ConstDevicePointer<util::NTTTablesCuda> plainNTTTables() const {
+                return plain_ntt_tables_.asPointer();
+            }
+
 
         private:
 
             EncryptionParametersCuda parms_;
             EncryptionParameterQualifiers qualifiers_;
 
-            // TODO: rns_tool
-            // TODO: small_ntt_tables
-            // TODO: plain_ntt_tables
+            // TODO: util::HostObject<util::RNSToolCuda> rns_tool
+            util::DeviceArray<util::NTTTablesCuda> small_ntt_tables_;
+            util::DeviceArray<util::NTTTablesCuda> plain_ntt_tables_;
+            util::HostArray<util::NTTTablesCuda> small_ntt_tables_support_;
+            util::HostArray<util::NTTTablesCuda> plain_ntt_tables_support_;
             // TODO: galois_tool_
             // TODO: total_coeff_modulus_
             

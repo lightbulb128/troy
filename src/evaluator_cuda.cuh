@@ -21,6 +21,7 @@ namespace troy {
 
     private:
 
+        void bfvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
         void ckksMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
         void ckksSquare(CiphertextCuda& encrypted) const;
 

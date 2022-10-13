@@ -15,6 +15,7 @@ namespace troy
     {
         class RNSBase
         {
+            friend class RNSBaseCuda;
         public:
             RNSBase(const std::vector<Modulus> &rnsbase);
 

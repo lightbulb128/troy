@@ -212,7 +212,7 @@ namespace troy {
         switch (context_data_ptr->parms().scheme()) {
         case SchemeType::bfv:
             throw std::invalid_argument("bfv multiply not implemented");
-            // bfvMultiply(encrypted1, encrypted2);
+            bfvMultiply(encrypted1, encrypted2);
             break;
 
         case SchemeType::ckks:
@@ -229,6 +229,27 @@ namespace troy {
         }
     }
 
+    void EvaluatorCuda::bfvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const {
+    
+        if (encrypted1.isNttForm() || encrypted2.isNttForm())
+            throw std::invalid_argument("encrypted1 or encrypted2 cannot be in NTT form");
+    
+        // Extract encryption parameters.
+        auto &context_data = *context_.getContextData(encrypted1.parmsID());
+        auto &parms = context_data.parms();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t base_q_size = parms.coeffModulus().size();
+        size_t encrypted1_size = encrypted1.size();
+        size_t encrypted2_size = encrypted2.size();
+        uint64_t plain_modulus = parms.plainModulus().value();
+
+        // auto rns_tool = context_data.rnsTool();
+        // size_t base_Bsk_size = rns_tool->baseBsk()->size();
+        // size_t base_Bsk_m_tilde_size = rns_tool->baseBskmTilde()->size();
+
+        // size_t dest_size = encrypted1_size + encrypted2_size - 1;
+
+    }
     
     void EvaluatorCuda::ckksMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const {
         

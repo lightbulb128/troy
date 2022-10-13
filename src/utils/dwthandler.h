@@ -4,6 +4,7 @@
 #include "uintarithsmallmod.h"
 #include "uintcore.h"
 #include <stdexcept>
+#include <iostream>
 
 namespace troy
 {
@@ -90,6 +91,7 @@ namespace troy
                 // constant transform size
                 size_t n = size_t(1) << log_n;
                 // registers to hold temporary values
+                // const RootType *rootOrig = roots;
                 RootType r;
                 ValueType u;
                 ValueType v;
@@ -112,10 +114,13 @@ namespace troy
                             y = x + gap;
                             for (std::size_t j = 0; j < gap; j++)
                             {
+                                // std::cout << "before: x = " << (*x) << ", y = " << (*y)
+                                    // << ", rid = " << (roots-rootOrig) << ", r = " << r << std::endl;
                                 u = arithmetic_.guard(*x);
                                 v = arithmetic_.mulRoot(*y, r);
                                 *x++ = arithmetic_.add(u, v);
                                 *y++ = arithmetic_.sub(u, v);
+                                // std::cout << "m = " << m << " xid = " << (x - values - 1) << " u = " << u << " v = " << v << " x = " << *(x-1) << " y = " << *(y-1) << std::endl;
                             }
                             offset += gap << 1;
                         }
@@ -129,25 +134,37 @@ namespace troy
                             y = x + gap;
                             for (std::size_t j = 0; j < gap; j += 4)
                             {
+                                // std::cout << "before: x = " << (*x) << " y = " << (*y)
+                                    // << ", rid = " << (roots-rootOrig) << ", r = " << r << std::endl;
                                 u = arithmetic_.guard(*x);
                                 v = arithmetic_.mulRoot(*y, r);
                                 *x++ = arithmetic_.add(u, v);
                                 *y++ = arithmetic_.sub(u, v);
+                                // std::cout << "m = " << m << " xid = " << (x - values - 1) << " u = " << u << " v = " << v << " x = " << *(x-1) << " y = " << *(y-1) << std::endl;
 
+                                // std::cout << "before: x = " << (*x) << " y = " << (*y)
+                                    // << ", rid = " << (roots-rootOrig) << ", r = " << r << std::endl;
                                 u = arithmetic_.guard(*x);
                                 v = arithmetic_.mulRoot(*y, r);
                                 *x++ = arithmetic_.add(u, v);
                                 *y++ = arithmetic_.sub(u, v);
+                                // std::cout << "m = " << m << " xid = " << (x - values - 1) << " u = " << u << " v = " << v << " x = " << *(x-1) << " y = " << *(y-1) << std::endl;
 
+                                // std::cout << "before: x = " << (*x) << " y = " << (*y)
+                                    // << ", rid = " << (roots-rootOrig) << ", r = " << r << std::endl;
                                 u = arithmetic_.guard(*x);
                                 v = arithmetic_.mulRoot(*y, r);
                                 *x++ = arithmetic_.add(u, v);
                                 *y++ = arithmetic_.sub(u, v);
+                                // std::cout << "m = " << m << " xid = " << (x - values - 1) << " u = " << u << " v = " << v << " x = " << *(x-1) << " y = " << *(y-1) << std::endl;
 
+                                // std::cout << "before: x = " << (*x) << " y = " << (*y) 
+                                    // << ", rid = " << (roots-rootOrig) << ", r = " << r << std::endl;
                                 u = arithmetic_.guard(*x);
                                 v = arithmetic_.mulRoot(*y, r);
                                 *x++ = arithmetic_.add(u, v);
                                 *y++ = arithmetic_.sub(u, v);
+                                // std::cout << "m = " << m << " xid = " << (x - values - 1) << " u = " << u << " v = " << v << " x = " << *(x-1) << " y = " << *(y-1) << std::endl;
                             }
                             offset += gap << 1;
                         }
@@ -174,10 +191,13 @@ namespace troy
                     for (std::size_t i = 0; i < m; i++)
                     {
                         r = *++roots;
+                                // std::cout << "before: x = " << (values[0]) << " y = " << (values[1]) 
+                                    // << ", rid = " << (roots-rootOrig) << ", r = " << r << std::endl;
                         u = arithmetic_.guard(values[0]);
                         v = arithmetic_.mulRoot(values[1], r);
                         values[0] = arithmetic_.add(u, v);
                         values[1] = arithmetic_.sub(u, v);
+                        // std::cout << "m = " << m << " xid = " << (x - values - 1) << " u = " << u << " v = " << v << " x = " << values[0] << " y = " << values[1] << std::endl;
                         values += 2;
                     }
                 }
@@ -199,6 +219,7 @@ namespace troy
                 size_t n = size_t(1) << log_n;
                 // registers to hold temporary values
                 RootType r;
+                // const RootType* rOrig = roots;
                 ValueType u;
                 ValueType v;
                 // pointers for faster indexing
@@ -220,6 +241,8 @@ namespace troy
                             y = x + gap;
                             for (std::size_t j = 0; j < gap; j++)
                             {
+                                // std::cout << "m=" << m << ",dx=" << (x - values) << ",u=" << (*x) << ",v=" << (*y)
+                                //     << ",r=" << r << ",dr=" << (roots-rOrig) << std::endl;
                                 u = *x;
                                 v = *y;
                                 *x++ = arithmetic_.guard(arithmetic_.add(u, v));

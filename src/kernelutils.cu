@@ -1,6 +1,7 @@
 #include "kernelutils.cuh"
 
 #define KERNEL_CALL(funcname, n) size_t block_count = ceilDiv_(n, 256); funcname<<<block_count, 256>>>
+#define POLY_ARRAY_ARGUMENTS size_t poly_size, size_t coeff_modulus_size, size_t poly_modulus_degree
 #define POLY_ARRAY_ARGCALL poly_size, coeff_modulus_size, poly_modulus_degree
 #define GET_INDEX size_t gindex = blockDim.x * blockIdx.x + threadIdx.x
 #define GET_INDEX_COND_RETURN(n) size_t gindex = blockDim.x * blockIdx.x + threadIdx.x; if (gindex >= (n)) return
@@ -162,6 +163,48 @@ namespace troy {
             );
         }
 
+        __global__ void gModBoundedUsingNttTables(
+            uint64_t* operand,
+            POLY_ARRAY_ARGUMENTS,
+            const NTTTablesCuda* ntt_tables) 
+        {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            FOR_N(rns_index, coeff_modulus_size) {
+                uint64_t modulus_value = DeviceHelper::getModulusValue(ntt_tables[rns_index].modulus());
+                uint64_t twice_modulus_value = modulus_value << 1;
+                FOR_N(poly_index, poly_size) {
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree;
+                    if (operand[id] >= twice_modulus_value) operand[id] -= twice_modulus_value;
+                    if (operand[id] >= modulus_value) operand[id] -= modulus_value;
+                }
+            }
+        }
+
+        void kModBoundedUsingNttTables(
+            Pointer operand,
+            POLY_ARRAY_ARGUMENTS,
+            ConstDevicePointer<NTTTablesCuda> ntt_tables)
+        {
+            KERNEL_CALL(gModBoundedUsingNttTables, poly_modulus_degree)(
+                operand.get(), POLY_ARRAY_ARGCALL, ntt_tables.get()
+            );
+        }
+
+        __global__ void gMultiplyInvDegreeNttTables(
+            uint64_t* poly_array, 
+            POLY_ARRAY_ARGUMENTS,
+            const NTTTablesCuda* ntt_tables
+        ) {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            FOR_N(rns_index, coeff_modulus_size) {
+                const Modulus& modulus = ntt_tables[rns_index].modulus();
+                MultiplyUIntModOperand scalar = ntt_tables[rns_index].invDegreeModulo();
+                FOR_N(poly_index, poly_size) {
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
+                    poly_array[id] = dMultiplyUintModLazy(poly_array[id], scalar, modulus);
+                }
+            }
+        }
 
         __global__ void gMultiplyPolyScalarCoeffmod(
             const uint64_t* poly_array,
@@ -173,7 +216,7 @@ namespace troy {
             GET_INDEX_COND_RETURN(poly_modulus_degree);
             FOR_N(rns_index, coeff_modulus_size) {
                 FOR_N(poly_index, poly_size) {
-                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree;
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
                     result[id] = dMultiplyUintMod(poly_array[id], reduced_scalar[rns_index], modulus[rns_index]);
                 }
             }
@@ -218,6 +261,171 @@ namespace troy {
                 POLY_ARRAY_ARGCALL,
                 modulus.get(),
                 result.get()
+            );
+        }
+
+        void kNttTransferToRev(
+            Pointer operand,
+            size_t poly_size,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree_power,
+            ConstDevicePointer<NTTTablesCuda> ntt_tables,
+            bool use_inv_root_powers
+        ) {
+            std::size_t m = 1; std::size_t layer = 0;
+            std::size_t n = size_t(1) << poly_modulus_degree_power;
+            for(; m <= (n>>1); m<<=1) {
+                kNttTransferToRevLayered(
+                    layer, operand,
+                    poly_size, coeff_modulus_size,
+                    poly_modulus_degree_power, ntt_tables,
+                    use_inv_root_powers);
+                layer++;
+            }
+        }
+
+        void kNttTransferFromRev(
+            Pointer operand,
+            size_t poly_size,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree_power,
+            ConstDevicePointer<NTTTablesCuda> ntt_tables,
+            bool use_inv_root_powers
+        ) {
+            std::size_t n = size_t(1) << poly_modulus_degree_power;
+            std::size_t m = n >> 1; std::size_t layer = 0;
+            for(; m >= 1; m>>=1) {
+                kNttTransferFromRevLayered(
+                    layer, operand,
+                    poly_size, coeff_modulus_size,
+                    poly_modulus_degree_power, ntt_tables,
+                    use_inv_root_powers);
+                layer++;
+            }
+            KERNEL_CALL(gMultiplyInvDegreeNttTables, n)(
+                operand.get(), poly_size, coeff_modulus_size, n, ntt_tables.get()
+            );
+        }
+
+        __global__ void gNttTransferToRevLayered(
+            size_t layer,
+            uint64_t* operand,
+            size_t poly_size,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree_power,
+            const NTTTablesCuda* ntt_tables,
+            bool use_inv_root_powers
+        ) {
+            GET_INDEX_COND_RETURN(1 << (poly_modulus_degree_power - 1));
+            size_t m = 1 << layer;
+            size_t gap_power = poly_modulus_degree_power - layer - 1;
+            size_t gap = 1 << gap_power;
+            size_t rid = m + (gindex >> gap_power);
+            size_t coeff_index = ((gindex >> gap_power) << (gap_power + 1)) + (gindex & (gap - 1));
+            // printf("m = %lu, coeff_index = %lu\n", m, coeff_index);
+            uint64_t u, v;
+            // FOR_N(rns_index, coeff_modulus_size) {
+            //     // printf("rns index = %ld\n", rns_index);
+            //     for (size_t i = 0; i < (1<<poly_modulus_degree_power); i++) {
+            //         MultiplyUIntModOperand r = ntt_tables[rns_index].getFromInvRootPowers()[i];
+            //         // printf("rootpowers[%lu] = (%llu, %llu)\n", i, r.operand, r.quotient);
+            //     }
+            // }
+            FOR_N(rns_index, coeff_modulus_size) {
+                const Modulus& modulus = ntt_tables[rns_index].modulus();
+                uint64_t two_times_modulus = DeviceHelper::getModulusValue(modulus) << 1;
+                MultiplyUIntModOperand r = use_inv_root_powers ?
+                    (ntt_tables[rns_index].getFromInvRootPowers()[rid]) :
+                    (ntt_tables[rns_index].getFromRootPowers()[rid]);
+                FOR_N(poly_index, poly_size) {
+                    uint64_t* x = operand + ((poly_index * coeff_modulus_size + rns_index) << poly_modulus_degree_power) + coeff_index;
+                    uint64_t* y = x + gap;
+                    // printf("before: x = %llu, y = %llu, rid = %lu, r = (%llu, %llu), modulus = %llu\n", *x, *y, rid, r.operand, r.quotient, DeviceHelper::getModulusValue(modulus));
+                    u = (*x > two_times_modulus) ? (*x - two_times_modulus) : (*x);
+                    v = dMultiplyUintModLazy(*y, r, modulus);
+                    *x = u + v;
+                    *y = u + two_times_modulus - v;
+                    // printf("m = %lu xid = %lu u = %llu v = %llu x = %llu y = %llu\n", m, ((poly_index * coeff_modulus_size + rns_index) << poly_modulus_degree_power) + coeff_index, u, v, *x, *y);
+                }
+            }
+        }
+
+        void kNttTransferToRevLayered(
+            size_t layer,
+            Pointer operand,
+            size_t poly_size,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree_power,
+            ConstDevicePointer<NTTTablesCuda> ntt_tables,
+            bool use_inv_root_powers
+        ) {
+            std::size_t n = size_t(1) << poly_modulus_degree_power;
+            KERNEL_CALL(gNttTransferToRevLayered, n)(
+                layer, operand.get(), poly_size, coeff_modulus_size,
+                poly_modulus_degree_power, ntt_tables.get(),
+                use_inv_root_powers
+            );
+        }
+
+        __global__ void gNttTransferFromRevLayered(
+            size_t layer,
+            uint64_t* operand,
+            size_t poly_size,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree_power,
+            const NTTTablesCuda* ntt_tables,
+            bool use_inv_root_powers
+        ) {
+            GET_INDEX_COND_RETURN(1 << (poly_modulus_degree_power - 1));
+            size_t m = 1 << (poly_modulus_degree_power - 1 - layer);
+            size_t gap_power = layer;
+            size_t gap = 1 << gap_power;
+            size_t rid = (1 << poly_modulus_degree_power) - (m << 1) + 1 + (gindex >> gap_power);
+            size_t coeff_index = ((gindex >> gap_power) << (gap_power + 1)) + (gindex & (gap - 1));
+            // printf("m = %lu, coeff_index = %lu\n", m, coeff_index);
+            uint64_t u, v;
+            // FOR_N(rns_index, coeff_modulus_size) {
+            //     // printf("rns index = %ld\n", rns_index);
+            //     for (size_t i = 0; i < (1<<poly_modulus_degree_power); i++) {
+            //         MultiplyUIntModOperand r = ntt_tables[rns_index].getFromInvRootPowers()[i];
+            //         // printf("rootpowers[%lu] = (%llu, %llu)\n", i, r.operand, r.quotient);
+            //     }
+            // }
+            FOR_N(rns_index, coeff_modulus_size) {
+                const Modulus& modulus = ntt_tables[rns_index].modulus();
+                uint64_t two_times_modulus = DeviceHelper::getModulusValue(modulus) << 1;
+                MultiplyUIntModOperand r = use_inv_root_powers ?
+                    (ntt_tables[rns_index].getFromInvRootPowers()[rid]) :
+                    (ntt_tables[rns_index].getFromRootPowers()[rid]);
+                FOR_N(poly_index, poly_size) {
+                    uint64_t* x = operand + ((poly_index * coeff_modulus_size + rns_index) << poly_modulus_degree_power) + coeff_index;
+                    uint64_t* y = x + gap;
+                    // printf("m=%lu,dx=%lu,u=%llu,v=%llu,r=(%llu,%llu),dr=%lu\n", m, 
+                    //     ((poly_index * coeff_modulus_size + rns_index) << poly_modulus_degree_power) + coeff_index,
+                    //     *x, *y, r.operand, r.quotient, rid);
+                    u = *x;
+                    v = *y;
+                    *x = (u + v > two_times_modulus) ? (u + v - two_times_modulus) : (u + v);
+                    *y = dMultiplyUintModLazy(u + two_times_modulus - v, r, modulus);
+                    // printf("m = %lu xid = %lu u = %llu v = %llu x = %llu y = %llu\n", m, ((poly_index * coeff_modulus_size + rns_index) << poly_modulus_degree_power) + coeff_index, u, v, *x, *y);
+                }
+            }
+        }
+
+        void kNttTransferFromRevLayered(
+            size_t layer,
+            Pointer operand,
+            size_t poly_size,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree_power,
+            ConstDevicePointer<NTTTablesCuda> ntt_tables,
+            bool use_inv_root_powers
+        ) {
+            std::size_t n = size_t(1) << poly_modulus_degree_power;
+            KERNEL_CALL(gNttTransferFromRevLayered, n)(
+                layer, operand.get(), poly_size, coeff_modulus_size,
+                poly_modulus_degree_power, ntt_tables.get(),
+                use_inv_root_powers
             );
         }
 

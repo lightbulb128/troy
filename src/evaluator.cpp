@@ -477,10 +477,10 @@ namespace troy
         }
 
         
-        std::cout << "Encrypted1_q: ";
-        printArray(encrypted1_q);
-        std::cout << "Encrypted1_Bsk: ";
-        printArray(encrypted1_Bsk);
+        // std::cout << "Encrypted1_q: ";
+        // printArray(encrypted1_q);
+        // std::cout << "Encrypted1_Bsk: ";
+        // printArray(encrypted1_Bsk);
 
         // std::cout << "encrypted2 process\n";
         // Repeat for encrypted2
@@ -572,20 +572,20 @@ namespace troy
 
         // std::cout << "before invs dest process\n";
 
-        std::cout << "temp_dest_q: ";
-        printArray(temp_dest_q);
-        std::cout << "temp_dest_Bsk: ";
-        printArray(temp_dest_Bsk);
+        // std::cout << "temp_dest_q: ";
+        // printArray(temp_dest_q);
+        // std::cout << "temp_dest_Bsk: ";
+        // printArray(temp_dest_Bsk);
 
         // Perform BEHZ step (5): transform data from NTT form
         // Lazy reduction here. The following multiplyPolyScalarCoeffmod will correct the value back to [0, p)
         inverseNttNegacyclicHarveyLazy(temp_dest_q.asPointer(), dest_size, base_q_size, base_q_ntt_tables);
         inverseNttNegacyclicHarveyLazy(temp_dest_Bsk.asPointer(), dest_size, base_Bsk_size, base_Bsk_ntt_tables);
 
-        std::cout << "after ntt temp_dest_q: ";
-        printArray(temp_dest_q);
-        std::cout << "after ntt temp_dest_Bsk: ";
-        printArray(temp_dest_Bsk);
+        // std::cout << "after ntt temp_dest_q: ";
+        // printArray(temp_dest_q);
+        // std::cout << "after ntt temp_dest_Bsk: ";
+        // printArray(temp_dest_Bsk);
 
         // std::cout << "last dest process\n";
         // Perform BEHZ steps (6)-(8)
@@ -599,9 +599,9 @@ namespace troy
 
             multiplyPolyScalarCoeffmod(temp_dest_Bsk + i * coeff_count * base_Bsk_size, base_Bsk_size, coeff_count, plain_modulus, base_Bsk, temp_q_Bsk + base_q_size * coeff_count);
 
-            std::cout << "i = " << i << std::endl;
-            std::cout << "temp_q_Bsk" << std::endl;
-            printArray(temp_q_Bsk);
+            // std::cout << "i = " << i << std::endl;
+            // std::cout << "temp_q_Bsk" << std::endl;
+            // printArray(temp_q_Bsk);
 
             // Allocate yet another temporary for fast divide-and-floor result in base Bsk
             auto temp_Bsk = allocatePoly(coeff_count, base_Bsk_size);
@@ -610,14 +610,14 @@ namespace troy
             rns_tool->fastFloor(temp_q_Bsk.asPointer(), temp_Bsk.asPointer());
 
 
-            std::cout << "temp_Bsk" << std::endl;
-            printArray(temp_Bsk);
+            // std::cout << "temp_Bsk" << std::endl;
+            // printArray(temp_Bsk);
 
             // Step (8): use Shenoy-Kumaresan method to convert the result to base q and write to encrypted1
             rns_tool->fastbconvSk(temp_Bsk.asPointer(), encrypted1.data(i));
         
-            std::cout << "enc i" << std::endl;
-            printArray(encrypted1.data(i), coeff_count * base_q_size);
+            // std::cout << "enc i" << std::endl;
+            // printArray(encrypted1.data(i), coeff_count * base_q_size);
         }
         
         // printArray(encrypted1.data(), dest_size * base_q_size * coeff_count, true);

@@ -131,12 +131,22 @@ public:
         if (data) KernelProvider::free(data);
     }
 
-    DeviceArray& operator = (const DeviceArray& r) = delete;
-    DeviceArray(const DeviceArray& r) = delete;
     DeviceArray copy() const {
         T* copied = KernelProvider::malloc<T>(len);
         KernelProvider::copyOnDevice<T>(copied, data, len);
         return DeviceArray(copied, len);
+    }
+    DeviceArray& operator = (const DeviceArray& r) {
+        if (data) KernelProvider::free(data);
+        len = r.len;
+        data = KernelProvider::malloc<T>(len);
+        KernelProvider::copyOnDevice<T>(data, r.data, len);
+        return *this;
+    }
+    DeviceArray(const DeviceArray& r) {
+        len = r.len;
+        data = KernelProvider::malloc<T>(len);
+        KernelProvider::copyOnDevice<T>(data, r.data, len);
     }
 
     HostArray<T> toHost() const {
@@ -151,6 +161,13 @@ public:
     ConstDevicePointer<T> asPointer() const {return ConstDevicePointer<T>(data);}
     DevicePointer<T> operator+(size_t d) {
         return DevicePointer(data + d);
+    }
+
+    __device__ inline T deviceAt(size_t id) const {
+        return data[id];
+    }
+    __device__ inline T* deviceGet() const {
+        return data;
     }
 
 };

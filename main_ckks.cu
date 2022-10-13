@@ -107,7 +107,7 @@ vector<complex<double>> decryptCuda(CKKSEncoder& encoder, Decryptor& decryptor, 
 #define ENCRYPT(msg) encryptCuda(context, encoder, encryptor, msg, delta)
 #define DECRYPT(cipher) decryptCuda(encoder, decryptor, cipher, slot_size)
 
-void test2() {
+void test_ckks() {
     
     EncryptionParameters parms(SchemeType::ckks);        
     size_t slot_size = 32;
@@ -198,6 +198,6 @@ void test2() {
 
 int main() {
     KernelProvider::initialize();
-    test2();
+    test_ckks();
     return 0;
 }
