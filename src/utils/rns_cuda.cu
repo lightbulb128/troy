@@ -126,8 +126,6 @@ namespace troy {
 
         }
 
-        
-
         __global__ void gExactConvertArray(
             const uint64_t* in,
             size_t ibase_size,
@@ -186,6 +184,363 @@ namespace troy {
             auto p = temp.toHost();
             // for (size_t i = 0; i < p.size(); i++)
             //     std::cout << "temp[" << i << "]=" << p[i] << std::endl;
+        }
+
+        __global__ void gDivideAndRoundqLastInplace(
+            uint64_t* input,
+            size_t coeff_count,
+            size_t base_q_size,
+            const Modulus* base_q,
+            const MultiplyUIntModOperand* inv_q_last_mod_q,
+            uint64_t half
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            auto last_input = input + (base_q_size - 1) * coeff_count;
+            last_input[gindex] = kernel_util::dAddUintMod(last_input[gindex], half, base_q[base_q_size-1]);
+            FOR_N(i, base_q_size - 1) {
+                uint64_t temp;
+                const Modulus& b = base_q[i];
+                temp = kernel_util::dBarrettReduce64(last_input[gindex], b);
+                uint64_t half_mod = kernel_util::dBarrettReduce64(half, b);
+                temp = kernel_util::dSubUintMod(temp, half_mod, b);
+                uint64_t temp_result;
+                std::int64_t borrow = kernel_util::dSubUint64(input[i * coeff_count + gindex], temp, &temp_result);
+                input[i * coeff_count + gindex] = temp_result + (DeviceHelper::getModulusValue(b) & static_cast<std::uint64_t>(-borrow));
+                input[i * coeff_count + gindex] = kernel_util::dMultiplyUintMod(
+                    input[i * coeff_count + gindex],
+                    inv_q_last_mod_q[i],
+                    b
+                );
+            }
+        }
+
+        void RNSToolCuda::divideAndRoundqLastInplace(DevicePointer<uint64_t> input) const {
+            KERNEL_CALL(gDivideAndRoundqLastInplace, coeff_count_)(
+                input.get(), coeff_count_, 
+                base_q_->size(), base_q_->base().get(),
+                inv_q_last_mod_q_.get(), q_last_half_
+            );
+        }
+
+        __global__ void gDivideAndRoundqLastNttInplaceStepA(
+            uint64_t* last_input,
+            uint64_t* temp,
+            size_t coeff_count,
+            size_t base_q_size, 
+            const Modulus* base_q,
+            uint64_t half
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            last_input[gindex] = kernel_util::dAddUintMod(last_input[gindex], half, base_q[base_q_size-1]);
+            FOR_N(i, base_q_size - 1) {
+                size_t temp_id = i * coeff_count + gindex;
+                const Modulus& b = base_q[i];
+                if (DeviceHelper::getModulusValue(b) < DeviceHelper::getModulusValue(base_q[base_q_size-1])) 
+                    temp[temp_id] = kernel_util::dBarrettReduce64(last_input[gindex], b);
+                else
+                    temp[temp_id] = last_input[gindex];
+                uint64_t neg_half_mod = DeviceHelper::getModulusValue(b) - kernel_util::dBarrettReduce64(half, b);
+                temp[temp_id] += neg_half_mod;
+            }
+        }
+
+        __global__ void gDivideAndRoundqLastNttInplaceStepB(
+            const uint64_t* temp,
+            uint64_t* input,
+            size_t coeff_count,
+            size_t base_q_size,
+            const Modulus* base_q,
+            const MultiplyUIntModOperand* inv_q_last_mod_q
+        ) { 
+            GET_INDEX_COND_RETURN(coeff_count);
+            FOR_N(i, base_q_size - 1) {
+                size_t temp_id = i * coeff_count + gindex;
+                const Modulus& b = base_q[i];
+                uint64_t qi_lazy = DeviceHelper::getModulusValue(b) << 2;
+                input[temp_id] += qi_lazy - temp[temp_id];
+                input[temp_id] = kernel_util::dMultiplyUintMod(input[temp_id], inv_q_last_mod_q[i], b);
+            }
+        }
+
+
+        void RNSToolCuda::divideAndRoundqLastNttInplace(
+            DevicePointer<uint64_t> input, ConstDevicePointer<NTTTablesCuda> rns_ntt_tables) const
+        {
+            size_t base_q_size = base_q_->size();
+            kernel_util::kInverseNttNegacyclicHarvey(input + coeff_count_ * (base_q_size - 1),
+                1, 1, getPowerOfTwo(coeff_count_), rns_ntt_tables + (base_q_size - 1));
+            // FIXME: temporary array -> rnstoolcuda.
+            auto temp = kernel_util::kAllocate(coeff_count_, base_q_size - 1);
+            KERNEL_CALL(gDivideAndRoundqLastNttInplaceStepA, coeff_count_) (
+                input.get() + coeff_count_ * (base_q_size - 1), temp.get(),
+                coeff_count_, base_q_size, base_q_->base().get(), q_last_half_); 
+            kernel_util::kNttNegacyclicHarveyLazy(temp.asPointer(), 1, base_q_size - 1, getPowerOfTwo(coeff_count_), rns_ntt_tables);
+            gDivideAndRoundqLastNttInplaceStepB<<<block_count, 256>>>(
+                temp.get(), input.get(), coeff_count_, base_q_size,
+                base_q_->base().get(), inv_q_last_mod_q_.get()
+            );
+        }
+
+        __global__ void gFaskbconvSk(
+            const uint64_t* input,
+            const uint64_t* temp,
+            size_t coeff_count,
+            const Modulus* m_sk,
+            size_t base_B_size,
+            size_t base_q_size,
+            const Modulus* base_q,
+            MultiplyUIntModOperand inv_prod_B_mod_m_sk,
+            const uint64_t* prod_B_mod_q,
+            uint64_t* destination
+            
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            uint64_t m_sk_value = DeviceHelper::getModulusValue(*m_sk);
+            uint64_t alpha_sk = kernel_util::dMultiplyUintMod(temp[gindex] + (m_sk_value - input[base_B_size * coeff_count + gindex]), inv_prod_B_mod_m_sk, *m_sk);
+            // printf("%llu\n", alpha_sk);
+            uint64_t m_sk_div_2 = m_sk_value >> 1;
+            FOR_N(i, base_q_size) {
+                const Modulus& b = base_q[i];
+                uint64_t b_value = DeviceHelper::getModulusValue(b);
+                MultiplyUIntModOperand prod_B_mod_q_elt
+                    = kernel_util::dSetMultiplyModOperand(prod_B_mod_q[i], b);
+                MultiplyUIntModOperand neg_prod_B_mod_q_elt
+                    = kernel_util::dSetMultiplyModOperand(b_value - prod_B_mod_q[i], b);
+                uint64_t& dest = destination[i * coeff_count + gindex];
+                // printf("i=%ld, gindex=%ld, %ld %llu, %llu\n", i, gindex, i * coeff_count + gindex, prod_B_mod_q_elt.operand, prod_B_mod_q_elt.quotient);
+                // printf("i=%ld, xgindex=%ld, %ld %llu, %llu\n", i, gindex, i * coeff_count + gindex, neg_prod_B_mod_q_elt.operand, neg_prod_B_mod_q_elt.quotient);
+                if (alpha_sk > m_sk_div_2)
+                    dest = kernel_util::dMultiplyAddUintMod(
+                        kernel_util::dNegateUintMod(alpha_sk, *m_sk), prod_B_mod_q_elt, dest, b);
+                else
+                    dest = kernel_util::dMultiplyAddUintMod(
+                        alpha_sk, neg_prod_B_mod_q_elt, dest, b);
+            }
+
+        }
+
+        
+        void RNSToolCuda::fastbconvSk(ConstDevicePointer<uint64_t> input, DevicePointer<uint64_t> destination) const {
+
+            size_t base_q_size = base_q_->size();
+            size_t base_B_size = base_B_->size();
+            base_B_to_q_conv_->fastConvertArray(input, destination, coeff_count_);
+
+            // FIXME: temporary array -> rnstoolcuda.
+            auto temp = DeviceArray<uint64_t>(coeff_count_);
+            base_B_to_m_sk_conv_->fastConvertArray(input, temp.asPointer(), coeff_count_);
+
+            KERNEL_CALL(gFaskbconvSk, coeff_count_)(
+                input.get(),
+                temp.get(), coeff_count_, m_sk_cuda_.get(),
+                base_B_size, base_q_size, base_q_->base().get(),
+                inv_prod_B_mod_m_sk_, prod_B_mod_q_.get(),
+                destination.get()
+            );
+
+        }
+
+        __global__ void gSmMrq(
+            const uint64_t* input,
+            size_t coeff_count,
+            size_t base_Bsk_size,
+            const Modulus* base_Bsk,
+            const uint64_t m_tilde_div_2,
+            const Modulus* m_tilde,
+            MultiplyUIntModOperand neg_inv_prod_q_mod_m_tilde,
+            const uint64_t* prod_q_mod_Bsk,
+            const MultiplyUIntModOperand* inv_m_tilde_mod_Bsk,
+            uint64_t* destination
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            const uint64_t* input_m_tilde = input + base_Bsk_size * coeff_count;
+            uint64_t r_m_tilde = kernel_util::dMultiplyUintMod(input_m_tilde[gindex], neg_inv_prod_q_mod_m_tilde, *m_tilde);
+            FOR_N(i, base_Bsk_size) {
+                const Modulus& b = base_Bsk[i];
+                MultiplyUIntModOperand prod_q_mod_Bsk_elt
+                    = kernel_util::dSetMultiplyModOperand(prod_q_mod_Bsk[i], b);
+                uint64_t temp = r_m_tilde;
+                if (temp >= m_tilde_div_2)
+                    temp += DeviceHelper::getModulusValue(b) - DeviceHelper::getModulusValue(*m_tilde);
+                destination[i * coeff_count + gindex] = kernel_util::dMultiplyUintMod(
+                    kernel_util::dMultiplyAddUintMod(temp, prod_q_mod_Bsk_elt, input[i * coeff_count + gindex], b),
+                    inv_m_tilde_mod_Bsk[i], b
+                );
+            }
+        }
+
+        void RNSToolCuda::smMrq(ConstDevicePointer<uint64_t> input, DevicePointer<uint64_t> destination) const {
+            
+            size_t base_Bsk_size = base_Bsk_->size();
+            uint64_t m_tilde_div_2 = m_tilde_.value() >> 1;
+            KERNEL_CALL(gSmMrq, coeff_count_)(
+                input.get(), coeff_count_, base_Bsk_size,
+                base_Bsk_->base().get(), m_tilde_div_2,
+                m_tilde_cuda_.get(), neg_inv_prod_q_mod_m_tilde_,
+                prod_q_mod_Bsk_.get(), inv_m_tilde_mod_Bsk_.get(),
+                destination.get()
+            );
+
+        }
+
+        __global__ void gFastFloor(
+            const uint64_t* input,
+            size_t coeff_count,
+            size_t base_Bsk_size, 
+            const Modulus* base_Bsk,
+            const MultiplyUIntModOperand* inv_prod_q_mod_Bsk,
+            uint64_t* destination
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            FOR_N(i, base_Bsk_size) {
+                size_t id = i * coeff_count + gindex;
+                destination[id] = kernel_util::dMultiplyUintMod(
+                    input[id] + (DeviceHelper::getModulusValue(base_Bsk[i]) - destination[id]),
+                    inv_prod_q_mod_Bsk[i], base_Bsk[i]
+                );
+            }
+        }
+
+        void RNSToolCuda::fastFloor(ConstDevicePointer<uint64_t> input, DevicePointer<uint64_t> destination) const {
+            
+            size_t base_q_size = base_q_->size();
+            size_t base_Bsk_size = base_Bsk_->size();
+            
+            base_q_to_Bsk_conv_->fastConvertArray(input, destination, coeff_count_);
+
+            input = input + base_q_size * coeff_count_;
+
+            KERNEL_CALL(gFastFloor, coeff_count_)(
+                input.get(), coeff_count_, base_Bsk_size, base_Bsk_->base().get(),
+                inv_prod_q_mod_Bsk_.get(), destination.get()
+            );
+
+        }
+        
+        void RNSToolCuda::fastbconvmTilde(ConstDevicePointer<uint64_t> input, DevicePointer<uint64_t> destination) const {
+            size_t base_q_size = base_q_->size();
+            size_t base_Bsk_size = base_Bsk_->size();
+            // FIXME: temporary array -> rnstoolcuda.
+            auto temp = kernel_util::kAllocate(coeff_count_, base_q_size);
+            kernel_util::kMultiplyPolyScalarCoeffmod(input, 1, base_q_size, 
+                coeff_count_, m_tilde_.value(), base_q_->base(), temp.asPointer());
+            base_q_to_Bsk_conv_->fastConvertArray(temp.asPointer(), destination, coeff_count_);
+            base_q_to_m_tilde_conv_->fastConvertArray(temp.asPointer(), destination + base_Bsk_size * coeff_count_, coeff_count_);
+        }
+
+        __global__ void gDecryptScaleAndRoundStepA(
+            const uint64_t* input,
+            size_t base_q_size,
+            const Modulus* base_q,
+            size_t coeff_count,
+            const MultiplyUIntModOperand* prod_t_gamma_mod_q,
+            uint64_t* temp
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            FOR_N(i, base_q_size) {
+                size_t id = i * coeff_count + gindex;
+                temp[id] = kernel_util::dMultiplyUintMod(input[id], prod_t_gamma_mod_q[i], base_q[i]);
+            }
+        }
+
+        __global__ void gDecryptScaleAndRoundStepB(
+            const uint64_t* temp_t_gamma,
+            size_t coeff_count,
+            uint64_t gamma,
+            const Modulus* t,
+            MultiplyUIntModOperand inv_gamma_mod_t,
+            uint64_t* destination
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            uint64_t gamma_div_2 = gamma>>1;
+            if (temp_t_gamma[coeff_count + gindex] > gamma_div_2) 
+                destination[gindex] = kernel_util::dAddUintMod(
+                    temp_t_gamma[gindex], 
+                    kernel_util::dBarrettReduce64(
+                        gamma - temp_t_gamma[coeff_count + gindex], *t), *t);
+            else
+                destination[gindex] = kernel_util::dSubUintMod(
+                    temp_t_gamma[gindex], 
+                    kernel_util::dBarrettReduce64(
+                        temp_t_gamma[coeff_count + gindex], *t), *t);
+            if (0 != destination[gindex])
+                destination[gindex] = kernel_util::dMultiplyUintMod(
+                    destination[gindex], inv_gamma_mod_t, *t);
+        }
+
+
+        void RNSToolCuda::decryptScaleAndRound(ConstDevicePointer<uint64_t> input, DevicePointer<uint64_t> destination) const
+        {
+            size_t base_q_size = base_q_->size();
+            size_t base_t_gamma_size = base_t_gamma_->size();
+
+            // FIXME: temporary array -> rnstoolcuda.
+            auto temp = DeviceArray<uint64_t>(coeff_count_ * base_q_size);
+            
+            KERNEL_CALL(gDecryptScaleAndRoundStepA, coeff_count_)(
+                input.get(), base_q_size, base_q_->base().get(),
+                coeff_count_, prod_t_gamma_mod_q_.get(), temp.get()
+            );
+
+            // FIXME: temporary array -> rnstoolcuda.
+            auto temp_t_gamma = DeviceArray<uint64_t>(coeff_count_ * base_t_gamma_size);
+
+            // Convert from q to {t, gamma}
+            base_q_to_t_gamma_conv_->fastConvertArray(temp.asPointer(), temp_t_gamma.asPointer(), coeff_count_);
+
+            gDecryptScaleAndRoundStepA<<<block_count, 256>>>(
+                temp_t_gamma.get(), base_t_gamma_size, base_t_gamma_->base().get(),
+                coeff_count_, neg_inv_q_mod_t_gamma_.get(), temp_t_gamma.get()
+            );
+
+            gDecryptScaleAndRoundStepB<<<block_count, 256>>>(
+                temp_t_gamma.get(), coeff_count_, gamma_.value(),
+                t_cuda_.get(), inv_gamma_mod_t_, destination.get()
+            );
+        }
+
+        __global__ void gModTAndDivideqLastInplace(
+            uint64_t* input,
+            size_t coeff_count,
+            size_t modulus_size,
+            const Modulus* base_q,
+            const Modulus* plain_modulus,
+            uint64_t inv_q_last_mod_t,
+            const MultiplyUIntModOperand* inv_q_last_mod_q
+        ) {
+            GET_INDEX_COND_RETURN(coeff_count);
+            uint64_t* last_input = input + (modulus_size - 1) * coeff_count;
+            uint64_t last_modulus_value = DeviceHelper::getModulusValue(base_q[modulus_size - 1]);
+            uint64_t neg_c_last_mod_t = kernel_util::dBarrettReduce64(last_input[gindex], *plain_modulus);
+            neg_c_last_mod_t = kernel_util::dNegateUintMod(neg_c_last_mod_t, *plain_modulus);
+            if (inv_q_last_mod_t != 1) {
+                neg_c_last_mod_t = kernel_util::dMultiplyScalarMod(neg_c_last_mod_t, inv_q_last_mod_t, *plain_modulus);
+            }
+            uint64_t delta_mod_q_i = 0;
+            FOR_N(i, modulus_size - 1) {
+                delta_mod_q_i = kernel_util::dBarrettReduce64(neg_c_last_mod_t, base_q[i]);
+                delta_mod_q_i = kernel_util::dMultiplyScalarMod(delta_mod_q_i, last_modulus_value, base_q[i]);
+                const uint64_t two_times_q_i = DeviceHelper::getModulusValue(base_q[i]) << 1;
+                input[i * coeff_count + gindex] += two_times_q_i - kernel_util::dBarrettReduce64(last_input[gindex], base_q[i]) - delta_mod_q_i;
+                input[i * coeff_count + gindex] = kernel_util::dMultiplyUintMod(input[i * coeff_count + gindex], inv_q_last_mod_q[i], base_q[i]);
+            }
+        }
+
+        void RNSToolCuda::modTAndDivideqLastInplace(DevicePointer<uint64_t> input) const {
+            
+            size_t modulus_size = base_q_->size();
+
+            KERNEL_CALL(gModTAndDivideqLastInplace, coeff_count_)(
+                input.get(), coeff_count_, modulus_size, base_q_->base().get(),
+                t_cuda_.get(), inv_q_last_mod_t_, inv_q_last_mod_q_.get()
+            );
+        }
+        
+
+        void RNSToolCuda::decryptModt(ConstDevicePointer<uint64_t> phase, DevicePointer<uint64_t> destination) const
+        {
+            // Use exact base convension rather than convert the base through the compose API
+            base_q_to_t_conv_->exactConvertArray(phase, destination, coeff_count_);
         }
 
     }

@@ -127,7 +127,7 @@ namespace troy {
 
 
         __device__ inline std::uint64_t dMultiplyUintModLazy(
-            std::uint64_t x, MultiplyUIntModOperand y, const Modulus &modulus)
+            std::uint64_t x, const MultiplyUIntModOperand& y, const Modulus &modulus)
         {
             uint64_t tmp1;
             const std::uint64_t p = DeviceHelper::getModulusValue(modulus);
@@ -354,6 +354,69 @@ namespace troy {
             return dBarrettReduce128(z, modulus);
         }
 
+        __device__ inline std::uint64_t dAddUintMod(
+            std::uint64_t operand1, std::uint64_t operand2, const Modulus &modulus)
+        {
+            // Sum of operands modulo Modulus can never wrap around 2^64
+            operand1 += operand2;
+            uint64_t modulus_value = DeviceHelper::getModulusValue(modulus);
+            return (operand1 >= modulus_value) ? (operand1 - modulus_value) : (operand1);
+        }
+
+        __device__ inline MultiplyUIntModOperand dSetMultiplyModOperand(uint64_t operand, const Modulus& modulus) {
+            MultiplyUIntModOperand ret;
+            ret.operand = operand;
+            std::uint64_t wide_quotient[2]{ 0, 0 };
+            std::uint64_t wide_coeff[2]{ 0, operand };
+            dDivideUint128Inplace(wide_coeff, DeviceHelper::getModulusValue(modulus), wide_quotient);
+            ret.quotient = wide_quotient[0];
+            return ret;
+        }
+
+
+        __device__ inline std::uint64_t dMultiplyAddUintMod(
+            std::uint64_t operand1, const MultiplyUIntModOperand& operand2, std::uint64_t operand3, const Modulus &modulus)
+        {
+            return dAddUintMod(
+                dMultiplyUintMod(operand1, operand2, modulus), dBarrettReduce64(operand3, modulus), modulus);
+            
+            // uint64_t tmp1, tmp2;
+            // const std::uint64_t p = DeviceHelper::getModulusValue(modulus);
+            // dMultiplyUint64HW64(x, y.quotient, &tmp1);
+            // // printf("%llu, %llu, %llu\n");
+            // printf("%llu\n", x);
+            // tmp2 = 0;
+            // return 0;
+        }
+
+        __device__ inline std::uint64_t dNegateUintMod(std::uint64_t operand, const Modulus &modulus)
+        {
+            std::int64_t non_zero = static_cast<std::int64_t>(operand != 0);
+            return (DeviceHelper::getModulusValue(modulus) - operand) & static_cast<std::uint64_t>(-non_zero);
+        }
+
+        __device__ inline uint64_t dMultiplyScalarMod(uint64_t operand, std::uint64_t scalar, const Modulus &modulus)
+        {
+            // Scalar must be first reduced modulo modulus
+            MultiplyUIntModOperand temp_scalar 
+                = dSetMultiplyModOperand(dBarrettReduce64(scalar, modulus), modulus);
+            return dMultiplyUintMod(operand, temp_scalar, modulus);
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         
         
@@ -390,19 +453,31 @@ namespace troy {
         );
 
         __global__ void gDyadicSquareCoeffmod(
-            uint64_t* operand,
+            const uint64_t* operand,
             size_t coeff_modulus_size,
             size_t poly_modulus_degree,
-            const Modulus* moduli
+            const Modulus* moduli,
+            uint64_t* output
         );
 
         void kDyadicSquareCoeffmod(
+            CPointer operand,
+            size_t coeff_modulus_size,
+            size_t poly_modulus_degree,
+            MPointer moduli,
+            Pointer output
+        );
+        
+
+        inline void kDyadicSquareCoeffmod(
             Pointer operand,
             size_t coeff_modulus_size,
             size_t poly_modulus_degree,
             MPointer moduli
-        );
-        
+        ) {
+            kDyadicSquareCoeffmod(operand, coeff_modulus_size, poly_modulus_degree,
+                moduli, operand);
+        }
 
         __global__ void gModBoundedUsingNttTables(
             uint64_t* operand,

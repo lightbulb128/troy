@@ -811,23 +811,18 @@ namespace troy
             Modulus last_modulus = (*base_q_)[base_q_size - 1];
             uint64_t half = last_modulus.value() >> 1;
             addPolyScalarCoeffmod(last_input, coeff_count_, half, last_modulus, last_input);
-
             // FIXME: allocate related action
             auto temp = HostArray<uint64_t>(coeff_count_);
             for (size_t i = 0; i < base_q_size - 1; i++) {
             // SEAL_ITERATE(iter(input, inv_q_last_mod_q_, base_q_->base()), base_q_size - 1, [&](auto I) {
-
                 const Modulus& b = base_q_->base()[i];
                 // (ct mod qk) mod qi
                 moduloPolyCoeffs(last_input, coeff_count_, b, temp.asPointer());
-
                 // Subtract rounding correction here; the negative sign will turn into a plus in the next subtraction
                 uint64_t half_mod = barrettReduce64(half, b);
                 subPolyScalarCoeffmod(temp.asPointer(), coeff_count_, half_mod, b, temp.asPointer());
-
                 // (ct mod qi) - (ct mod qk) mod qi
                 subPolyCoeffmod(input + i * coeff_count_, temp.asPointer(), coeff_count_, b, input + i * coeff_count_);
-
                 // qk^(-1) * ((ct mod qi) - (ct mod qk)) mod qi
                 multiplyPolyScalarCoeffmod(input + i * coeff_count_, coeff_count_, inv_q_last_mod_q_[i], b, input + i * coeff_count_);
             }
@@ -919,13 +914,16 @@ namespace troy
                 // Set up the multiplication helpers
                 MultiplyUIntModOperand prod_B_mod_q_elt;
                 prod_B_mod_q_elt.set(prod_B_mod_q_[i], b);
+                // printf("i=%lu, %llu, %llu\n", i, prod_B_mod_q_elt.operand, prod_B_mod_q_elt.quotient);
 
                 MultiplyUIntModOperand neg_prod_B_mod_q_elt;
                 neg_prod_B_mod_q_elt.set(b.value() - prod_B_mod_q_[i], b);
+                // printf("i=%lu, x %llu, %llu\n", i, neg_prod_B_mod_q_elt.operand, neg_prod_B_mod_q_elt.quotient);
 
                 for (size_t j = 0; j < coeff_count_; j++) {
                 // SEAL_ITERATE(iter(alpha_sk, get<2>(I)), coeff_count_, [&](auto J) {
                     uint64_t& dest = destination[i * coeff_count_ + j];
+                    // printf("i=%lu, j=%lu, dest=%llu, cp\n", i, j, dest);
                     // Correcting alpha_sk since it represents a negative value
                     if (alpha_sk[j] > m_sk_div_2)
                     {

@@ -53,7 +53,7 @@ namespace troy {
         }
 
         template <typename T>
-        static void retrieve(T* hostDestPtr, T* deviceFromPtr, size_t length) {
+        static void retrieve(T* hostDestPtr, const T* deviceFromPtr, size_t length) {
             checkInitialized();
             auto status = cudaMemcpy(hostDestPtr, deviceFromPtr, length * sizeof(T), cudaMemcpyDeviceToHost);
             if (status != cudaSuccess) 

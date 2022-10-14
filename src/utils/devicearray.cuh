@@ -34,9 +34,9 @@ template <typename T>
 class DevicePointer {
     friend class DeviceArray<T>;
     T* ptr;
-    DevicePointer(T* ptr): ptr(ptr) {}
 public:
-    DevicePointer(const DeviceArray<T>& r): ptr(r.get()) {}
+    DevicePointer(T* ptr): ptr(ptr) {}
+    DevicePointer(DeviceArray<T>& r): ptr(r.get()) {}
     DevicePointer() {
         ptr = nullptr;
     }

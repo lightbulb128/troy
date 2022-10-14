@@ -3,6 +3,7 @@
 #include "context.h"
 #include "encryptionparams_cuda.cuh"
 #include "utils/ntt_cuda.cuh"
+#include "utils/rns_cuda.cuh"
 
 namespace troy {
 
@@ -31,7 +32,8 @@ namespace troy {
                 coeff_modulus_mod_plain_modulus_(contextData.coeffModulusModPlainModulus()),
                 prev_context_data_(),
                 next_context_data_(nullptr),
-                chain_index_(contextData.chainIndex())
+                chain_index_(contextData.chainIndex()),
+                rns_tool_(new util::RNSToolCuda(*contextData.rns_tool_))
             {
                 size_t n = contextData.small_ntt_tables_.size();
                 small_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
@@ -64,13 +66,17 @@ namespace troy {
                 return plain_ntt_tables_.asPointer();
             }
 
+            inline const util::RNSToolCuda* rnsTool() const {
+                return rns_tool_.get();
+            }
+
 
         private:
 
             EncryptionParametersCuda parms_;
             EncryptionParameterQualifiers qualifiers_;
 
-            // TODO: util::HostObject<util::RNSToolCuda> rns_tool
+            util::HostObject<util::RNSToolCuda> rns_tool_;
             util::DeviceArray<util::NTTTablesCuda> small_ntt_tables_;
             util::DeviceArray<util::NTTTablesCuda> plain_ntt_tables_;
             util::HostArray<util::NTTTablesCuda> small_ntt_tables_support_;

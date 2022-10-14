@@ -169,6 +169,7 @@ namespace troy
 
         class RNSTool
         {
+            friend class RNSToolCuda;
         public:
             /**
             @throws std::invalid_argument if poly_modulus_degree is out of range, coeff_modulus is not valid, or pool is

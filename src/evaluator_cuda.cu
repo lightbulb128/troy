@@ -2,6 +2,8 @@
 
 namespace troy {
 
+    using namespace util;
+
     namespace {
 
         inline bool areClose(double value1, double value2) {
@@ -92,6 +94,19 @@ namespace troy {
                 }
             }
             return std::make_tuple(util::multiplyUintMod(e1, factor1, plain_modulus), e1, e2);
+        }
+
+        void printDeviceArray(const DeviceArray<uint64_t>& r, bool dont_compress = false) {
+            HostArray<uint64_t> start = r.toHost();
+            size_t count = r.size();
+            std::cout << "dev[";
+            for (size_t i = 0; i < count; i++) {
+                if (!dont_compress && i == 5 && count >= 10) 
+                    {i = count - 5; std::cout << "...";}
+                std::cout << std::hex << start[i];
+                if (i!=count-1) std::cout << ", ";
+            }
+            std::cout << "]\n";
         }
 
     }
@@ -211,7 +226,6 @@ namespace troy {
         auto context_data_ptr = context_.firstContextData();
         switch (context_data_ptr->parms().scheme()) {
         case SchemeType::bfv:
-            throw std::invalid_argument("bfv multiply not implemented");
             bfvMultiply(encrypted1, encrypted2);
             break;
 
@@ -243,11 +257,86 @@ namespace troy {
         size_t encrypted2_size = encrypted2.size();
         uint64_t plain_modulus = parms.plainModulus().value();
 
-        // auto rns_tool = context_data.rnsTool();
-        // size_t base_Bsk_size = rns_tool->baseBsk()->size();
-        // size_t base_Bsk_m_tilde_size = rns_tool->baseBskmTilde()->size();
+        auto rns_tool = context_data.rnsTool();
+        size_t base_Bsk_size = rns_tool->baseBsk()->size();
+        size_t base_Bsk_m_tilde_size = rns_tool->baseBskmTilde()->size();
 
-        // size_t dest_size = encrypted1_size + encrypted2_size - 1;
+        size_t dest_size = encrypted1_size + encrypted2_size - 1;
+
+        auto base_q = parms.coeffModulus().get();
+        auto base_Bsk = rns_tool->baseBsk()->base();
+        
+        auto base_q_ntt_tables = context_data.smallNTTTables();
+        auto base_Bsk_ntt_tables = rns_tool->baseBskNttTables();
+
+        auto coeff_power = util::getPowerOfTwo(coeff_count);
+        
+        encrypted1.resize(context_, context_data.parmsID(), dest_size);
+        
+        auto encrypted1_q = kernel_util::kAllocate(encrypted1_size, coeff_count, base_q_size);
+        auto encrypted1_Bsk = kernel_util::kAllocate(encrypted1_size, coeff_count, base_Bsk_size);
+        
+        auto encrypted2_q = kernel_util::kAllocate(encrypted2_size, coeff_count, base_q_size);
+        auto encrypted2_Bsk = kernel_util::kAllocate(encrypted2_size, coeff_count, base_Bsk_size);
+
+        auto temp = kernel_util::kAllocate(coeff_count, base_Bsk_m_tilde_size);
+        for (size_t i = 0; i < encrypted1_size; i++) {
+            kernel_util::kSetPolyArray(encrypted1.data(i), 1, base_q_size, coeff_count, encrypted1_q.get() + i * coeff_count * base_q_size);
+            kernel_util::kNttNegacyclicHarveyLazy(encrypted1_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
+            rns_tool->fastbconvmTilde(encrypted1.data(i), temp.asPointer());
+            rns_tool->smMrq(temp.asPointer(), encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size);
+            kernel_util::kNttNegacyclicHarveyLazy(encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+        }
+        for (size_t i = 0; i < encrypted2_size; i++) {
+            kernel_util::kSetPolyArray(encrypted2.data(i), 1, base_q_size, coeff_count, encrypted2_q.get() + i * coeff_count * base_q_size);
+            kernel_util::kNttNegacyclicHarveyLazy(encrypted2_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
+            rns_tool->fastbconvmTilde(encrypted2.data(i), temp.asPointer());
+            rns_tool->smMrq(temp.asPointer(), encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size);
+            kernel_util::kNttNegacyclicHarveyLazy(encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+        }
+
+        auto temp_dest_q = kernel_util::kAllocateZero(dest_size, coeff_count, base_q_size);
+        auto temp_dest_Bsk = kernel_util::kAllocateZero(dest_size, coeff_count, base_Bsk_size);
+
+        for (size_t i = 0; i < dest_size; i++) {
+            size_t curr_encrypted1_last = std::min<size_t>(i, encrypted1_size - 1);
+            size_t curr_encrypted2_first = std::min<size_t>(i, encrypted2_size - 1);
+            size_t curr_encrypted1_first = i - curr_encrypted2_first;
+            size_t steps = curr_encrypted1_last - curr_encrypted1_first + 1;
+
+            {
+                size_t d = coeff_count * base_q_size;
+                auto shifted_in1_iter = encrypted1_q + curr_encrypted1_first * d;
+                auto shifted_reversed_in2_iter = encrypted2_q + curr_encrypted2_first * d;
+                auto shifted_out_iter = temp_dest_q + i * d;
+                kernel_util::kDyadicConvolutionCoeffmod(shifted_in1_iter, shifted_reversed_in2_iter, steps, base_q_size, coeff_count,
+                    base_q, shifted_out_iter);
+            }
+            {
+                size_t d = coeff_count * base_Bsk_size;
+                auto shifted_in1_iter = encrypted1_Bsk + curr_encrypted1_first * d;
+                auto shifted_reversed_in2_iter = encrypted2_Bsk + curr_encrypted2_first * d;
+                auto shifted_out_iter = temp_dest_Bsk + i * d;
+                kernel_util::kDyadicConvolutionCoeffmod(shifted_in1_iter, shifted_reversed_in2_iter, steps, base_Bsk_size, coeff_count,
+                    base_Bsk, shifted_out_iter);
+            }
+        }
+
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_q.asPointer(), dest_size, base_q_size, coeff_power, base_q_ntt_tables);
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_Bsk.asPointer(), dest_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+
+        auto temp_q_Bsk = kernel_util::kAllocate(coeff_count, base_q_size + base_Bsk_size);
+        auto temp_Bsk = kernel_util::kAllocate(coeff_count, base_Bsk_size);
+        for (size_t i = 0; i < dest_size; i++) {
+            kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_q + i * coeff_count * base_q_size, 
+                1, base_q_size, coeff_count, 
+                plain_modulus, base_q, temp_q_Bsk);
+            kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_Bsk + i * coeff_count * base_Bsk_size, 
+                1, base_Bsk_size, coeff_count, 
+                plain_modulus, base_Bsk, temp_q_Bsk + base_q_size * coeff_count);
+            rns_tool->fastFloor(temp_q_Bsk.asPointer(), temp_Bsk.asPointer());
+            rns_tool->fastbconvSk(temp_Bsk.asPointer(), encrypted1.data(i));
+        }
 
     }
     
@@ -275,19 +364,11 @@ namespace troy {
         auto temp = kernel_util::kAllocateZero(dest_size, coeff_count, coeff_modulus_size);
 
         for (size_t i = 0; i < dest_size; i++) {
-
-            
             size_t curr_encrypted1_last = std::min<size_t>(i, encrypted1_size - 1);
             size_t curr_encrypted2_first = std::min<size_t>(i, encrypted2_size - 1);
             size_t curr_encrypted1_first = i - curr_encrypted2_first;
-            // size_t curr_encrypted2_last = secret_power_index - curr_encrypted1_last;
-
-            // The total number of dyadic products is now easy to compute
             size_t steps = curr_encrypted1_last - curr_encrypted1_first + 1;
-
             auto shifted_encrypted1_iter = encrypted1.data(curr_encrypted1_first);
-
-            // Create a shifted reverse iterator for the second input
             auto shifted_reversed_encrypted2_iter = encrypted2.data(curr_encrypted2_first);
 
             kernel_util::kDyadicConvolutionCoeffmod(
@@ -314,8 +395,7 @@ namespace troy {
         switch (context_data_ptr->parms().scheme())
         {
         case SchemeType::bfv:
-            // bfvSquare(encrypted);
-            throw std::invalid_argument("bfv square not implemented");
+            bfvSquare(encrypted);
             break;
 
         case SchemeType::ckks:
@@ -332,7 +412,80 @@ namespace troy {
         }
     }
 
-    
+    void EvaluatorCuda::bfvSquare(CiphertextCuda &encrypted) const
+    {
+        if (encrypted.isNttForm())
+        {
+            throw std::invalid_argument("encrypted cannot be in NTT form");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_.getContextData(encrypted.parmsID());
+        auto &parms = context_data.parms();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t base_q_size = parms.coeffModulus().size();
+        size_t encrypted_size = encrypted.size();
+        uint64_t plain_modulus = parms.plainModulus().value();
+
+        auto rns_tool = context_data.rnsTool();
+        size_t base_Bsk_size = rns_tool->baseBsk()->size();
+        size_t base_Bsk_m_tilde_size = rns_tool->baseBskmTilde()->size();
+
+        if (encrypted_size != 2)
+        {
+            bfvMultiply(encrypted, encrypted);
+            return;
+        }
+
+        size_t dest_size = encrypted_size * 2 - 1;
+        size_t coeff_power = util::getPowerOfTwo(coeff_count);
+
+        auto base_q = parms.coeffModulus().get();
+        auto base_Bsk = rns_tool->baseBsk()->base();
+
+        auto base_q_ntt_tables = context_data.smallNTTTables();
+        auto base_Bsk_ntt_tables = rns_tool->baseBskNttTables();
+
+        encrypted.resize(context_, context_data.parmsID(), dest_size);
+
+        auto encrypted_q = kernel_util::kAllocate(encrypted_size, coeff_count, base_q_size);
+        auto encrypted_Bsk = kernel_util::kAllocate(encrypted_size, coeff_count, base_Bsk_size);
+        
+        // FIXME: temporary array
+        auto temp = kernel_util::kAllocate(coeff_count, base_Bsk_m_tilde_size);
+        for (size_t i = 0; i < encrypted_size; i++) {
+            kernel_util::kSetPolyArray(encrypted.data(i), 1, base_q_size, coeff_count, encrypted_q.get() + i * coeff_count * base_q_size);
+            kernel_util::kNttNegacyclicHarveyLazy(encrypted_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
+            rns_tool->fastbconvmTilde(encrypted.data(i), temp.asPointer());
+            rns_tool->smMrq(temp.asPointer(), encrypted_Bsk.get() + i * coeff_count * base_Bsk_size);
+            kernel_util::kNttNegacyclicHarveyLazy(encrypted_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+        }
+
+        // printf("encrypted_q = "); printDeviceArray(encrypted_q);
+        // printf("encrypted_Bsk = "); printDeviceArray(encrypted_Bsk);
+
+        auto temp_dest_q = kernel_util::kAllocateZero(dest_size, coeff_count, base_q_size);
+        auto temp_dest_Bsk = kernel_util::kAllocateZero(dest_size, coeff_count, base_Bsk_size);
+
+        kernel_util::kDyadicSquareCoeffmod(encrypted_q, base_q_size, coeff_count, base_q, temp_dest_q);
+        kernel_util::kDyadicSquareCoeffmod(encrypted_Bsk, base_Bsk_size, coeff_count, base_Bsk, temp_dest_Bsk);
+
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_q.asPointer(), dest_size, base_q_size, coeff_power, base_q_ntt_tables);
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_Bsk.asPointer(), dest_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+
+        auto temp_q_Bsk = kernel_util::kAllocate(coeff_count, base_q_size + base_Bsk_size);
+        auto temp_Bsk = kernel_util::kAllocate(coeff_count, base_Bsk_size);
+        for (size_t i = 0; i < dest_size; i++) {
+            kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_q + i * coeff_count * base_q_size, 
+                1, base_q_size, coeff_count, 
+                plain_modulus, base_q, temp_q_Bsk);
+            kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_Bsk + i * coeff_count * base_Bsk_size, 
+                1, base_Bsk_size, coeff_count, 
+                plain_modulus, base_Bsk, temp_q_Bsk + base_q_size * coeff_count);
+            rns_tool->fastFloor(temp_q_Bsk.asPointer(), temp_Bsk.asPointer());
+            rns_tool->fastbconvSk(temp_Bsk.asPointer(), encrypted.data(i));
+        }
+    }
 
     void EvaluatorCuda::ckksSquare(CiphertextCuda &encrypted) const
     {

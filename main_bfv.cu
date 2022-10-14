@@ -288,7 +288,7 @@ void test_ckks() {
         printVector(retrieved, true);
     }
 
-    if (true) { // test base converter exact convert
+    if (false) { // test base converter exact convert
         BaseConverter bctcpu(RNSBase({ 3, 4, 5 }), RNSBase({ 7 }));
         BaseConverterCuda bct(bctcpu);
         HostArray<uint64_t> rcpu({ 0, 1, 2, 0, 3, 1, 0, 2, 0  });
@@ -302,12 +302,209 @@ void test_ckks() {
         printVector(routcpu, true);
     }
 
+    if (false) {
+        size_t poly_modulus_degree = 2;
+        Modulus plain_t = 0;
+        RNSTool rns_tool_cpu(poly_modulus_degree, RNSBase({ 3, 5, 7, 11 }), plain_t);
+        RNSToolCuda rns_tool(rns_tool_cpu);
+        HostArray<uint64_t> rcpu({0,1,0,0,4,0,5,4});
+        DeviceArray<uint64_t> r(rcpu);
+        std::cout << "before divide\n";
+        rns_tool.divideAndRoundqLastInplace(r.asPointer());
+        rns_tool_cpu.divideAndRoundqLastInplace(rcpu.asPointer());
+        std::cout << "after divide\n";
+        HostArray<uint64_t> in = r.toHost();
+        printVector(in);
+        printVector(rcpu);
+    }
+
+    if (false) {
+        size_t poly_modulus_degree = 2;
+        HostArray<NTTTables> nttcpu(2);
+            nttcpu[0] = std::move(NTTTables{ 1, Modulus(53) });
+            nttcpu[1] = std::move(NTTTables{ 1, Modulus(13) });
+        HostArray<NTTTablesCuda> nttsupport(2);
+            nttsupport[0] = NTTTablesCuda(nttcpu[0]);
+            nttsupport[1] = NTTTablesCuda(nttcpu[1]);
+        DeviceArray<NTTTablesCuda> ntt(nttsupport);
+        Modulus plain_t = 0;
+        RNSTool rnscpu(poly_modulus_degree, RNSBase({ 53, 13 }), plain_t);
+        RNSToolCuda rns(rnscpu);
+        HostArray<uint64_t> incpu({25, 35, 12, 9});
+        DeviceArray<uint64_t> in(incpu);
+
+        rnscpu.divideAndRoundqLastNttInplace(incpu.asPointer(), nttcpu.get());
+        rns   .divideAndRoundqLastNttInplace(in.asPointer(), ntt.asPointer());
+
+        auto ret = in.toHost();
+        printVector(ret);
+        printVector(incpu);
+    }
+
+    if (false) { // test fastbconbsk
+        size_t poly_modulus_degree = 2;
+        Modulus plain_t = 0;
+        RNSTool rnscpu(poly_modulus_degree, RNSBase({ 3, 5 }), plain_t);
+        RNSToolCuda rns(rnscpu);
+        vector<uint64_t> in(poly_modulus_degree * rnscpu.baseBsk()->size());
+        vector<uint64_t> out(poly_modulus_degree * rnscpu.baseq()->size());
+
+        in[0] = 1;
+        in[1] = 2;
+        in[2] = 1;
+        in[3] = 2;
+        in[4] = 1;
+        in[5] = 2;
+
+        HostArray<uint64_t> rcpu(in);
+        DeviceArray<uint64_t> r(rcpu);
+        HostArray<uint64_t> dcpu(out);
+        DeviceArray<uint64_t> d(4);
+
+        rnscpu.fastbconvSk(rcpu.get(), dcpu.get());
+        rns.fastbconvSk(r.asPointer(), d.asPointer());
+
+        printf("dsize = %ld\n", d.size());
+        auto retrieve = d.toHost();
+        printVector(retrieve);
+        // expect {1,2,1,2}
+    }
+
+    if (false) { // test smmrq
+        size_t poly_modulus_degree = 2;
+        Modulus plain_t = 0;
+        RNSTool rnscpu(poly_modulus_degree, RNSBase({ 3, 5 }), plain_t);
+        RNSToolCuda rns(rnscpu);
+        vector<uint64_t> in(poly_modulus_degree * rnscpu.baseBskmTilde()->size());
+        vector<uint64_t> out(poly_modulus_degree * rnscpu.baseBsk()->size());
+
+        in[0] = rnscpu.mTilde().value();
+        in[1] = 2 * rnscpu.mTilde().value();
+        in[2] = rnscpu.mTilde().value();
+        in[3] = 2 * rnscpu.mTilde().value();
+        in[4] = rnscpu.mTilde().value();
+        in[5] = 2 * rnscpu.mTilde().value();
+        in[6] = 0;
+        in[7] = 0;
+
+        HostArray<uint64_t> rcpu(in);
+        DeviceArray<uint64_t> r(rcpu);
+        HostArray<uint64_t> dcpu(out);
+        DeviceArray<uint64_t> d(6);
+
+        rnscpu.smMrq(rcpu.get(), dcpu.get());
+        rns.smMrq(r.asPointer(), d.asPointer());
+
+        printf("dsize = %ld\n", d.size());
+        auto retrieve = d.toHost();
+        printVector(retrieve);
+    }
+
+    
+
+    if (false) { // test fastfloor
+        size_t poly_modulus_degree = 2;
+        Modulus plain_t = 0;
+        RNSTool rnscpu(poly_modulus_degree, RNSBase({ 3, 5 }), plain_t);
+        RNSToolCuda rns(rnscpu);
+        vector<uint64_t> in(poly_modulus_degree * (rnscpu.baseBsk()->size() + rnscpu.baseq()->size()));
+        vector<uint64_t> out(poly_modulus_degree * rnscpu.baseBsk()->size());
+
+        in[0] = 21;
+        in[1] = 32;
+        in[2] = 21;
+        in[3] = 32;
+        in[4] = 21;
+        in[5] = 32;
+        in[6] = 21;
+        in[7] = 32;
+        in[8] = 21;
+        in[9] = 32;
+
+        HostArray<uint64_t> rcpu(in);
+        DeviceArray<uint64_t> r(rcpu);
+        HostArray<uint64_t> dcpu(out);
+        DeviceArray<uint64_t> d(6);
+
+        rnscpu.fastFloor(rcpu.get(), dcpu.get());
+        rns.fastFloor(r.asPointer(), d.asPointer());
+
+        printf("dsize = %ld\n", d.size());
+        auto retrieve = d.toHost();
+        printVector(dcpu);
+        printVector(retrieve);
+    }
+    
+
+    if (false) { // test fastbconvm tilde
+        size_t poly_modulus_degree = 2;
+        size_t coeff_modulus_size = 2;
+        Modulus plain_t = 0;
+        RNSTool rnscpu(poly_modulus_degree, RNSBase({ 3, 5 }), plain_t);
+        RNSToolCuda rns(rnscpu);
+        vector<uint64_t> in(poly_modulus_degree * coeff_modulus_size);
+        vector<uint64_t> out(poly_modulus_degree * rnscpu.baseBskmTilde()->size());
+
+
+        in[0] = 1;
+        in[1] = 1;
+        in[2] = 2;
+        in[3] = 2;
+
+        HostArray<uint64_t> rcpu(in);
+        DeviceArray<uint64_t> r(rcpu);
+        HostArray<uint64_t> dcpu(out);
+        DeviceArray<uint64_t> d(dcpu.size());
+
+        rnscpu.fastbconvmTilde(rcpu.get(), dcpu.get());
+        rns.fastbconvmTilde(r.asPointer(), d.asPointer());
+
+        printf("dsize = %ld\n", d.size());
+        auto retrieve = d.toHost();
+        printVector(dcpu);
+        printVector(retrieve);
+    }
+
+
+    
+
+    if (false) { // test decryptScaleAndRound
+        size_t poly_modulus_degree = 2;
+        Modulus plain_t = 3;
+        RNSTool rnscpu(poly_modulus_degree, RNSBase({ 5, 7 }), plain_t);
+        RNSToolCuda rns(rnscpu);
+        vector<uint64_t> in(poly_modulus_degree * rnscpu.baseBsk()->size());
+        vector<uint64_t> out(poly_modulus_degree * rnscpu.baseq()->size());
+
+            in[0] = 29;
+            in[1] = 30 + 35;
+            in[2] = 29;
+            in[3] = 30 + 35;
+
+        HostArray<uint64_t> rcpu(in);
+        DeviceArray<uint64_t> r(rcpu);
+        HostArray<uint64_t> dcpu(out);
+        DeviceArray<uint64_t> d(dcpu.size());
+
+        rnscpu.decryptScaleAndRound(rcpu.get(), dcpu.get());
+        rns.decryptScaleAndRound(r.asPointer(), d.asPointer());
+
+        printf("dsize = %ld\n", d.size());
+        auto retrieve = d.toHost();
+        printVector(dcpu);
+        printVector(retrieve);
+    }
+
+
     if (false) { // BFV multiply inplace
         auto message1 = randomVector(slot_size, data_bound);
         auto message2 = randomVector(slot_size, data_bound);
+        printf("before encrypt\n");
         auto cipher1 = ENCRYPT(message1);
         auto cipher2 = ENCRYPT(message2);
+        printf("after encrypt\n");
         c_evaluator.multiplyInplace(cipher1, cipher2);
+        printf("after mul\n");
         auto mmul = DECRYPT(cipher1);
         auto mexpect = multiplyVector(message1, message2);
         printVector(message1, false);
@@ -316,7 +513,7 @@ void test_ckks() {
         printVector(mexpect, false);
     }
 
-    if (false) { // BFV square inplace
+    if (true) { // BFV square inplace
         auto message = randomVector(slot_size, data_bound);
         CiphertextCuda c1 = encryptCuda(context, encoder, encryptor, message);
         c_evaluator.squareInplace(c1);

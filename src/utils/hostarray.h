@@ -71,7 +71,7 @@ public:
         ptr = move.ptr; move.ptr = nullptr;
         return *this;
     }
-    bool isNull() {return ptr == nullptr;}
+    bool isNull() const {return ptr == nullptr;}
     const T* get() const {return ptr;}
     T* get() {return ptr;}
     ~HostObject() {

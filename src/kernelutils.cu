@@ -131,10 +131,11 @@ namespace troy {
         }
 
         __global__ void gDyadicSquareCoeffmod(
-            uint64_t* operand,
+            const uint64_t* operand,
             size_t coeff_modulus_size,
             size_t poly_modulus_degree,
-            const Modulus* moduli
+            const Modulus* moduli,
+            uint64_t* output
         ) {
             GET_INDEX_COND_RETURN(poly_modulus_degree);
             size_t d = coeff_modulus_size * poly_modulus_degree;
@@ -143,23 +144,24 @@ namespace troy {
                 const uint64_t const_ratio_0 = DeviceHelper::getModulusConstRatio(moduli[rns_index])[0];
                 const uint64_t const_ratio_1 = DeviceHelper::getModulusConstRatio(moduli[rns_index])[1];
                 size_t id = rns_index * poly_modulus_degree + gindex;
-                operand[2 * d + id] = dDyadicSingle(operand[1 * d + id], operand[1 * d + id], modulus_value, const_ratio_0, const_ratio_1);
+                output[2 * d + id] = dDyadicSingle(operand[1 * d + id], operand[1 * d + id], modulus_value, const_ratio_0, const_ratio_1);
                 uint64_t cross = dDyadicSingle(operand[0 * d + id], operand[1 * d + id], modulus_value, const_ratio_0, const_ratio_1);
                 cross += cross;
-                operand[1 * d + id] = cross >= modulus_value ? cross-modulus_value : cross;
-                operand[0 * d + id] = dDyadicSingle(operand[0 * d + id], operand[0 * d + id], modulus_value, const_ratio_0, const_ratio_1);
+                output[1 * d + id] = cross >= modulus_value ? cross-modulus_value : cross;
+                output[0 * d + id] = dDyadicSingle(operand[0 * d + id], operand[0 * d + id], modulus_value, const_ratio_0, const_ratio_1);
             }
         }
 
         void kDyadicSquareCoeffmod(
-            Pointer operand,
+            CPointer operand,
             size_t coeff_modulus_size,
             size_t poly_modulus_degree,
-            MPointer moduli
+            MPointer moduli,
+            Pointer output
         ) {
             KERNEL_CALL(gDyadicSquareCoeffmod, poly_modulus_degree)(
                 operand.get(), coeff_modulus_size, poly_modulus_degree,
-                moduli.get()
+                moduli.get(), output.get()
             );
         }
 

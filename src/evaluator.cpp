@@ -913,6 +913,9 @@ namespace troy
             nttNegacyclicHarveyLazy(encrypted_Bsk.get() + i * coeff_count * base_Bsk_size, base_Bsk_size, base_Bsk_ntt_tables);
         }
 
+        
+
+
         // Allocate temporary space for the output of step (4)
         // We allocate space separately for the base q and the base Bsk components
         auto temp_dest_q = allocateZeroPolyArray(dest_size, coeff_count, base_q_size);
