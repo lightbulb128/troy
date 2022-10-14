@@ -201,7 +201,7 @@ void test_ckks() {
 
     }
 
-    if (true) { // BGV negate inplace
+    if (false) { // BGV negate inplace
         auto message = randomVector(slot_size, data_bound);
         CiphertextCuda c1 = encryptCuda(context, encoder, encryptor, message);
         c_evaluator.negateInplace(c1);
@@ -228,7 +228,7 @@ void test_ckks() {
         printVector(mexpect, false);
     }
 
-    if (false) { // BGV square inplace
+    if (true) { // BGV square inplace
         auto message = randomVector(slot_size, data_bound);
         CiphertextCuda c1 = encryptCuda(context, encoder, encryptor, message);
         c_evaluator.squareInplace(c1);

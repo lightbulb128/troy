@@ -25,6 +25,8 @@ namespace troy {
             correction_factor_(host.correction_factor_),
             data_(host.data_) {}
 
+        CiphertextCuda(const CiphertextCuda& copy) = default;
+
         Ciphertext cpu() const {
             Ciphertext ret;
             ret.parms_id_ = parms_id_;
@@ -64,6 +66,8 @@ namespace troy {
         inline bool isNttForm() const noexcept {return is_ntt_form_;}
         inline double& scale() noexcept {return scale_;}
         inline double scale() const noexcept {return scale_;}
+        inline const util::DeviceDynamicArray<ct_coeff_type>& dynArray() const {return data_;}
+        inline util::DeviceDynamicArray<ct_coeff_type>& dynArray() {return data_;}
 
     private:
 

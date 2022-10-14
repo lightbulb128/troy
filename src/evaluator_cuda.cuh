@@ -23,8 +23,10 @@ namespace troy {
 
         void bfvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
         void ckksMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
+        void bgvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
         void bfvSquare(CiphertextCuda &encrypted) const;
         void ckksSquare(CiphertextCuda& encrypted) const;
+        void bgvSquare(CiphertextCuda& encrypted) const;
 
         EvaluatorCuda(const EvaluatorCuda&) = delete;
         EvaluatorCuda(EvaluatorCuda&&) = delete;

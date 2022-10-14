@@ -546,7 +546,7 @@ namespace troy {
             size_t poly_modulus_degree_power,
             ConstDevicePointer<NTTTablesCuda> ntt_tables)
         {
-            kNttNegacyclicHarvey(
+            kNttNegacyclicHarveyLazy(
                 operand, poly_size, coeff_modulus_size,
                 poly_modulus_degree_power, ntt_tables
             );

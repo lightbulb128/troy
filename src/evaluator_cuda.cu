@@ -1,5 +1,8 @@
 #include "evaluator_cuda.cuh"
 
+using std::invalid_argument;
+using std::logic_error;
+
 namespace troy {
 
     using namespace util;
@@ -234,8 +237,7 @@ namespace troy {
             break;
 
         case SchemeType::bgv:
-            throw std::invalid_argument("bgv multiply not implemented");
-            // bgvMultiply(encrypted1, encrypted2);
+            bgvMultiply(encrypted1, encrypted2);
             break;
 
         default:
@@ -390,6 +392,74 @@ namespace troy {
 
     }
 
+
+    void EvaluatorCuda::bgvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const
+    {
+        if (encrypted1.isNttForm() || encrypted2.isNttForm())
+        {
+            throw std::invalid_argument("encryped1 or encrypted2 must be not in NTT form");
+        }
+
+        auto &context_data = *context_.getContextData(encrypted1.parmsID());
+        auto &parms = context_data.parms();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = parms.coeffModulus().size();
+        size_t encrypted1_size = encrypted1.size();
+        size_t encrypted2_size = encrypted2.size();
+        auto ntt_table = context_data.smallNTTTables();
+
+        size_t dest_size = encrypted1_size + encrypted2_size - 1;
+
+        // Set up iterator for the base
+        auto coeff_modulus = parms.coeffModulus().get();
+
+        // Prepare destination
+        encrypted1.resize(context_, context_data.parmsID(), dest_size);
+
+        size_t coeff_power = getPowerOfTwo(coeff_count);
+
+        // Convert c0 and c1 to ntt
+        // Set up iterators for input ciphertexts
+        DevicePointer<uint64_t> encrypted1_iter = encrypted1.data();
+        kernel_util::kNttNegacyclicHarvey(encrypted1.data(), encrypted1_size, coeff_modulus_size, coeff_power, ntt_table);
+        DevicePointer<uint64_t> encrypted2_iter;
+        CiphertextCuda encrypted2_cpy;
+        if (&encrypted1 == &encrypted2)
+        {
+            encrypted2_iter = encrypted1.data();
+        }
+        else
+        {
+            encrypted2_cpy = encrypted2;
+            kernel_util::kNttNegacyclicHarvey(encrypted2_cpy.data(), encrypted2_size, coeff_modulus_size, coeff_power, ntt_table);
+            encrypted2_iter = encrypted2_cpy.data();
+        }
+
+        // Allocate temporary space for the result
+        auto temp = kernel_util::kAllocateZero(dest_size, coeff_count, coeff_modulus_size);
+
+        for (size_t i = 0; i < dest_size; i++) {
+            size_t curr_encrypted1_last = std::min<size_t>(i, encrypted1_size - 1);
+            size_t curr_encrypted2_first = std::min<size_t>(i, encrypted2_size - 1);
+            size_t curr_encrypted1_first = i - curr_encrypted2_first;
+            size_t steps = curr_encrypted1_last - curr_encrypted1_first + 1;
+
+            size_t d = coeff_count * coeff_modulus_size;
+            auto shifted_encrypted1_iter = encrypted1_iter + curr_encrypted1_first * d;
+            auto shifted_reversed_encrypted2_iter = encrypted2_iter + curr_encrypted2_first * d;
+
+            kernel_util::kDyadicConvolutionCoeffmod(
+                shifted_encrypted1_iter, shifted_reversed_encrypted2_iter, steps,
+                coeff_modulus_size, coeff_count, coeff_modulus, temp + i * d
+            );
+        }
+
+        kernel_util::kSetPolyArray(temp.get(), dest_size, coeff_modulus_size, coeff_count, encrypted1.data());
+        kernel_util::kInverseNttNegacyclicHarvey(encrypted1.data(), encrypted1.size(), coeff_modulus_size, coeff_power, ntt_table);
+        encrypted1.correctionFactor() =
+            multiplyUintMod(encrypted1.correctionFactor(), encrypted2.correctionFactor(), parms.plainModulus());
+    }
+
     void EvaluatorCuda::squareInplace(CiphertextCuda& encrypted) const {
         auto context_data_ptr = context_.firstContextData();
         switch (context_data_ptr->parms().scheme())
@@ -403,8 +473,7 @@ namespace troy {
             break;
 
         case SchemeType::bgv:
-            // bgvSquare(encrypted);
-            throw std::invalid_argument("bgv square not implemented");
+            bgvSquare(encrypted);
             break;
 
         default:
@@ -530,6 +599,61 @@ namespace troy {
         {
             throw std::invalid_argument("scale out of bounds");
         }
+    }
+
+
+    void EvaluatorCuda::bgvSquare(CiphertextCuda &encrypted) const
+    {
+        if (encrypted.isNttForm())
+        {
+            throw invalid_argument("encrypted cannot be in NTT form");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_.getContextData(encrypted.parmsID());
+        auto &parms = context_data.parms();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = parms.coeffModulus().size();
+        size_t encrypted_size = encrypted.size();
+        auto ntt_table = context_data.smallNTTTables();
+
+        // Optimization implemented currently only for size 2 ciphertexts
+        if (encrypted_size != 2)
+        {
+            bgvMultiply(encrypted, encrypted);
+            return;
+        }
+
+        // Determine destination.size()
+        // Default is 3 (c_0, c_1, c_2)
+        size_t dest_size = encrypted_size * 2 - 1;
+        size_t coeff_power = util::getPowerOfTwo(coeff_count);
+
+        // Set up iterator for the base
+        auto coeff_modulus = parms.coeffModulus().get();
+
+        // Prepare destination
+        encrypted.resize(context_, context_data.parmsID(), dest_size);
+
+        // Convert c0 and c1 to ntt
+        kernel_util::kNttNegacyclicHarvey(encrypted.data(), encrypted_size, coeff_modulus_size, coeff_power, ntt_table);
+
+        // Set up iterators for input ciphertext
+        auto encrypted_iter = encrypted.data();
+
+        auto temp = kernel_util::kAllocateZero(dest_size, coeff_count, coeff_modulus_size);
+
+        kernel_util::kDyadicSquareCoeffmod(encrypted_iter.get(), coeff_modulus_size, coeff_count, coeff_modulus, temp);
+
+        // Set the final result
+        kernel_util::kSetPolyArray(temp.get(), dest_size, coeff_count, coeff_modulus_size, encrypted.data());
+
+        // Convert the final output to Non-NTT form
+        kernel_util::kInverseNttNegacyclicHarvey(encrypted.data(), dest_size, coeff_modulus_size, coeff_power, ntt_table);
+
+        // Set the correction factor
+        encrypted.correctionFactor() =
+            multiplyUintMod(encrypted.correctionFactor(), encrypted.correctionFactor(), parms.plainModulus());
     }
 
 }
