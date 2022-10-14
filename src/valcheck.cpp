@@ -209,7 +209,8 @@ namespace troy
         // Check that the buffer size is correct
         if (in.dynArray().size() != mul_safe(in.size(), mul_safe(in.coeffModulusSize(), in.polyModulusDegree())))
         {
-            std::cout << "buffer not valid\n"; // TODO: delete this
+            std::cout << "buffer not valid " << std::dec << in.dynArray().size() 
+                << " against " << mul_safe(in.size(), mul_safe(in.coeffModulusSize(), in.polyModulusDegree())) << "\n"; // TODO: delete this
             return false;
         }
 

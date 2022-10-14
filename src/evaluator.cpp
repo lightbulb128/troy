@@ -2400,7 +2400,7 @@ namespace troy
 
         for (size_t i = 0; i < rns_modulus_size; i++) {
             
-            // std::cout << "ski i = " << i << std::endl;
+            // std::cout << "i = " << i << std::endl;
             size_t key_index = (i == decomp_modulus_size ? key_modulus_size - 1 : i);
 
             // Product of two numbers is up to 60 + 60 = 120 bits, so we can sum up to 256 of them without reduction.
@@ -2431,20 +2431,23 @@ namespace troy
                     // No need to perform RNS conversion (modular reduction)
                     if (key_modulus[j] <= key_modulus[key_index])
                     {
+                        // printf("branch a - ");
                         setUint(t_target.get() + j * coeff_count, coeff_count, t_ntt.get());
                     }
                     // Perform RNS conversion (modular reduction)
                     else
                     {
+                        // printf("branch b - ");
                         moduloPolyCoeffs(t_target.get() + j * coeff_count, coeff_count, key_modulus[key_index], t_ntt.get());
                     }
+                    // printArray(t_ntt.get(), coeff_count);
                     // NTT conversion lazy outputs in [0, 4q)
                     nttNegacyclicHarveyLazy(t_ntt.get(), key_ntt_tables[key_index]);
                     t_operand = t_ntt.get();
                 }
 
-                // std::cout << "j = " << j << std::endl;
-                // std::cout << "t_operand: "; printArray(t_operand.get(), coeff_count);
+                // std::cout << "  j = " << j << std::endl;
+                // std::cout << "  t_operand: "; printArray(t_operand.get(), coeff_count);
 
                 // Multiply with keys and modular accumulate products in a lazy fashion
                 for (size_t k = 0; k < key_component_count; k++) {
@@ -2486,7 +2489,7 @@ namespace troy
             }
 
             // std::cout << "  t_poly_lazy: ";
-            // printArray(t_poly_lazy, true);
+            // printArray(t_poly_lazy);
 
             // PolyIter pointing to the destination t_poly_prod, shifted to the appropriate modulus
             auto t_poly_prod_iter = t_poly_prod.get() + i * coeff_count;
@@ -2618,8 +2621,6 @@ namespace troy
                     for (size_t k = 0; k < coeff_count; k++) t_ntt[k] += fix;
                     // SEAL_ITERATE(t_ntt, coeff_count, [fix](auto &K) { K += fix; });
 
-                    // std::cout << "  t_ntt: "; printArray(t_ntt);
-
                     uint64_t qi_lazy = qi << 1; // some multiples of qi
                     if (scheme == SchemeType::ckks)
                     {
@@ -2632,6 +2633,9 @@ namespace troy
                     {
                         inverseNttNegacyclicHarveyLazy(t_poly_prod_ptr, key_ntt_tables[j]);
                     }
+                    
+                    // std::cout << "  t_ntt: " << j << " - "; printArray(t_ntt);
+                    // std::cout << "  t_ptr: " << j << " - "; printArray(t_poly_prod_ptr.get(), coeff_count);
 
                     // ((ct mod qi) - (ct mod qk)) mod qi with output in [0, 2 * qi_lazy)
                     for (size_t k = 0; k < coeff_count; k++) t_poly_prod_ptr[k] += qi_lazy - t_ntt[k];
@@ -2643,6 +2647,8 @@ namespace troy
                     addPolyCoeffmod(t_poly_prod_ptr, encrypted.data(i) + j * coeff_count, coeff_count, key_modulus[j], encrypted.data(i) + j * coeff_count);
                 }
             }
+            
+            // printf("enc %ld: ", i); printArray(encrypted.data(i), key_component_count * coeff_count);
         }
     }
 } // namespace seal

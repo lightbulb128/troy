@@ -156,6 +156,9 @@ void test_ckks() {
     KeyGenerator keygen(context);
     PublicKey pk;
     keygen.createPublicKey(pk);
+    RelinKeys rlkcpu;
+    keygen.createRelinKeys(rlkcpu);
+    RelinKeysCuda rlk(rlkcpu);
 
     BatchEncoder encoder(context);
     Encryptor encryptor(context, pk);
@@ -228,11 +231,24 @@ void test_ckks() {
         printVector(mexpect, false);
     }
 
-    if (true) { // BGV square inplace
+    if (false) { // BGV square inplace
         auto message = randomVector(slot_size, data_bound);
         CiphertextCuda c1 = encryptCuda(context, encoder, encryptor, message);
         c_evaluator.squareInplace(c1);
         auto decrypted = decryptCuda(encoder, decryptor, c1, slot_size);
+        printVector(multiplyVector(message, message), false);
+        printVector(decrypted, false);
+    }
+
+    if (true) { // BGV relinearize
+        auto message = randomVector(slot_size, data_bound);
+        Ciphertext ccpu = encrypt(context, encoder, encryptor, message);
+        CiphertextCuda c(ccpu);
+        evaluator.squareInplace(ccpu);
+        evaluator.relinearizeInplace(ccpu, rlkcpu);
+        c_evaluator.squareInplace(c);
+        c_evaluator.relinearizeInplace(c, rlk);
+        auto decrypted = decryptCuda(encoder, decryptor, c, slot_size);
         printVector(multiplyVector(message, message), false);
         printVector(decrypted, false);
     }

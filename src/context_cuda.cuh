@@ -70,6 +70,21 @@ namespace troy {
                 return rns_tool_.get();
             }
 
+            inline size_t chainIndex() const {
+                return chain_index_;
+            }
+
+            
+            inline std::shared_ptr<const ContextDataCuda> prevContextData() const noexcept
+            {
+                return prev_context_data_.lock();
+            }
+
+            inline std::shared_ptr<const ContextDataCuda> nextContextData() const noexcept
+            {
+                return next_context_data_;
+            }
+
 
         private:
 
@@ -128,6 +143,7 @@ namespace troy {
             key_parms_id_ = context.keyParmsID();
             first_parms_id_ = context.firstParmsID();
             last_parms_id_ = context.lastParmsID();
+            using_keyswitching_ = context.using_keyswitching();
         }
         
         SEALContextCuda(const SEALContextCuda& copy) = default;
@@ -150,6 +166,15 @@ namespace troy {
 
         inline std::shared_ptr<ContextDataCuda> keyContextData() const {
             return getContextData(key_parms_id_);
+        }
+
+        inline const ParmsID& keyParmsID() const {return key_parms_id_;}
+        inline const ParmsID& firstParmsID() const {return first_parms_id_;}
+        inline const ParmsID& lastParmsID() const {return last_parms_id_;}
+
+
+        inline bool using_keyswitching() const {
+            return using_keyswitching_;
         }
     
     private:

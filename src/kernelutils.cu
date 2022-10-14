@@ -83,7 +83,7 @@ namespace troy {
 
             // Claim: One more subtraction is enough
             uint64_t sum = ((tmp3 >= modulus_value) ? (tmp3 - modulus_value) : (tmp3));
-            uint64_t res = sum >= modulus_value ? sum-modulus_value : sum;
+            uint64_t res = sum >= modulus_value ? sum-modulus_value : sum; // TODO: can i delete this?
             return res;
         }
 
@@ -127,6 +127,40 @@ namespace troy {
                 operand2_reversed.get(), 
                 POLY_ARRAY_ARGCALL,
                 moduli.get(), single_poly_result_accumulator.get()
+            );
+        }
+
+        __global__ void gDyadicProductCoeffmod(
+            const uint64_t* operand1,
+            const uint64_t* operand2,
+            POLY_ARRAY_ARGUMENTS,
+            const Modulus* moduli,
+            uint64_t* output
+        ) {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            FOR_N(rns_index, coeff_modulus_size) {
+                const uint64_t modulus_value = DeviceHelper::getModulusValue(moduli[rns_index]);
+                const uint64_t const_ratio_0 = DeviceHelper::getModulusConstRatio(moduli[rns_index])[0];
+                const uint64_t const_ratio_1 = DeviceHelper::getModulusConstRatio(moduli[rns_index])[1];
+                FOR_N(poly_index, poly_size) {
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
+                    output[id] = dDyadicSingle(operand1[id], operand2[id], modulus_value, const_ratio_0, const_ratio_1);
+                }
+            }
+        }
+
+        void kDyadicProductCoeffmod(
+            CPointer operand1,
+            CPointer operand2,
+            POLY_ARRAY_ARGUMENTS,
+            MPointer moduli,
+            Pointer output
+        ) {
+            KERNEL_CALL(gDyadicProductCoeffmod, poly_modulus_degree) (
+                operand1.get(), 
+                operand2.get(), 
+                POLY_ARRAY_ARGCALL,
+                moduli.get(), output.get()
             );
         }
 
@@ -189,6 +223,34 @@ namespace troy {
         {
             KERNEL_CALL(gModBoundedUsingNttTables, poly_modulus_degree)(
                 operand.get(), POLY_ARRAY_ARGCALL, ntt_tables.get()
+            );
+        }
+
+        __global__ void gModuloPolyCoeffs(
+            const uint64_t* operand,
+            POLY_ARRAY_ARGUMENTS,
+            const Modulus* moduli,
+            uint64_t* result
+        ) {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            FOR_N(rns_index, coeff_modulus_size) {
+                FOR_N(poly_index, poly_size) {
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
+                    result[id] = dBarrettReduce64(operand[id], moduli[rns_index]);
+                }
+            }
+        }
+
+        void kModuloPolyCoeffs(
+            CPointer operand,
+            POLY_ARRAY_ARGUMENTS,
+            MPointer moduli,
+            Pointer result
+        ) {
+            KERNEL_CALL(gModuloPolyCoeffs, poly_modulus_degree) (
+                operand.get(), 
+                POLY_ARRAY_ARGCALL,
+                moduli.get(), result.get()
             );
         }
 

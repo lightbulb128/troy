@@ -118,6 +118,9 @@ void test_ckks() {
     KeyGenerator keygen(context);
     PublicKey pk;
     keygen.createPublicKey(pk);
+    RelinKeys rlkcpu;
+    keygen.createRelinKeys(rlkcpu);
+    RelinKeysCuda rlk(rlkcpu);
 
     CKKSEncoder encoder(context);
     Encryptor encryptor(context, pk);
@@ -190,6 +193,20 @@ void test_ckks() {
         CiphertextCuda c1 = encryptCuda(context, encoder, encryptor, message, delta);
         c_evaluator.squareInplace(c1);
         auto decrypted = decryptCuda(encoder, decryptor, c1, slot_size);
+        printVector(multiplyVector(message, message), false);
+        printVector(decrypted, false);
+    }
+
+    if (true) { // CKKS square inplace
+        auto message = randomVector(slot_size, data_bound);
+        Ciphertext ccpu = encrypt(context, encoder, encryptor, message, delta);
+        CiphertextCuda c(ccpu);
+        evaluator.squareInplace(ccpu);
+        evaluator.relinearizeInplace(ccpu, rlkcpu);
+        printf("-------------------  Cuda:\n");
+        c_evaluator.squareInplace(c);
+        c_evaluator.relinearizeInplace(c, rlk);
+        auto decrypted = decryptCuda(encoder, decryptor, c, slot_size);
         printVector(multiplyVector(message, message), false);
         printVector(decrypted, false);
     }

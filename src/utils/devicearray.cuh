@@ -162,12 +162,21 @@ public:
     DevicePointer<T> operator+(size_t d) {
         return DevicePointer(data + d);
     }
+    ConstDevicePointer<T> operator+(size_t d) const {
+        return ConstDevicePointer(data + d);
+    }
 
     __device__ inline T deviceAt(size_t id) const {
         return data[id];
     }
     __device__ inline T* deviceGet() const {
         return data;
+    }
+
+    T back() const {
+        T ret; 
+        if (data) KernelProvider::retrieve(&ret, data + len - 1, 1);
+        return ret;
     }
 
 };
@@ -269,7 +278,9 @@ public:
     }
 
     HostDynamicArray<T> toHost() const {
-        return HostDynamicArray<T>(std::move(internal.toHost()));
+        T* copy = new T[size_];
+        KernelProvider::retrieve(copy, internal.get(), size_);
+        return HostDynamicArray<T>(std::move(HostArray(copy, size_)));
     }
     
 };

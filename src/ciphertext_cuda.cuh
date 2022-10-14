@@ -64,20 +64,26 @@ namespace troy {
         inline ParmsID& parmsID() noexcept {return parms_id_;}
         inline const ParmsID& parmsID() const noexcept {return parms_id_;}
         inline bool isNttForm() const noexcept {return is_ntt_form_;}
+        inline bool& isNttForm() noexcept {return is_ntt_form_;}
         inline double& scale() noexcept {return scale_;}
         inline double scale() const noexcept {return scale_;}
         inline const util::DeviceDynamicArray<ct_coeff_type>& dynArray() const {return data_;}
         inline util::DeviceDynamicArray<ct_coeff_type>& dynArray() {return data_;}
+        inline size_t polyCoeffSize() const {
+            return poly_modulus_degree_ * coeff_modulus_size_;
+        }
 
     private:
 
         void resizeInternal(size_t size, size_t poly_modulus_degree, size_t coeff_modulus_size) {
+            // std::cout << "resize internal " << size << " " << poly_modulus_degree << " " << coeff_modulus_size << std::endl;
             if ((size < SEAL_CIPHERTEXT_SIZE_MIN && size != 0) || size > SEAL_CIPHERTEXT_SIZE_MAX)
             {
                 throw std::invalid_argument("invalid size");
             }
             size_t new_data_size = size * poly_modulus_degree * coeff_modulus_size;
             data_.resize(new_data_size);
+            // std::cout << "resize internal: after: " << data_.size() << std::endl;
             size_ = size;
             poly_modulus_degree_ = poly_modulus_degree;
             coeff_modulus_size_ = coeff_modulus_size;

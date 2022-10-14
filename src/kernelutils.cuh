@@ -452,6 +452,22 @@ namespace troy {
             Pointer single_poly_result_accumulator
         );
 
+        __global__ void gDyadicProductCoeffmod(
+            const uint64_t* operand1,
+            const uint64_t* operand2,
+            POLY_ARRAY_ARGUMENTS,
+            const Modulus* moduli,
+            uint64_t* output
+        );
+
+        void kDyadicProductCoeffmod(
+            CPointer operand1,
+            CPointer operand2,
+            POLY_ARRAY_ARGUMENTS,
+            MPointer moduli,
+            Pointer output
+        );
+
         __global__ void gDyadicSquareCoeffmod(
             const uint64_t* operand,
             size_t coeff_modulus_size,
@@ -488,6 +504,20 @@ namespace troy {
             Pointer operand,
             POLY_ARRAY_ARGUMENTS,
             ConstDevicePointer<NTTTablesCuda> ntt_tables);
+
+        __global__ void gModuloPolyCoeffs(
+            const uint64_t* operand,
+            POLY_ARRAY_ARGUMENTS,
+            const Modulus* moduli,
+            uint64_t* result
+        );
+
+        void kModuloPolyCoeffs(
+            CPointer operand,
+            POLY_ARRAY_ARGUMENTS,
+            MPointer moduli,
+            Pointer result
+        );
         
         __global__ void gMultiplyPolyScalarCoeffmod(
             const uint64_t* poly_array,
