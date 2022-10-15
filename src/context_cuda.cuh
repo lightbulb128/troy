@@ -174,6 +174,11 @@ namespace troy {
             initialize(context_cpu);
         }
 
+        SEALContextCuda(EncryptionParametersCuda parms, bool expand_mod_chain = true, SecurityLevel sec_level = SecurityLevel::tc128) {
+            SEALContext context_cpu = SEALContext(parms.host(), expand_mod_chain, sec_level);
+            initialize(context_cpu);
+        }
+
         inline std::shared_ptr<ContextDataCuda> getContextData(ParmsID parms_id) const {
             auto data = context_data_map_.find(parms_id);
             return 

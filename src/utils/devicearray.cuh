@@ -59,11 +59,16 @@ class DeviceObject {
 public:
     DeviceObject(T* p): ptr(p) {}
     DeviceObject(): ptr(nullptr) {}
-    DeviceObject(const DeviceObject<T>& copy) = delete;
+    DeviceObject(const DeviceObject<T>& copy) {
+        ptr = KernelProvider::malloc<T>(1);
+        KernelProvider::copyOnDevice(ptr, copy.get(), sizeof(T));
+    }
     DeviceObject(DeviceObject&& move) {
         ptr = move.ptr; move.ptr = nullptr;
     }
-    DeviceObject& operator=(const DeviceObject& copy) = delete;
+    DeviceObject& operator=(const DeviceObject& copy) {
+        KernelProvider::copyOnDevice(ptr, copy.get(), sizeof(T));
+    }
     DeviceObject& operator=(DeviceObject&& move) {
         if (ptr) KernelProvider::free(ptr);
         ptr = move.ptr; move.ptr = nullptr;

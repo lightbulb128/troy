@@ -10,14 +10,19 @@ namespace troy {
         friend struct std::hash<troy::EncryptionParametersCuda>;
         
     public:
+        
+        EncryptionParametersCuda(SchemeType scheme = SchemeType::none) : scheme_(scheme) {
+            computeParmsID();
+        }
     
-        EncryptionParametersCuda(const EncryptionParametersCuda &copy) = delete;
-        EncryptionParametersCuda &operator=(const EncryptionParametersCuda &assign) = delete;
+        EncryptionParametersCuda(const EncryptionParametersCuda &copy) = default;
+        EncryptionParametersCuda &operator=(const EncryptionParametersCuda &assign) = default;
         
         EncryptionParametersCuda(EncryptionParametersCuda &&source) = default;
         EncryptionParametersCuda &operator=(EncryptionParametersCuda &&assign) = default;
 
         EncryptionParametersCuda(const EncryptionParameters& host) {
+            cpu = host;
             scheme_ = host.scheme();
             poly_modulus_degree_ = host.polyModulusDegree();
             util::HostArray<Modulus> copied_moduli(host.coeffModulus());
@@ -50,7 +55,7 @@ namespace troy {
             // Set the degree
             // std::cout << "reset polydeg " <<  poly_modulus_degree_ << " -> " << poly_modulus_degree << std::endl;
             poly_modulus_degree_ = poly_modulus_degree;
-
+            cpu.setPolyModulusDegree(poly_modulus_degree);
             // Re-compute the parms_id
             computeParmsID();
         }
@@ -88,7 +93,7 @@ namespace troy {
 
             util::HostArray<Modulus> copied_moduli(coeff_modulus);
             coeff_modulus_ = std::move(util::DeviceArray(copied_moduli));
-
+            cpu.setCoeffModulus(coeff_modulus);
             // Re-compute the parms_id
             computeParmsID();
         }
@@ -117,7 +122,7 @@ namespace troy {
 
             plain_modulus_ = plain_modulus;
             setPlainModulusCuda();
-
+            cpu.setPlainModulus(plain_modulus);
             // Re-compute the parms_id
             computeParmsID();
         }
@@ -225,6 +230,8 @@ namespace troy {
             return (parms_id_ != other.parms_id_);
         }
 
+        inline const EncryptionParameters& host() const noexcept {return cpu;}
+
     private:
     
         void computeParmsID();
@@ -272,6 +279,8 @@ namespace troy {
         util::DeviceObject<Modulus> plain_modulus_cuda_;
 
         ParmsID parms_id_ = parmsIDZero;
+
+        EncryptionParameters cpu;
 
     };
 
