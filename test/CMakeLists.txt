@@ -27,6 +27,7 @@ target_sources(troytest PRIVATE
     modulus.cpp
 
     encryptor_cuda.cu
+    evaluator_cuda.cu
 )
 target_link_libraries(troytest gtest gtest_main troy)
 

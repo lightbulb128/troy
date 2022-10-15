@@ -73,5 +73,7 @@ namespace troy
 
         GaloisKeysCuda(const GaloisKeys& copy):
             KSwitchKeysCuda(static_cast<const KSwitchKeys&>(copy)) {} 
+
+        GaloisKeysCuda() {}
     };
 } // namespace seal

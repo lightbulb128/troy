@@ -1452,16 +1452,20 @@ namespace troy {
         for (size_t i = 0; i < encrypteds.size() - 1; i += 2)
         {
             CiphertextCuda temp(context_, context_data.parmsID());
-            if (encrypteds[i].data() == encrypteds[i + 1].data())
+            if (encrypteds[i].data().get() == encrypteds[i + 1].data().get())
             {
+                // printf("square %lld %lld\n", encrypteds[i].data().get(), encrypteds[i + 1].data().get());
                 square(encrypteds[i], temp);
             }
             else
             {
+                // printf("mul\n");
                 multiply(encrypteds[i], encrypteds[i + 1], temp);
             }
+            // printf("relin\n");
             relinearizeInplace(temp, relin_keys);
             product_vec.emplace_back(std::move(temp));
+            // printf("emp_back %ld\n", product_vec.size());
         }
         if (encrypteds.size() & 1)
         {
@@ -1475,6 +1479,7 @@ namespace troy {
             multiply(product_vec[i], product_vec[i + 1], temp);
             relinearizeInplace(temp, relin_keys);
             product_vec.emplace_back(std::move(temp));
+            // printf("emp_back %ld\n", product_vec.size());
         }
 
         destination = product_vec.back();

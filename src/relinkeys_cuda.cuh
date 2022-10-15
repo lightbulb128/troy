@@ -55,5 +55,7 @@ namespace troy
 
         RelinKeysCuda(const RelinKeys& copy):
             KSwitchKeysCuda(static_cast<const KSwitchKeys&>(copy)) {}
+
+        RelinKeysCuda() {}
     };
 } // namespace seal

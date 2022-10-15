@@ -107,6 +107,24 @@ namespace troy
         //     return *this;
         // }
 
+        bool operator==(const PlaintextCuda& a) const {
+            Plaintext p = this->cpu();
+            Plaintext q = a.cpu();
+            return p == q;
+        }
+
+        uint64_t operator[](size_t i) const {
+            uint64_t ret;
+            KernelProvider::retrieve(&ret, data_.get() + i, 1);
+            return ret;
+        }
+
+        PlaintextCuda &operator=(uint64_t const_coeff)
+        {
+            Plaintext r; r = const_coeff;
+            return operator=(r);
+        }
+
         inline void setZero(std::size_t start_coeff, std::size_t length)
         {
             if (!length)

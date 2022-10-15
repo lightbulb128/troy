@@ -83,8 +83,7 @@ namespace troy {
 
             // Claim: One more subtraction is enough
             uint64_t sum = ((tmp3 >= modulus_value) ? (tmp3 - modulus_value) : (tmp3));
-            uint64_t res = sum >= modulus_value ? sum-modulus_value : sum; // TODO: can i delete this?
-            return res;
+            return sum;
         }
 
         __global__ void gDyadicConvolutionCoeffmod(
