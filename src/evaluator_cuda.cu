@@ -1969,4 +1969,155 @@ namespace troy {
     }
     
 
+    void EvaluatorCuda::applyGaloisInplace(
+        CiphertextCuda &encrypted, uint32_t galois_elt, const GaloisKeysCuda &galois_keys) const
+    {
+
+        // Don't validate all of galois_keys but just check the parms_id.
+        if (galois_keys.parmsID() != context_.keyParmsID())
+        {
+            throw invalid_argument("galois_keys is not valid for encryption parameters");
+        }
+
+        auto &context_data = *context_.getContextData(encrypted.parmsID());
+        auto &parms = context_data.parms();
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = coeff_modulus.size();
+        size_t encrypted_size = encrypted.size();
+        // Use key_context_data where permutation tables exist since previous runs.
+        auto galois_tool = context_.keyContextData()->galoisTool();
+
+        // Size check
+        if (!productFitsIn(coeff_count, coeff_modulus_size))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        // Check if Galois key is generated or not.
+        if (!galois_keys.hasKey(galois_elt))
+        {
+            throw invalid_argument("Galois key not present");
+        }
+
+        uint64_t m = mul_safe(static_cast<uint64_t>(coeff_count), uint64_t(2));
+
+        // Verify parameters
+        if (!(galois_elt & 1) || galois_elt >= m)
+        {
+            throw invalid_argument("Galois element is not valid");
+        }
+        if (encrypted_size > 2)
+        {
+            throw invalid_argument("encrypted size must be 2");
+        }
+
+        // SEAL_ALLOCATE_GET_RNS_ITER(temp, coeff_count, coeff_modulus_size, pool);
+        auto temp = kernel_util::kAllocate(coeff_count, coeff_modulus_size);
+
+        // DO NOT CHANGE EXECUTION ORDER OF FOLLOWING SECTION
+        // BEGIN: Apply Galois for each ciphertext
+        // Execution order is sensitive, since apply_galois is not inplace!
+        if (parms.scheme() == SchemeType::bfv || parms.scheme() == SchemeType::bgv)
+        {
+            // !!! DO NOT CHANGE EXECUTION ORDER!!!
+
+            // First transform encrypted.data(0)
+            // auto encrypted_iter = iter(encrypted);
+            galois_tool->applyGalois(encrypted.data(0), 1, coeff_modulus_size, galois_elt, coeff_modulus.asPointer(), temp.asPointer());
+
+            // Copy result to encrypted.data(0)
+            kernel_util::kSetPolyArray(temp.get(), 1, coeff_count, coeff_modulus_size, encrypted.data(0));
+
+            // Next transform encrypted.data(1)
+            galois_tool->applyGalois(encrypted.data(1), 1, coeff_modulus_size, galois_elt, coeff_modulus.asPointer(), temp.asPointer());
+        }
+        else if (parms.scheme() == SchemeType::ckks)
+        {
+            // !!! DO NOT CHANGE EXECUTION ORDER!!!
+
+            // First transform encrypted.data(0)
+            // auto encrypted_iter = iter(encrypted);
+            galois_tool->applyGaloisNtt(encrypted.data(0), 1, coeff_modulus_size, galois_elt, temp.asPointer());
+
+            // Copy result to encrypted.data(0)
+            kernel_util::kSetPolyArray(temp.get(), 1, coeff_count, coeff_modulus_size, encrypted.data(0));
+
+            // Next transform encrypted.data(1)
+            galois_tool->applyGaloisNtt(encrypted.data(1), 1, coeff_modulus_size, galois_elt, temp.asPointer());
+        }
+        else
+        {
+            throw logic_error("scheme not implemented");
+        }
+
+        // Wipe encrypted.data(1)
+        kernel_util::kSetZeroPolyArray(1, coeff_modulus_size, coeff_count, encrypted.data(1));
+
+        // END: Apply Galois for each ciphertext
+        // REORDERING IS SAFE NOW
+
+        // Calculate (temp * galois_key[0], temp * galois_key[1]) + (ct[0], 0)
+        switchKeyInplace(
+            encrypted, temp.get(), static_cast<const KSwitchKeysCuda &>(galois_keys), GaloisKeys::getIndex(galois_elt));
+    }
+
+    void EvaluatorCuda::rotateInternal(
+        CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys) const
+    {
+        auto context_data_ptr = context_.getContextData(encrypted.parmsID());
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("encrypted is not valid for encryption parameters");
+        }
+        if (!context_data_ptr->qualifiers().using_batching)
+        {
+            throw logic_error("encryption parameters do not support batching");
+        }
+        if (galois_keys.parmsID() != context_.keyParmsID())
+        {
+            throw invalid_argument("galois_keys is not valid for encryption parameters");
+        }
+
+        // Is there anything to do?
+        if (steps == 0)
+        {
+            return;
+        }
+
+        size_t coeff_count = context_data_ptr->parms().polyModulusDegree();
+        auto galois_tool = context_data_ptr->galoisTool();
+
+        // Check if Galois key is generated or not.
+        if (galois_keys.hasKey(galois_tool->getEltFromStep(steps)))
+        {
+            // Perform rotation and key switching
+            applyGaloisInplace(encrypted, galois_tool->getEltFromStep(steps), galois_keys);
+        }
+        else
+        {
+            // Convert the steps to NAF: guarantees using smallest HW
+            std::vector<int> naf_steps = naf(steps);
+
+            // If naf_steps contains only one element, then this is a power-of-two
+            // rotation and we would have expected not to get to this part of the
+            // if-statement.
+            if (naf_steps.size() == 1)
+            {
+                throw invalid_argument("Galois key not present");
+            }
+
+            for (size_t i = 0; i < naf_steps.size(); i++) {
+            // SEAL_ITERATE(naf_steps.cbegin(), naf_steps.size(), [&](auto step) {
+                // We might have a NAF-term of size coeff_count / 2; this corresponds
+                // to no rotation so we skip it. Otherwise call rotate_internal.
+                if (safe_cast<size_t>(abs(naf_steps[i])) != (coeff_count >> 1))
+                {
+                    // Apply rotation for this step
+                    this->rotateInternal(encrypted, naf_steps[i], galois_keys);
+                }
+            }
+        }
+    }
+
 }

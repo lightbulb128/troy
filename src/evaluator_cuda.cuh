@@ -5,6 +5,7 @@
 #include "ciphertext_cuda.cuh"
 #include "kernelutils.cuh"
 #include "relinkeys_cuda.cuh"
+#include "galoiskeys_cuda.cuh"
 #include <stdexcept>
 
 namespace troy {
@@ -252,6 +253,88 @@ namespace troy {
             transformFromNttInplace(destination);
         }
 
+
+        void applyGaloisInplace(
+            CiphertextCuda &encrypted, std::uint32_t galois_elt, const GaloisKeysCuda &galois_keys) const;
+
+        inline void applyGalois(
+            const CiphertextCuda &encrypted, std::uint32_t galois_elt, const GaloisKeysCuda &galois_keys,
+            CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            applyGaloisInplace(destination, galois_elt, galois_keys);
+        }
+
+        inline void rotateRowsInplace(
+            CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys) const
+        {
+            auto scheme = context_.keyContextData()->parms().scheme();
+            if (scheme != SchemeType::bfv && scheme != SchemeType::bgv)
+            {
+                throw std::logic_error("unsupported scheme");
+            }
+            rotateInternal(encrypted, steps, galois_keys);
+        }
+
+        inline void rotateRows(
+            const CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            rotateRowsInplace(destination, steps, galois_keys);
+        }
+
+        inline void rotateColumnsInplace(
+            CiphertextCuda &encrypted, const GaloisKeysCuda &galois_keys) const
+        {
+            auto scheme = context_.keyContextData()->parms().scheme();
+            if (scheme != SchemeType::bfv && scheme != SchemeType::bgv)
+            {
+                throw std::logic_error("unsupported scheme");
+            }
+            conjugateInternal(encrypted, galois_keys);
+        }
+
+        inline void rotateColumns(
+            const CiphertextCuda &encrypted, const GaloisKeysCuda &galois_keys, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            rotateColumnsInplace(destination, galois_keys);
+        }
+
+        inline void rotateVectorInplace(
+            CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys) const
+        {
+            if (context_.keyContextData()->parms().scheme() != SchemeType::ckks)
+            {
+                throw std::logic_error("unsupported scheme");
+            }
+            rotateInternal(encrypted, steps, galois_keys);
+        }
+
+        inline void rotateVector(
+            const CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            rotateVectorInplace(destination, steps, galois_keys);
+        }
+
+        inline void complexConjugateInplace(
+            CiphertextCuda &encrypted, const GaloisKeysCuda &galois_keys) const
+        {
+            if (context_.keyContextData()->parms().scheme() != SchemeType::ckks)
+            {
+                throw std::logic_error("unsupported scheme");
+            }
+            conjugateInternal(encrypted, galois_keys);
+        }
+
+        inline void complexConjugate(
+            const CiphertextCuda &encrypted, const GaloisKeysCuda &galois_keys, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            complexConjugateInplace(destination, galois_keys);
+        }
+
     private:
 
         void bfvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
@@ -283,6 +366,33 @@ namespace troy {
 
         void multiplyPlainNormal(CiphertextCuda &encrypted, const PlaintextCuda &plain) const;
         void multiplyPlainNtt(CiphertextCuda &encrypted_ntt, const PlaintextCuda &plain_ntt) const;
+
+        
+        void rotateInternal(
+            CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys) const;
+
+        inline void conjugateInternal(
+            CiphertextCuda &encrypted, const GaloisKeysCuda &galois_keys) const
+        {
+            // Verify parameters.
+            auto context_data_ptr = context_.getContextData(encrypted.parmsID());
+            if (!context_data_ptr)
+            {
+                throw std::invalid_argument("encrypted is not valid for encryption parameters");
+            }
+
+            // Extract encryption parameters.
+            auto &context_data = *context_data_ptr;
+            if (!context_data.qualifiers().using_batching)
+            {
+                throw std::logic_error("encryption parameters do not support batching");
+            }
+
+            auto galoisTool = context_data.galoisTool();
+
+            // Perform rotation and key switching
+            applyGaloisInplace(encrypted, galoisTool->getEltFromStep(0), galois_keys);
+        }
 
         SEALContextCuda context_;
 

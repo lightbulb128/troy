@@ -503,16 +503,6 @@ namespace troy {
             result[gindex].quotient = wide_quotient[0];
         }
 
-        
-        void kSetPolyArray(
-            CPointer poly, POLY_ARRAY_ARGUMENTS, Pointer result
-        ) {
-            KernelProvider::copyOnDevice(
-                result.get(), poly.get(), 
-                poly_size * coeff_modulus_size * poly_modulus_degree
-            );
-        }
-
         __global__ void gSubPolyCoeffmod(
             const uint64_t* operand1,
             const uint64_t* operand2,

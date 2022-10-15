@@ -676,9 +676,18 @@ namespace troy {
             MultiplyUIntModOperand* result);
 
         
-        void kSetPolyArray(
+        inline void kSetPolyArray(
             CPointer poly, POLY_ARRAY_ARGUMENTS, Pointer result
-        );
+        ) {
+            KernelProvider::copyOnDevice(
+                result.get(), poly.get(), 
+                poly_size * coeff_modulus_size * poly_modulus_degree
+            );
+        }
+
+        inline void kSetZeroPolyArray(POLY_ARRAY_ARGUMENTS, Pointer result) {
+            KernelProvider::memsetZero(result.get(), poly_size * poly_modulus_degree * coeff_modulus_size);
+        }
         
         __global__ void gSubPolyCoeffmod(
             const uint64_t* operand1,

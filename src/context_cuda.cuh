@@ -4,6 +4,7 @@
 #include "encryptionparams_cuda.cuh"
 #include "utils/ntt_cuda.cuh"
 #include "utils/rns_cuda.cuh"
+#include "utils/galois_cuda.cuh"
 
 namespace troy {
 
@@ -39,7 +40,7 @@ namespace troy {
                 plain_upper_half_increment_(contextData.plain_upper_half_increment_),
                 upper_half_threshold_(contextData.upper_half_threshold_),
                 upper_half_increment_(contextData.upper_half_increment_)
-            {
+            { 
                 size_t n = contextData.small_ntt_tables_.size();
                 small_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
                 for (size_t i = 0; i < n; i++) {
@@ -53,6 +54,7 @@ namespace troy {
                     plain_ntt_tables_support_[i] = util::NTTTablesCuda(contextData.plain_ntt_tables_[i]);
                 }
                 plain_ntt_tables_ = util::DeviceArray(plain_ntt_tables_support_);
+                galois_tool_ = new util::GaloisToolCuda(util::getPowerOfTwo(contextData.parms_.polyModulusDegree()));
             }
 
             const EncryptionParametersCuda& parms() const {return parms_;}
@@ -122,6 +124,8 @@ namespace troy {
                 return qualifiers_;
             }
 
+            inline const util::GaloisToolCuda* galoisTool() const {return galois_tool_.get();}
+
 
         private:
 
@@ -133,7 +137,9 @@ namespace troy {
             util::DeviceArray<util::NTTTablesCuda> plain_ntt_tables_;
             util::HostArray<util::NTTTablesCuda> small_ntt_tables_support_;
             util::HostArray<util::NTTTablesCuda> plain_ntt_tables_support_;
-            // TODO: galois_tool_
+
+            util::HostObject<util::GaloisToolCuda> galois_tool_;
+
             util::DeviceArray<uint64_t> total_coeff_modulus_;
             
             int total_coeff_modulus_bit_count_ = 0;
