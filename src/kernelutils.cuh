@@ -403,6 +403,23 @@ namespace troy {
             return dMultiplyUintMod(operand, temp_scalar, modulus);
         }
 
+        __device__ inline unsigned char dAddUint(
+            const uint64_t* operand1, std::size_t uint64Count,
+            uint64_t operand2, uint64_t* result
+        ) {
+                // Unroll first iteration of loop. We assume uint64_count > 0.
+                unsigned char carry = dAddUint64(*operand1++, operand2, result++);
+
+                // Do the rest
+                for (; --uint64Count; operand1++, result++)
+                {
+                    uint64_t temp_result;
+                    carry = dAddUint64(*operand1, uint64_t(0), carry, &temp_result);
+                    *result = temp_result;
+                }
+                return carry;
+        }
+
 
 
 

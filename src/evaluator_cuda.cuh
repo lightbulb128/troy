@@ -224,6 +224,33 @@ namespace troy {
             destination = encrypted;
             multiplyPlainInplace(destination, plain);
         }
+        
+        void transformToNttInplace(
+            PlaintextCuda &plain, ParmsID parms_id) const;
+        
+    
+        inline void transformToNtt(
+            const PlaintextCuda &plain, ParmsID parms_id, PlaintextCuda &destination_ntt) const
+        {
+            destination_ntt = plain;
+            transformToNttInplace(destination_ntt, parms_id);
+        }
+        
+        void transformToNttInplace(CiphertextCuda &encrypted) const;
+        
+        inline void transformToNtt(const CiphertextCuda &encrypted, CiphertextCuda &destination_ntt) const
+        {
+            destination_ntt = encrypted;
+            transformToNttInplace(destination_ntt);
+        }
+        
+        void transformFromNttInplace(CiphertextCuda &encrypted_ntt) const;
+        
+        inline void transformFromNtt(const CiphertextCuda &encrypted_ntt, CiphertextCuda &destination) const
+        {
+            destination = encrypted_ntt;
+            transformFromNttInplace(destination);
+        }
 
     private:
 

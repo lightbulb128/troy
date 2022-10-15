@@ -1813,4 +1813,160 @@ namespace troy {
         }
     }
 
+    __global__ void gTransformToNttInplace(
+        uint64_t* plain,
+        size_t plain_coeff_count,
+        size_t coeff_count,
+        const uint64_t* plain_upper_half_increment,
+        uint64_t plain_upper_half_threshold,
+        size_t coeff_modulus_size
+    ) {
+        GET_INDEX_COND_RETURN(plain_coeff_count);
+        FOR_N(i, coeff_modulus_size) {
+            size_t plain_index = (coeff_modulus_size - 1 - i) * coeff_count + gindex;
+            size_t increment_index = (coeff_modulus_size - 1 - i);
+            plain[plain_index] = (plain[gindex] >= plain_upper_half_threshold) ?
+                (plain[gindex] + plain_upper_half_increment[increment_index]) : plain[gindex];
+        }
+    }
+
+    void EvaluatorCuda::transformToNttInplace(PlaintextCuda &plain, ParmsID parms_id) const
+    {
+
+        auto context_data_ptr = context_.getContextData(parms_id);
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("parms_id is not valid for the current context");
+        }
+        if (plain.isNttForm())
+        {
+            throw invalid_argument("plain is already in NTT form");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_data_ptr;
+        auto &parms = context_data.parms();
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = coeff_modulus.size();
+        size_t plain_coeff_count = plain.coeffCount();
+
+        uint64_t plain_upper_half_threshold = context_data.plainUpperHalfThreshold();
+        auto plain_upper_half_increment = context_data.plainUpperHalfIncrement();
+
+        auto ntt_tables = context_data.smallNTTTables();
+
+        // Size check
+        if (!productFitsIn(coeff_count, coeff_modulus_size))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        // Resize to fit the entire NTT transformed (ciphertext size) polynomial
+        // Note that the new coefficients are automatically set to 0
+        plain.resize(coeff_count * coeff_modulus_size);
+        auto plain_iter = plain.data();
+
+        if (!context_data.qualifiers().using_fast_plain_lift)
+        {
+            // Allocate temporary space for an entire RNS polynomial
+            // Slight semantic misuse of RNSIter here, but this works well
+            auto temp = kernel_util::kAllocateZero(coeff_modulus_size, coeff_count);
+            
+            KERNEL_CALL(gMultiplyPlainNormalUtilA, plain_coeff_count)(
+                plain.data(), plain_coeff_count, plain_upper_half_increment.get(),
+                plain_upper_half_threshold, coeff_modulus_size, temp.get()
+            );
+
+            context_data.rnsTool()->baseq()->decomposeArray(temp.get(), coeff_count);
+
+            // Copy data back to plain
+            kernel_util::kSetPolyArray(temp.get(), 1, coeff_count, coeff_modulus_size, plain.data());
+        }
+        else
+        {
+            KERNEL_CALL(gTransformToNttInplace, plain_coeff_count)(
+                plain.data(), plain_coeff_count, coeff_count, plain_upper_half_increment.get(),
+                plain_upper_half_threshold, coeff_modulus_size
+            );
+        }
+
+        // Transform to NTT domain
+        kernel_util::kNttNegacyclicHarvey(plain.data(), 1, coeff_modulus_size, getPowerOfTwo(coeff_count), ntt_tables);
+
+        plain.parmsID() = parms_id;
+    }
+
+    void EvaluatorCuda::transformToNttInplace(CiphertextCuda &encrypted) const
+    {
+
+        auto context_data_ptr = context_.getContextData(encrypted.parmsID());
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("encrypted is not valid for encryption parameters");
+        }
+        if (encrypted.isNttForm())
+        {
+            throw invalid_argument("encrypted is already in NTT form");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_data_ptr;
+        auto &parms = context_data.parms();
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = coeff_modulus.size();
+        size_t encrypted_size = encrypted.size();
+
+        auto ntt_tables = context_data.smallNTTTables();
+
+        // Size check
+        if (!productFitsIn(coeff_count, coeff_modulus_size))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        // Transform each polynomial to NTT domain
+        kernel_util::kNttNegacyclicHarvey(encrypted.data(), encrypted_size, coeff_modulus_size, getPowerOfTwo(coeff_count), ntt_tables);
+
+        // Finally change the is_ntt_transformed flag
+        encrypted.isNttForm() = true;
+    }
+
+    void EvaluatorCuda::transformFromNttInplace(CiphertextCuda &encrypted_ntt) const
+    {
+
+        auto context_data_ptr = context_.getContextData(encrypted_ntt.parmsID());
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("encrypted_ntt is not valid for encryption parameters");
+        }
+        if (!encrypted_ntt.isNttForm())
+        {
+            throw invalid_argument("encrypted_ntt is not in NTT form");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_data_ptr;
+        auto &parms = context_data.parms();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = parms.coeffModulus().size();
+        size_t encrypted_ntt_size = encrypted_ntt.size();
+
+        auto ntt_tables = context_data.smallNTTTables();
+
+        // Size check
+        if (!productFitsIn(coeff_count, coeff_modulus_size))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        // Transform each polynomial from NTT domain
+        kernel_util::kInverseNttNegacyclicHarvey(encrypted_ntt.data(), encrypted_ntt_size, coeff_modulus_size, getPowerOfTwo(coeff_count), ntt_tables);
+
+        // Finally change the is_ntt_transformed flag
+        encrypted_ntt.isNttForm() = false;
+    }
+    
+
 }
