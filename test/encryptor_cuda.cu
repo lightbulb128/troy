@@ -22,13 +22,18 @@ using Ciphertext = troy::CiphertextCuda;
 using Encryptor = troy::EncryptorCuda;
 using Decryptor = troy::DecryptorCuda;
 using Evaluator = troy::EvaluatorCuda;
-
-/*
+using KeyGenerator = troy::KeyGeneratorCuda;
+using PublicKey = troy::PublicKeyCuda;
+using SecretKey = troy::SecretKeyCuda;
+using CKKSEncoder = troy::CKKSEncoderCuda;
+using BatchEncoder = troy::BatchEncoderCuda;
+using KernelProvider = troy::KernelProvider;
 
 namespace troytest
 {
-    TEST(EncryptorTest, BFVEncryptDecrypt)
+    TEST(EncryptorCudaTest, BFVEncryptDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPlainModulus(plain_modulus);
@@ -337,8 +342,9 @@ namespace troytest
         }
     }
 
-    TEST(EncryptorTest, BFVEncryptZeroDecrypt)
+    TEST(EncryptorCudaTest, BFVEncryptZeroDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPlainModulus(plain_modulus);
@@ -435,8 +441,9 @@ namespace troytest
         }
     }
 
-    TEST(EncryptorTest, CKKSEncryptZeroDecrypt)
+    TEST(EncryptorCudaTest, CKKSEncryptZeroDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         parms.setPolyModulusDegree(64);
         parms.setCoeffModulus(CoeffModulus::Create(64, { 40, 40, 40 }));
@@ -586,8 +593,9 @@ namespace troytest
         }
     }
 
-    TEST(EncryptorTest, CKKSEncryptDecrypt)
+    TEST(EncryptorCudaTest, CKKSEncryptDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // input consists of ones
@@ -876,8 +884,9 @@ namespace troytest
         }
     }
 
-    TEST(EncryptorTest, BGVEncryptDecrypt)
+    TEST(EncryptorCudaTest, BGVEncryptDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(1 << 6);
         parms.setPlainModulus(plain_modulus);
@@ -964,8 +973,9 @@ namespace troytest
         }
     }
 
-    TEST(EncryptorTest, BGVEncryptZeroDecrypt)
+    TEST(EncryptorCudaTest, BGVEncryptZeroDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(1 << 6);
         parms.setPlainModulus(plain_modulus);
@@ -1063,5 +1073,3 @@ namespace troytest
     }
 } // namespace sealtest
 
-
-*/

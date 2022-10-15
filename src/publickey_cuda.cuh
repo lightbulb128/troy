@@ -81,6 +81,13 @@ namespace troy
             return pk_;
         }
 
+        PublicKey cpu() const {
+            PublicKey ret; ret.pk_ = pk_.toHost();
+            return ret;
+        }
+
+        inline PublicKey toHost() const {return cpu();}
+
         /**
         Returns an upper bound on the size of the PublicKey, as if it was written
         to an output stream.

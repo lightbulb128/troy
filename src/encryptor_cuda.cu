@@ -193,7 +193,6 @@ namespace troy
             ConstDevicePointer plain_iter(plain.data());
             DevicePointer destination_iter = DevicePointer(destination.data(0));
             kernel_util::kAddPolyCoeffmod(destination_iter, plain_iter, 1, coeff_modulus_size, coeff_count, coeff_modulus, destination_iter);
-            // addPolyCoeffmod(destination_iter, plain_iter, coeff_modulus_size, coeff_count, &coeff_modulus[0], destination_iter);
 
             destination.scale() = plain.scale();
         }

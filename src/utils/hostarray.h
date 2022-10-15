@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <exception>
+#include <cstring>
 
 namespace troy { namespace util {
     
@@ -94,7 +95,10 @@ public:
         data = nullptr; len = 0;
     }
     HostArray(std::size_t cnt) {
-        if (cnt > 0) data = new T[cnt];
+        if (cnt > 0) {
+            data = new T[cnt];
+            memset(data, 0, sizeof(T) * cnt);
+        }
         else data = nullptr;
         len = cnt;
     }

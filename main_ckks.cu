@@ -130,11 +130,17 @@ void test_ckks() {
 
     SEALContextCuda c_context(context);
     EvaluatorCuda c_evaluator(c_context);
+    SecretKeyCuda c_sk(keygen.secretKey());
+    PublicKeyCuda c_pk(pk);
+
+    EncryptorCuda c_encryptor(c_context, c_pk);
+    DecryptorCuda c_decryptor(c_context, c_sk);
+
 
     int data_bound = (1 << 4);
     const double delta = static_cast<double>(1 << 16);
 
-    if (false) { // CKKS add inplace
+    if (true) { // CKKS add inplace
 
         auto message1 = randomVector(slot_size, data_bound);
         Plaintext plaintext1;
@@ -142,6 +148,8 @@ void test_ckks() {
         Ciphertext ciphertext1;
         encryptor.encrypt(plaintext1, ciphertext1);
         CiphertextCuda c_ciphertext1(ciphertext1);
+        // CiphertextCuda c_ciphertext1x(ciphertext1);
+        c_encryptor.encrypt(plaintext1, c_ciphertext1);
         
         auto message2 = randomVector(slot_size, data_bound);
         Plaintext plaintext2;
@@ -151,6 +159,7 @@ void test_ckks() {
         CiphertextCuda c_ciphertext2(ciphertext2);
 
         c_evaluator.addInplace(c_ciphertext1, c_ciphertext2);
+        // c_evaluator.addInplace(c_ciphertext1x, c_ciphertext2);
         
         Ciphertext result = c_ciphertext1.cpu();
         Plaintext decrypted;
@@ -160,8 +169,20 @@ void test_ckks() {
         encoder.decode(decrypted, output);
         
         auto mexpect = addVector(message1, message2);
-        printVector(mexpect, true);
-        printVector(output, true);
+        printVector(mexpect, false);
+        printVector(output, false);
+
+        
+        PlaintextCuda decrypted2; c_decryptor.decrypt(c_ciphertext1, decrypted2);
+        decrypted = decrypted2.cpu();
+        decryptor.decrypt(result, decrypted);
+        encoder.decode(decrypted, output);
+        printVector(output, false);
+
+        // result = c_ciphertext1x.cpu();
+        // decryptor.decrypt(result, decrypted);
+        // encoder.decode(decrypted, output);
+        // printVector(output, false);
 
     }
 
@@ -188,7 +209,7 @@ void test_ckks() {
         printVector(mexpect, false);
     }
 
-    if (true) { // CKKS square inplace
+    if (false) { // CKKS square inplace
         auto message = randomVector(slot_size, data_bound);
         CiphertextCuda c1 = encryptCuda(context, encoder, encryptor, message, delta);
         c_evaluator.squareInplace(c1);
@@ -197,7 +218,7 @@ void test_ckks() {
         printVector(decrypted, false);
     }
 
-    if (true) { // CKKS square inplace
+    if (false) { // CKKS square inplace
         auto message = randomVector(slot_size, data_bound);
         Ciphertext ccpu = encrypt(context, encoder, encryptor, message, delta);
         CiphertextCuda c(ccpu);

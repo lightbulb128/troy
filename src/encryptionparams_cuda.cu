@@ -4,7 +4,7 @@ namespace troy {
     
     using std::logic_error;
 
-    void EncryptionParameters::computeParmsID()
+    void EncryptionParametersCuda::computeParmsID()
     {
         size_t coeff_modulus_size = coeff_modulus_.size();
 
@@ -23,7 +23,11 @@ namespace troy {
         // Write the poly_modulus_degree. Note that it will always be positive.
         *param_data_ptr++ = static_cast<uint64_t>(poly_modulus_degree_);
 
-        for (const auto &mod : coeff_modulus_)
+        util::HostArray coeff_modulus_host = coeff_modulus_.toHost();
+        std::vector<Modulus> coeff_modulus_vec; 
+        for (size_t i = 0; i < coeff_modulus_host.size(); i++) coeff_modulus_vec.push_back(coeff_modulus_host[i]);
+
+        for (const auto &mod : coeff_modulus_vec)
         {
             *param_data_ptr++ = mod.value();
         }

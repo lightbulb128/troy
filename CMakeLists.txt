@@ -27,6 +27,9 @@ target_link_libraries(main_bfv troy)
 add_executable(main_bgv main_bgv.cu)
 target_link_libraries(main_bgv troy)
 
+add_executable(main main.cu)
+target_link_libraries(main troy)
+
 enable_testing()
 add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
 add_subdirectory(test)

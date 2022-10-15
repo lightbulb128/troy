@@ -4,6 +4,7 @@ find_package(SEAL 4.0 REQUIRED)
 
 add_executable(troytest)
 target_sources(troytest PRIVATE 
+
     utils/common.cpp
     utils/galois.cpp
     utils/hash.cpp
@@ -15,6 +16,7 @@ target_sources(troytest PRIVATE
     utils/uintarithmod.cpp
     utils/uintarithsmallmod.cpp
     utils/uintcore.cpp
+
     batchencoder.cpp
     ckks.cpp
     context.cpp
@@ -23,6 +25,8 @@ target_sources(troytest PRIVATE
     evaluator.cpp
     keygenerator.cpp
     modulus.cpp
+
+    encryptor_cuda.cu
 )
 target_link_libraries(troytest gtest gtest_main troy)
 

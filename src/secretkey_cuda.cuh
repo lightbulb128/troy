@@ -48,6 +48,10 @@ namespace troy
             sk_ = copy.sk_;
         }
 
+        SecretKeyCuda(const SecretKey& copy) {
+            sk_ = copy.sk_;
+        }
+
         /**
         Destroys the SecretKey object.
         */
@@ -96,6 +100,14 @@ namespace troy
         {
             return sk_;
         }
+
+        SecretKey cpu() const {
+            SecretKey ret;
+            ret.sk_ = sk_.toHost();
+            return ret;
+        }
+
+        inline SecretKey toHost() const {return cpu();}
 
         // /**
         // Returns an upper bound on the size of the SecretKey, as if it was written

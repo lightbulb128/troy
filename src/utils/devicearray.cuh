@@ -60,21 +60,29 @@ public:
     DeviceObject(T* p): ptr(p) {}
     DeviceObject(): ptr(nullptr) {}
     DeviceObject(const DeviceObject<T>& copy) {
-        ptr = KernelProvider::malloc<T>(1);
-        KernelProvider::copyOnDevice(ptr, copy.get(), sizeof(T));
+        if (!copy.isNull()) {
+            ptr = KernelProvider::malloc<T>(1);
+            KernelProvider::copyOnDevice(ptr, copy.get(), 1);
+        }
     }
     DeviceObject(DeviceObject&& move) {
         ptr = move.ptr; move.ptr = nullptr;
     }
     DeviceObject& operator=(const DeviceObject& copy) {
-        KernelProvider::copyOnDevice(ptr, copy.get(), sizeof(T));
+        if (copy.isNull()) {
+            if (ptr) KernelProvider::free(ptr); ptr = nullptr;
+        } else {
+            if (!ptr) ptr = KernelProvider::malloc<T>(1);
+            KernelProvider::copyOnDevice(ptr, copy.get(), 1);
+        }
+        return *this;
     }
     DeviceObject& operator=(DeviceObject&& move) {
         if (ptr) KernelProvider::free(ptr);
         ptr = move.ptr; move.ptr = nullptr;
         return *this;
     }
-    bool isNull() {return ptr == nullptr;}
+    bool isNull() const {return ptr == nullptr;}
     operator bool() const {
         return !isNull();
     }
@@ -85,7 +93,7 @@ public:
     T* get() const {return ptr;}
     DeviceObject(const HostObject<T>& hostobject) {
         ptr = KernelProvider::malloc<T>(1);
-        KernelProvider::copy(ptr, hostobject.get(), sizeof(T));
+        KernelProvider::copy(ptr, hostobject.get(), 1);
     }
     HostObject<T> toHost() {
         auto r = malloc(sizeof(T));

@@ -30,6 +30,22 @@ namespace troy
             scale_(copy.scale()),
             data_(copy.dynArray()) {}
 
+        Plaintext cpu() const {
+            Plaintext ret;
+            ret.parms_id_ = parms_id_;
+            ret.coeff_count_ = coeff_count_;
+            ret.scale_ = scale_;
+            ret.data_ = std::move(data_.toHost());
+            return ret;
+        }
+
+        Plaintext toHost() const {return cpu();}
+
+        std::string to_string() const {return cpu().to_string();}
+
+        
+        inline bool isZero() const {return cpu().isZero();}
+
         PlaintextCuda(const std::string &hex_poly)
             : data_()
         {
@@ -76,7 +92,11 @@ namespace troy
 
         PlaintextCuda &operator=(PlaintextCuda &&assign) = default;
 
-        Plaintext &operator=(const std::string &hex_poly);
+        PlaintextCuda &operator=(const std::string &hex_poly) {
+            Plaintext p = hex_poly;
+            operator=(PlaintextCuda(p));
+            return *this;
+        }
 
         // Plaintext &operator=(pt_coeff_type const_coeff)
         // {

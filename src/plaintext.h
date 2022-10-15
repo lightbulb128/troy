@@ -50,6 +50,7 @@ namespace troy
     */
     class Plaintext
     {
+        friend class PlaintextCuda;
     public:
         using pt_coeff_type = std::uint64_t;
 

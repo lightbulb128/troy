@@ -209,7 +209,7 @@ namespace troy {
                 uint64_t modulus_value = DeviceHelper::getModulusValue(ntt_tables[rns_index].modulus());
                 uint64_t twice_modulus_value = modulus_value << 1;
                 FOR_N(poly_index, poly_size) {
-                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree;
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
                     if (operand[id] >= twice_modulus_value) operand[id] -= twice_modulus_value;
                     if (operand[id] >= modulus_value) operand[id] -= modulus_value;
                 }

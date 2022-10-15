@@ -27,6 +27,7 @@ namespace troy
     {
         friend class KeyGenerator;
         friend class KSwitchKeys;
+        friend class PublicKeyCuda;
 
     public:
         /**

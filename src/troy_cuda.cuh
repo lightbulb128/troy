@@ -1,12 +1,15 @@
 #pragma once
 
+#include "batchencoder_cuda.cuh"
 #include "ciphertext_cuda.cuh"
+#include "ckks_cuda.cuh"
 #include "context_cuda.cuh"
 #include "decryptor_cuda.cuh"
 #include "encryptionparams_cuda.cuh"
 #include "encryptor_cuda.cuh"
 #include "evaluator_cuda.cuh"
 #include "galoiskeys_cuda.cuh"
+#include "keygenerator_cuda.cuh"
 #include "kswitchkeys_cuda.cuh"
 #include "plaintext_cuda.cuh"
 #include "publickey_cuda.cuh"

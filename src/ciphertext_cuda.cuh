@@ -46,6 +46,10 @@ namespace troy {
             return ret;
         }
 
+        inline Ciphertext toHost() const {return cpu();}
+
+        inline bool isTransparent() const {return cpu().isTransparent();}
+
         inline uint64_t& correctionFactor() noexcept 
             {return correction_factor_;}
         inline const uint64_t& correctionFactor() const noexcept 

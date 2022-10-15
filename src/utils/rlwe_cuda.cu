@@ -6,10 +6,39 @@
 
 using namespace std;
 
+
 namespace troy
 {
     namespace util
     {
+        
+
+        [[maybe_unused]] void printDeviceArray(const DeviceArray<uint64_t>& r, bool dont_compress = false) {
+            HostArray<uint64_t> start = r.toHost();
+            size_t count = r.size();
+            std::cout << "dev[";
+            for (size_t i = 0; i < count; i++) {
+                if (!dont_compress && i == 5 && count >= 10) 
+                    {i = count - 5; std::cout << "...";}
+                std::cout << std::hex << start[i];
+                if (i!=count-1) std::cout << ", ";
+            }
+            std::cout << "]\n";
+        }
+
+        [[maybe_unused]] void printDeviceArray(const uint64_t* r, size_t count, bool dont_compress = false) {
+            HostArray<uint64_t> start(count);
+            KernelProvider::retrieve(start.get(), r, count);
+            std::cout << "dev[";
+            for (size_t i = 0; i < count; i++) {
+                if (!dont_compress && i == 5 && count >= 10) 
+                    {i = count - 5; std::cout << "...";}
+                std::cout << std::hex << start[i];
+                if (i!=count-1) std::cout << ", ";
+            }
+            std::cout << "]\n";
+        }
+
         void encryptZeroAsymmetric(
             const PublicKeyCuda &public_key, const SEALContextCuda &context, ParmsID parms_id, bool is_ntt_form,
             CiphertextCuda &destination)

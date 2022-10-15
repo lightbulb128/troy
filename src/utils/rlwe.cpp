@@ -104,6 +104,21 @@ namespace troy
             }
         }
 
+        inline void printArray(const uint64_t* start, size_t count, bool dont_compress = false) {
+            std::cout << "[";
+            for (size_t i = 0; i < count; i++) {
+                if (!dont_compress && i == 5 && count >= 10) 
+                    {i = count - 5; std::cout << "...";}
+                std::cout << std::hex << start[i];
+                if (i!=count-1) std::cout << ", ";
+            }
+            std::cout << "]\n";
+        }
+        inline void printArray(const HostArray<uint64_t>& s, bool dont_compress = false) {
+            printArray(s.get(), s.size(), dont_compress);
+        } 
+
+
         void samplePolyUniform(
             shared_ptr<UniformRandomGenerator> prng, const EncryptionParameters &parms, uint64_t *destination)
         {
@@ -184,6 +199,7 @@ namespace troy
                     }
                 }
             }
+
 
             // Generate e_j <-- chi
             // c[j] = public_key[j] * u + e[j] in BFV/CKKS, = public_key[j] * u + p * e[j] in BGV,

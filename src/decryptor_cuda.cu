@@ -124,10 +124,10 @@ namespace troy
         context_data.rnsTool()->decryptScaleAndRound(tmp_dest_modq.asPointer(), destination.data());
 
         // How many non-zero coefficients do we really have in the result?
-        size_t plain_coeff_count = getSignificantUint64CountUint(destination.data(), coeff_count);
+        // size_t plain_coeff_count = getSignificantUint64CountUint(destination.data(), coeff_count);
 
         // Resize destination to appropriate size
-        destination.resize(max(plain_coeff_count, size_t(1)));
+        // destination.resize(max(plain_coeff_count, size_t(1)));
     }
 
     void DecryptorCuda::ckksDecrypt(const CiphertextCuda &encrypted, PlaintextCuda &destination)
@@ -199,10 +199,10 @@ namespace troy
         }
 
         // How many non-zero coefficients do we really have in the result?
-        size_t plain_coeff_count = getSignificantUint64CountUint(destination.data(), coeff_count);
+        // size_t plain_coeff_count = getSignificantUint64CountUint(destination.data(), coeff_count);
 
-        // Resize destination to appropriate size
-        destination.resize(max(plain_coeff_count, size_t(1)));
+        // // Resize destination to appropriate size
+        // destination.resize(max(plain_coeff_count, size_t(1)));
     }
 
     void DecryptorCuda::computeSecretKeyArray(size_t max_power)

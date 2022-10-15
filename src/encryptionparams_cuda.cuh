@@ -11,11 +11,26 @@ namespace troy {
         
     public:
         
-        EncryptionParametersCuda(SchemeType scheme = SchemeType::none) : scheme_(scheme) {
+        EncryptionParametersCuda(SchemeType scheme = SchemeType::none) : scheme_(scheme), cpu(scheme) {
             computeParmsID();
         }
     
         EncryptionParametersCuda(const EncryptionParametersCuda &copy) = default;
+        //     std::cout << "EncryptionParametersCuda copy constructor\n";
+        //     scheme_ = copy.scheme_;
+        //     poly_modulus_degree_ = copy.poly_modulus_degree_;
+        //     coeff_modulus_ = copy.coeff_modulus_;
+        //     std::cout << "EncryptionParametersCuda copy constructor\n";
+        //     random_generator_ = copy.random_generator_;
+        //     std::cout << "EncryptionParametersCuda copy constructor\n";
+        //     plain_modulus_ = copy.plain_modulus_;
+        //     std::cout << "EncryptionParametersCuda copy constructor\n";
+        //     plain_modulus_cuda_ = copy.plain_modulus_cuda_;
+        //     std::cout << "EncryptionParametersCuda copy constructor\n";
+        //     parms_id_ = copy.parms_id_;
+        //     cpu = copy.cpu;
+        //     std::cout << "EncryptionParametersCuda copy constructor done\n";
+        // }
         EncryptionParametersCuda &operator=(const EncryptionParametersCuda &assign) = default;
         
         EncryptionParametersCuda(EncryptionParametersCuda &&source) = default;
@@ -119,6 +134,8 @@ namespace troy {
             {
                 throw std::logic_error("plain_modulus is not supported for this scheme");
             }
+
+            // std::cout << "hello there 2" << std::endl;
 
             plain_modulus_ = plain_modulus;
             setPlainModulusCuda();
@@ -230,7 +247,9 @@ namespace troy {
             return (parms_id_ != other.parms_id_);
         }
 
-        inline const EncryptionParameters& host() const noexcept {return cpu;}
+        inline const EncryptionParameters& host() const noexcept {
+            return cpu;
+        }
 
     private:
     
@@ -264,6 +283,7 @@ namespace troy {
             Modulus* p = KernelProvider::malloc<Modulus>(1);
             KernelProvider::copy(p, &plain_modulus_, 1);
             plain_modulus_cuda_ = util::DeviceObject(p);
+            // printf("set plain modulus cuda done\n");
         }
 
         SchemeType scheme_;

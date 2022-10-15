@@ -31,7 +31,7 @@ namespace troy
     class SecretKey
     {
         friend class KeyGenerator;
-
+        friend class SecretKeyCuda;
     public:
         /**
         Creates an empty secret key.
