@@ -25,6 +25,7 @@ namespace troy {
             random_generator_ = host.randomGenerator();
             plain_modulus_ = host.plainModulus();
             parms_id_ = host.parmsID();
+            setPlainModulusCuda();
         }
 
         /**
@@ -115,6 +116,7 @@ namespace troy {
             }
 
             plain_modulus_ = plain_modulus;
+            setPlainModulusCuda();
 
             // Re-compute the parms_id
             computeParmsID();
@@ -175,6 +177,10 @@ namespace troy {
         inline const Modulus &plainModulus() const noexcept
         {
             return plain_modulus_;
+        }
+
+        inline const Modulus* plainModulusCuda() const noexcept {
+            return plain_modulus_cuda_.get();
         }
 
         /**
@@ -247,6 +253,12 @@ namespace troy {
             return false;
         }
 
+        void setPlainModulusCuda() {
+            Modulus* p = KernelProvider::malloc<Modulus>(1);
+            KernelProvider::copy(p, &plain_modulus_, 1);
+            plain_modulus_cuda_ = util::DeviceObject(p);
+        }
+
         SchemeType scheme_;
 
         std::size_t poly_modulus_degree_ = 0;
@@ -256,6 +268,8 @@ namespace troy {
         std::shared_ptr<UniformRandomGeneratorFactory> random_generator_{ nullptr };
 
         Modulus plain_modulus_{};
+
+        util::DeviceObject<Modulus> plain_modulus_cuda_;
 
         ParmsID parms_id_ = parmsIDZero;
 

@@ -33,7 +33,12 @@ namespace troy {
                 prev_context_data_(),
                 next_context_data_(nullptr),
                 chain_index_(contextData.chainIndex()),
-                rns_tool_(new util::RNSToolCuda(*contextData.rns_tool_))
+                rns_tool_(new util::RNSToolCuda(*contextData.rns_tool_)),
+                total_coeff_modulus_(contextData.total_coeff_modulus_),
+                coeff_div_plain_modulus_(contextData.coeff_div_plain_modulus_),
+                plain_upper_half_increment_(contextData.plain_upper_half_increment_),
+                upper_half_threshold_(contextData.upper_half_threshold_),
+                upper_half_increment_(contextData.upper_half_increment_)
             {
                 size_t n = contextData.small_ntt_tables_.size();
                 small_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
@@ -85,6 +90,38 @@ namespace troy {
                 return next_context_data_;
             }
 
+            inline util::ConstDevicePointer<util::MultiplyUIntModOperand> coeffDivPlainModulus() const noexcept
+            {
+                return coeff_div_plain_modulus_;
+            }
+
+            inline std::uint64_t plainUpperHalfThreshold() const noexcept
+            {
+                return plain_upper_half_threshold_;
+            }
+
+            inline util::ConstDevicePointer<uint64_t> plainUpperHalfIncrement() const noexcept
+            {
+                return plain_upper_half_increment_;
+            }
+
+            inline util::ConstDevicePointer<uint64_t> upperHalfThreshold() const noexcept{
+                return upper_half_threshold_;
+            }
+
+            inline util::ConstDevicePointer<uint64_t> upperHalfIncrement() const noexcept{
+                return upper_half_increment_;
+            }
+
+            inline std::uint64_t coeffModulusModPlainModulus() const noexcept{
+                return coeff_modulus_mod_plain_modulus_;
+            }
+            
+            inline EncryptionParameterQualifiers qualifiers() const noexcept
+            {
+                return qualifiers_;
+            }
+
 
         private:
 
@@ -97,17 +134,17 @@ namespace troy {
             util::HostArray<util::NTTTablesCuda> small_ntt_tables_support_;
             util::HostArray<util::NTTTablesCuda> plain_ntt_tables_support_;
             // TODO: galois_tool_
-            // TODO: total_coeff_modulus_
+            util::DeviceArray<uint64_t> total_coeff_modulus_;
             
             int total_coeff_modulus_bit_count_ = 0;
             
-            // TODO: coeff_div_plain_modulus
+            util::DeviceArray<util::MultiplyUIntModOperand> coeff_div_plain_modulus_;
             
             uint64_t plain_upper_half_threshold_ = 0;
 
-            // TODO: plain_upper_half_increment_;
-            // TODO: upper_half_threshold_
-            // TODO: upper_half_increment_
+            util::DeviceArray<uint64_t> plain_upper_half_increment_;
+            util::DeviceArray<uint64_t> upper_half_threshold_;
+            util::DeviceArray<uint64_t> upper_half_increment_;
 
             uint64_t coeff_modulus_mod_plain_modulus_ = 0;
             

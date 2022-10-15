@@ -1,5 +1,7 @@
 #include "evaluator_cuda.cuh"
 
+#include "utils/scalingvariant_cuda.cuh"
+
 using std::invalid_argument;
 using std::logic_error;
 
@@ -19,6 +21,12 @@ namespace troy {
         inline bool areClose(double value1, double value2) {
             double scale_factor = std::max({std::fabs(value1), std::fabs(value2), 1.0});
             return std::fabs(value1 - value2) < std::numeric_limits<double>::epsilon() * scale_factor;
+        }
+
+        template <typename T, typename S>
+        inline bool areSameScale(const T &value1, const S &value2) noexcept
+        {
+            return areClose(value1.scale(), value2.scale());
         }
 
         inline bool isScaleWithinBounds(
@@ -1499,6 +1507,310 @@ namespace troy {
         // Create a vector of copies of encrypted
         std::vector<CiphertextCuda> exp_vector(static_cast<size_t>(exponent), encrypted);
         multiplyMany(exp_vector, relin_keys, encrypted);
+    }
+
+
+
+    void EvaluatorCuda::addPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
+    {
+
+        auto &context_data = *context_.getContextData(encrypted.parmsID());
+        auto &parms = context_data.parms();
+        if (parms.scheme() == SchemeType::bfv && encrypted.isNttForm())
+        {
+            throw invalid_argument("BFV encrypted cannot be in NTT form");
+        }
+        if (parms.scheme() == SchemeType::ckks && !encrypted.isNttForm())
+        {
+            throw invalid_argument("CKKS encrypted must be in NTT form");
+        }
+        if (parms.scheme() == SchemeType::bgv && encrypted.isNttForm())
+        {
+            throw invalid_argument("BGV encrypted cannot be in NTT form");
+        }
+        if (plain.isNttForm() != encrypted.isNttForm())
+        {
+            throw invalid_argument("NTT form mismatch");
+        }
+        if (encrypted.isNttForm() && (encrypted.parmsID() != plain.parmsID()))
+        {
+            throw invalid_argument("encrypted and plain parameter mismatch");
+        }
+        if (!areSameScale(encrypted, plain))
+        {
+            throw invalid_argument("scale mismatch");
+        }
+
+        // Extract encryption parameters.
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = coeff_modulus.size();
+
+        // Size check
+        if (!productFitsIn(coeff_count, coeff_modulus_size))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        switch (parms.scheme())
+        {
+        case SchemeType::bfv:
+        {
+            multiplyAddPlainWithScalingVariant(plain, context_data, encrypted.data(0));
+            break;
+        }
+
+        case SchemeType::ckks:
+        {
+            DevicePointer encrypted_iter(encrypted.data());
+            ConstDevicePointer plain_iter(plain.data());
+            kernel_util::kAddPolyCoeffmod(encrypted_iter, plain_iter, 1, coeff_modulus_size, coeff_count, coeff_modulus, encrypted_iter);
+            break;
+        }
+
+        case SchemeType::bgv:
+        {
+            PlaintextCuda plain_copy = plain;
+            kernel_util::kMultiplyPolyScalarCoeffmod(plain.data(), 
+                1, 1, plain.coeffCount(), encrypted.correctionFactor(),
+                parms.plainModulusCuda(), plain_copy.data());
+            addPlainWithoutScalingVariant(plain_copy, context_data, encrypted.data(0));
+            break;
+        }
+
+        default:
+            throw invalid_argument("unsupported scheme");
+        }
+    }
+
+    void EvaluatorCuda::subPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
+    {        
+
+        auto &context_data = *context_.getContextData(encrypted.parmsID());
+        auto &parms = context_data.parms();
+        if (parms.scheme() == SchemeType::bfv && encrypted.isNttForm())
+        {
+            throw invalid_argument("BFV encrypted cannot be in NTT form");
+        }
+        if (parms.scheme() == SchemeType::ckks && !encrypted.isNttForm())
+        {
+            throw invalid_argument("CKKS encrypted must be in NTT form");
+        }
+        if (parms.scheme() == SchemeType::bgv && encrypted.isNttForm())
+        {
+            throw invalid_argument("BGV encrypted cannot be in NTT form");
+        }
+        if (plain.isNttForm() != encrypted.isNttForm())
+        {
+            throw invalid_argument("NTT form mismatch");
+        }
+        if (encrypted.isNttForm() && (encrypted.parmsID() != plain.parmsID()))
+        {
+            throw invalid_argument("encrypted and plain parameter mismatch");
+        }
+        if (!areSameScale(encrypted, plain))
+        {
+            throw invalid_argument("scale mismatch");
+        }
+
+        // Extract encryption parameters.
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = coeff_modulus.size();
+
+        // Size check
+        if (!productFitsIn(coeff_count, coeff_modulus_size))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        switch (parms.scheme())
+        {
+        case SchemeType::bfv:
+        {
+            multiplySubPlainWithScalingVariant(plain, context_data, encrypted.data(0));
+            break;
+        }
+
+        case SchemeType::ckks:
+        {
+            DevicePointer encrypted_iter(encrypted.data());
+            ConstDevicePointer plain_iter(plain.data());
+            kernel_util::kSubPolyCoeffmod(encrypted_iter, plain_iter, 1, coeff_modulus_size, coeff_count, coeff_modulus, encrypted_iter);
+            break;
+        }
+
+        case SchemeType::bgv:
+        {
+            PlaintextCuda plain_copy = plain;
+            kernel_util::kMultiplyPolyScalarCoeffmod(plain.data(), 
+                1, 1, plain.coeffCount(), encrypted.correctionFactor(),
+                parms.plainModulusCuda(), plain_copy.data());
+            subPlainWithoutScalingVariant(plain_copy, context_data, encrypted.data(0));
+            break;
+        }
+
+        default:
+            throw invalid_argument("unsupported scheme");
+        }
+    }
+
+    
+    void EvaluatorCuda::multiplyPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
+    {
+        if (encrypted.isNttForm() != plain.isNttForm())
+        {
+            throw invalid_argument("NTT form mismatch");
+        }
+
+        if (encrypted.isNttForm())
+        {
+            multiplyPlainNtt(encrypted, plain);
+        }
+        else
+        {
+            multiplyPlainNormal(encrypted, plain);
+        }
+    }
+
+    __global__ void gMultiplyPlainNormalUtilA(
+        const uint64_t* plain_data,
+        size_t plain_coeff_count,
+        const uint64_t* plain_upper_half_increment,
+        uint64_t plain_upper_half_threshold,
+        size_t coeff_modulus_size,
+        uint64_t* temp
+    ) {
+        GET_INDEX_COND_RETURN(plain_coeff_count);
+        uint64_t plain_value = plain_data[gindex];
+        if (plain_value >= plain_upper_half_threshold) {
+            kernel_util::dAddUint(plain_upper_half_increment, coeff_modulus_size, plain_value, temp + coeff_modulus_size * gindex);
+        } else {
+            temp[coeff_modulus_size * gindex] = plain_value;
+        }
+    }
+
+    __global__ void gMultiplyPlainNormalUtilB(
+        const uint64_t* plain_data,
+        size_t plain_coeff_count,
+        size_t coeff_count,
+        const uint64_t* plain_upper_half_increment,
+        uint64_t plain_upper_half_threshold,
+        size_t coeff_modulus_size,
+        uint64_t* temp
+    ) {
+        GET_INDEX_COND_RETURN(plain_coeff_count);
+        uint64_t plain_value = plain_data[gindex];
+        FOR_N(i, coeff_modulus_size) {
+            temp[i * coeff_count + gindex] = 
+                plain_value >= plain_upper_half_threshold ?
+                (plain_value + plain_upper_half_increment[i]) : (plain_value);
+        }
+    }
+
+    void EvaluatorCuda::multiplyPlainNormal(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
+    {
+        // Extract encryption parameters.
+        auto &context_data = *context_.getContextData(encrypted.parmsID());
+        auto &parms = context_data.parms();
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_power = getPowerOfTwo(coeff_count);
+        size_t coeff_modulus_size = coeff_modulus.size();
+
+        uint64_t plain_upper_half_threshold = context_data.plainUpperHalfThreshold();
+        auto plain_upper_half_increment = context_data.plainUpperHalfIncrement();
+        auto ntt_tables = context_data.smallNTTTables();
+
+        size_t encrypted_size = encrypted.size();
+        size_t plain_coeff_count = plain.coeffCount();
+
+        // Size check
+        if (!productFitsIn(encrypted_size, mul_safe(coeff_count, coeff_modulus_size)))
+        {
+            throw logic_error("invalid parameters");
+        }
+
+        // Generic case: any plaintext polynomial
+        // Allocate temporary space for an entire RNS polynomial
+        auto temp = kernel_util::kAllocateZero(coeff_count, coeff_modulus_size);
+
+        if (!context_data.qualifiers().using_fast_plain_lift) {
+            KERNEL_CALL(gMultiplyPlainNormalUtilA, plain_coeff_count)(
+                plain.data(), plain_coeff_count, plain_upper_half_increment.get(),
+                plain_upper_half_threshold, coeff_modulus_size, temp.get()
+            );
+            context_data.rnsTool()->baseq()->decomposeArray(temp.get(), coeff_count);
+        }
+        else
+        {
+            KERNEL_CALL(gMultiplyPlainNormalUtilB, plain_coeff_count)(
+                plain.data(), plain_coeff_count, coeff_count, plain_upper_half_increment.get(),
+                plain_upper_half_threshold, coeff_modulus_size, temp.get()
+            );
+        }
+
+        // Need to multiply each component in encrypted with temp; first step is to transform to NTT form
+        // RNSIter temp_iter(temp.get(), coeff_count);
+        kernel_util::kNttNegacyclicHarvey(temp.asPointer(), 1, coeff_modulus_size, coeff_power, ntt_tables);
+
+        for (size_t i = 0; i < encrypted_size; i++) {
+            auto target_ptr = encrypted.data(i);
+            kernel_util::kNttNegacyclicHarveyLazy(target_ptr, 1, coeff_modulus_size, coeff_power, ntt_tables);
+            kernel_util::kDyadicProductCoeffmod(target_ptr, temp, 1, coeff_modulus_size, coeff_count, coeff_modulus, target_ptr);
+            kernel_util::kInverseNttNegacyclicHarveyLazy(target_ptr, 1, coeff_modulus_size, coeff_power, ntt_tables);
+        }
+
+        // Set the scale
+        if (parms.scheme() == SchemeType::ckks) {
+            encrypted.scale() *= plain.scale();
+            if (!isScaleWithinBounds(encrypted.scale(), context_data))
+            {
+                throw invalid_argument("scale out of bounds");
+            }
+        }
+    }
+
+    
+
+    void EvaluatorCuda::multiplyPlainNtt(CiphertextCuda &encrypted_ntt, const PlaintextCuda &plain_ntt) const
+    {
+        // Verify parameters.
+        if (!plain_ntt.isNttForm())
+        {
+            throw invalid_argument("plain_ntt is not in NTT form");
+        }
+        if (encrypted_ntt.parmsID() != plain_ntt.parmsID())
+        {
+            throw invalid_argument("encrypted_ntt and plain_ntt parameter mismatch");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_.getContextData(encrypted_ntt.parmsID());
+        auto &parms = context_data.parms();
+        auto &coeff_modulus = parms.coeffModulus();
+        size_t coeff_count = parms.polyModulusDegree();
+        size_t coeff_modulus_size = coeff_modulus.size();
+        size_t encrypted_ntt_size = encrypted_ntt.size();
+
+        // Size check
+        if (!productFitsIn(encrypted_ntt_size, mul_safe(coeff_count, coeff_modulus_size))) {
+            throw logic_error("invalid parameters");
+        }
+
+        auto plain_ntt_iter = plain_ntt.data();
+
+        for (size_t i = 0; i < encrypted_ntt_size; i++) {
+            kernel_util::kDyadicProductCoeffmod(encrypted_ntt.data(i), plain_ntt_iter,
+                1, coeff_modulus_size, coeff_count, coeff_modulus, encrypted_ntt.data(i));
+        }
+
+        // Set the scale
+        encrypted_ntt.scale() *= plain_ntt.scale();
+        if (!isScaleWithinBounds(encrypted_ntt.scale(), context_data))
+        {
+            throw invalid_argument("scale out of bounds");
+        }
     }
 
 }

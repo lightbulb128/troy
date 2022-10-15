@@ -196,6 +196,35 @@ namespace troy {
             exponentiateInplace(destination, exponent, relin_keys);
         }
 
+
+        void addPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const;
+
+        inline void addPlain(const CiphertextCuda &encrypted, const PlaintextCuda &plain, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            addPlainInplace(destination, plain);
+        }
+
+
+        void subPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const;
+
+        inline void subPlain(const CiphertextCuda &encrypted, const PlaintextCuda &plain, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            subPlainInplace(destination, plain);
+        }
+
+        
+        void multiplyPlainInplace(
+            CiphertextCuda &encrypted, const PlaintextCuda &plain) const;
+
+        inline void multiplyPlain(
+            const CiphertextCuda &encrypted, const PlaintextCuda &plain, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            multiplyPlainInplace(destination, plain);
+        }
+
     private:
 
         void bfvMultiply(CiphertextCuda &encrypted1, const CiphertextCuda &encrypted2) const;
@@ -224,6 +253,9 @@ namespace troy {
 
         void modSwitchDropToNext(const CiphertextCuda &encrypted, CiphertextCuda &destination) const;
         void modSwitchDropToNext(PlaintextCuda &plain) const;
+
+        void multiplyPlainNormal(CiphertextCuda &encrypted, const PlaintextCuda &plain) const;
+        void multiplyPlainNtt(CiphertextCuda &encrypted_ntt, const PlaintextCuda &plain_ntt) const;
 
         SEALContextCuda context_;
 
