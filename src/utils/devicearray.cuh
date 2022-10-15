@@ -18,7 +18,7 @@ public:
     ConstDevicePointer(): ptr(nullptr) {}
     ConstDevicePointer(const T* ptr): ptr(ptr) {}
     ConstDevicePointer(const DevicePointer<T>& d): ptr(d.get()) {}
-    bool isNull() {return ptr == nullptr;}
+    bool isNull() const {return ptr == nullptr;}
     operator bool() const {
         return !isNull();
     }

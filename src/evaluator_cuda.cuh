@@ -161,6 +161,40 @@ namespace troy {
             destination = plain;
             modSwitchToInplace(destination, parms_id);
         }
+        
+        void rescaleToNext(
+            const CiphertextCuda &encrypted, CiphertextCuda &destination) const;
+
+        
+        inline void rescaleToNextInplace(
+            CiphertextCuda &encrypted) const
+        {
+            rescaleToNext(encrypted, encrypted);
+        }
+        
+        void rescaleToInplace(
+            CiphertextCuda &encrypted, ParmsID parms_id) const;
+
+
+        inline void rescaleTo(
+            const CiphertextCuda &encrypted, ParmsID parms_id, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            rescaleToInplace(destination, parms_id);
+        }
+
+        void multiplyMany(
+            const std::vector<CiphertextCuda> &encrypteds, const RelinKeysCuda &relin_keys, CiphertextCuda &destination) const;
+
+        void exponentiateInplace(
+            CiphertextCuda &encrypted, std::uint64_t exponent, const RelinKeysCuda &relin_keys) const;
+
+        inline void exponentiate(
+            const CiphertextCuda &encrypted, std::uint64_t exponent, const RelinKeysCuda &relin_keys, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            exponentiateInplace(destination, exponent, relin_keys);
+        }
 
     private:
 

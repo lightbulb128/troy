@@ -26,6 +26,12 @@ namespace troy {
             data_(host.data_) {}
 
         CiphertextCuda(const CiphertextCuda& copy) = default;
+        CiphertextCuda(CiphertextCuda &&source) = default;
+
+        
+
+        CiphertextCuda& operator=(const CiphertextCuda& copy) = default;
+        CiphertextCuda& operator=(CiphertextCuda &&source) = default;
 
         Ciphertext cpu() const {
             Ciphertext ret;
@@ -61,6 +67,20 @@ namespace troy {
             parms_id_ = context_data_ptr->parmsID();
             resizeInternal(size, parms.polyModulusDegree(), parms.coeffModulus().size());
         }
+        
+        inline void resize(const SEALContextCuda &context, std::size_t size)
+        {
+            auto parms_id = context.firstParmsID();
+            resize(context, parms_id, size);
+        }
+        
+        inline void resize(std::size_t size)
+        {
+            // Note: poly_modulus_degree_ and coeff_modulus_size_ are either valid
+            // or coeff_modulus_size_ is zero (in which case no memory is allocated).
+            resizeInternal(size, poly_modulus_degree_, coeff_modulus_size_);
+        }
+
         inline ParmsID& parmsID() noexcept {return parms_id_;}
         inline const ParmsID& parmsID() const noexcept {return parms_id_;}
         inline bool isNttForm() const noexcept {return is_ntt_form_;}
@@ -73,7 +93,109 @@ namespace troy {
             return poly_modulus_degree_ * coeff_modulus_size_;
         }
 
+        explicit CiphertextCuda(const SEALContextCuda &context)
+            : data_()
+        {
+            // Allocate memory but don't resize
+            reserve(context, 2);
+        }
+
+        explicit CiphertextCuda(
+            const SEALContextCuda &context, ParmsID parms_id)
+            : data_()
+        {
+            // Allocate memory but don't resize
+            reserve(context, parms_id, 2);
+        }
+        
+        explicit CiphertextCuda(
+            const SEALContextCuda &context, ParmsID parms_id, std::size_t size_capacity)
+            : data_()
+        {
+            // Allocate memory but don't resize
+            reserve(context, parms_id, size_capacity);
+        }
+
+        void reserve(const SEALContextCuda &context, ParmsID parms_id, std::size_t size_capacity) 
+        {
+
+            auto context_data_ptr = context.getContextData(parms_id);
+            if (!context_data_ptr)
+            {
+                throw std::invalid_argument("parms_id is not valid for encryption parameters");
+            }
+
+            // Need to set parms_id first
+            auto &parms = context_data_ptr->parms();
+            parms_id_ = context_data_ptr->parmsID();
+
+            reserveInternal(size_capacity, parms.polyModulusDegree(), parms.coeffModulus().size());
+        }
+
+        inline void reserve(const SEALContextCuda &context, std::size_t size_capacity)
+        {
+            auto parms_id = context.firstParmsID();
+            reserve(context, parms_id, size_capacity);
+        }
+
+        inline void reserve(std::size_t size_capacity)
+        {
+            // Note: poly_modulus_degree_ and coeff_modulus_size_ are either valid
+            // or coeff_modulus_size_ is zero (in which case no memory is allocated).
+            reserveInternal(size_capacity, poly_modulus_degree_, coeff_modulus_size_);
+        }
+
+        inline void release() noexcept
+        {
+            parms_id_ = parmsIDZero;
+            is_ntt_form_ = false;
+            size_ = 0;
+            poly_modulus_degree_ = 0;
+            coeff_modulus_size_ = 0;
+            scale_ = 1.0;
+            correction_factor_ = 1;
+            data_.release();
+        }
+
+        
+        inline std::size_t coeffModulusSize() const noexcept
+        {
+            return coeff_modulus_size_;
+        }
+        
+        inline std::size_t polyModulusDegree() const noexcept
+        {
+            return poly_modulus_degree_;
+        }
+
+        inline std::size_t sizeCapacity() const noexcept
+        {
+            std::size_t poly_uint64_count = poly_modulus_degree_ * coeff_modulus_size_;
+            return poly_uint64_count ? data_.capacity() / poly_uint64_count : std::size_t(0);
+        }
+
     private:
+    
+        void reserveInternal(
+            std::size_t size_capacity, std::size_t poly_modulus_degree, std::size_t coeff_modulus_size)
+        {
+            if (size_capacity < SEAL_CIPHERTEXT_SIZE_MIN || size_capacity > SEAL_CIPHERTEXT_SIZE_MAX)
+            {
+                throw std::invalid_argument("invalid size_capacity");
+            }
+
+            size_t new_data_capacity = size_capacity * poly_modulus_degree * coeff_modulus_size;
+            size_t new_data_size = std::min<size_t>(new_data_capacity, data_.size());
+
+            // First reserve, then resize
+            data_.reserve(new_data_capacity);
+            data_.resize(new_data_size);
+
+            // Set the size
+            size_ = std::min<size_t>(size_capacity, size_);
+            poly_modulus_degree_ = poly_modulus_degree;
+            coeff_modulus_size_ = coeff_modulus_size;
+        }
 
         void resizeInternal(size_t size, size_t poly_modulus_degree, size_t coeff_modulus_size) {
             // std::cout << "resize internal " << size << " " << poly_modulus_degree << " " << coeff_modulus_size << std::endl;

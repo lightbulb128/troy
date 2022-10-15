@@ -120,34 +120,16 @@ namespace troy {
         };
 
         SEALContextCuda(const SEALContext& context) {
-            for (auto& pair: context.context_data_map_) {
-                context_data_map_.emplace(std::make_pair(
-                    pair.first,
-                    std::make_shared<ContextDataCuda>(std::move(ContextDataCuda(*pair.second)))
-                ));
-            }
-            // re-establish the chain
-            for (auto& pair: context.context_data_map_) {
-                ParmsID current_id = pair.first;
-                auto prev = pair.second->prevContextData();
-                if (prev) {
-                    context_data_map_.at(current_id)->prev_context_data_
-                        = context_data_map_.at(prev->parmsID());
-                }
-                auto next = pair.second->nextContextData();
-                if (next) {
-                    context_data_map_.at(current_id)->next_context_data_
-                        = context_data_map_.at(next->parmsID());
-                }
-            }
-            key_parms_id_ = context.keyParmsID();
-            first_parms_id_ = context.firstParmsID();
-            last_parms_id_ = context.lastParmsID();
-            using_keyswitching_ = context.using_keyswitching();
+            initialize(context);
         }
         
         SEALContextCuda(const SEALContextCuda& copy) = default;
         SEALContextCuda(SEALContextCuda&& move) = default;
+
+        SEALContextCuda(EncryptionParameters parms, bool expand_mod_chain = true, SecurityLevel sec_level = SecurityLevel::tc128) {
+            SEALContext context_cpu = SEALContext(parms, expand_mod_chain, sec_level);
+            initialize(context_cpu);
+        }
 
         inline std::shared_ptr<ContextDataCuda> getContextData(ParmsID parms_id) const {
             auto data = context_data_map_.find(parms_id);
@@ -178,6 +160,33 @@ namespace troy {
         }
     
     private:
+
+        void initialize(const SEALContext& context) {
+            for (auto& pair: context.context_data_map_) {
+                context_data_map_.emplace(std::make_pair(
+                    pair.first,
+                    std::make_shared<ContextDataCuda>(std::move(ContextDataCuda(*pair.second)))
+                ));
+            }
+            // re-establish the chain
+            for (auto& pair: context.context_data_map_) {
+                ParmsID current_id = pair.first;
+                auto prev = pair.second->prevContextData();
+                if (prev) {
+                    context_data_map_.at(current_id)->prev_context_data_
+                        = context_data_map_.at(prev->parmsID());
+                }
+                auto next = pair.second->nextContextData();
+                if (next) {
+                    context_data_map_.at(current_id)->next_context_data_
+                        = context_data_map_.at(next->parmsID());
+                }
+            }
+            key_parms_id_ = context.keyParmsID();
+            first_parms_id_ = context.firstParmsID();
+            last_parms_id_ = context.lastParmsID();
+            using_keyswitching_ = context.using_keyswitching();
+        }
 
         // ParmsID createNextContextData(const ParmsID &prev_parms);
         

@@ -106,7 +106,7 @@ namespace troy {
             return std::make_tuple(util::multiplyUintMod(e1, factor1, plain_modulus), e1, e2);
         }
 
-        void printDeviceArray(const DeviceArray<uint64_t>& r, bool dont_compress = false) {
+        [[maybe_unused]] void printDeviceArray(const DeviceArray<uint64_t>& r, bool dont_compress = false) {
             HostArray<uint64_t> start = r.toHost();
             size_t count = r.size();
             std::cout << "dev[";
@@ -119,7 +119,7 @@ namespace troy {
             std::cout << "]\n";
         }
 
-        void printDeviceArray(const uint64_t* r, size_t count, bool dont_compress = false) {
+        [[maybe_unused]] void printDeviceArray(const uint64_t* r, size_t count, bool dont_compress = false) {
             HostArray<uint64_t> start(count);
             KernelProvider::retrieve(start.get(), r, count);
             std::cout << "dev[";
@@ -1332,4 +1332,173 @@ namespace troy {
             // printf("enc %ld: ", i); printDeviceArray(encrypted.data(i).get(), key_component_count * coeff_count);
         }
     }
+
+    
+
+    void EvaluatorCuda::rescaleToNext(const CiphertextCuda &encrypted, CiphertextCuda &destination) const
+    {
+        if (context_.lastParmsID() == encrypted.parmsID())
+        {
+            throw invalid_argument("end of modulus switching chain reached");
+        }
+
+        switch (context_.firstContextData()->parms().scheme())
+        {
+        case SchemeType::bfv:
+            /* Fall through */
+        case SchemeType::bgv:
+            throw invalid_argument("unsupported operation for scheme type");
+
+        case SchemeType::ckks:
+            // Modulus switching with scaling
+            modSwitchScaleToNext(encrypted, destination);
+            break;
+
+        default:
+            throw invalid_argument("unsupported scheme");
+        }
+
+    }
+
+
+    void EvaluatorCuda::rescaleToInplace(CiphertextCuda &encrypted, ParmsID parms_id) const
+    {
+
+        auto context_data_ptr = context_.getContextData(encrypted.parmsID());
+        auto targetContextData_ptr = context_.getContextData(parms_id);
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("encrypted is not valid for encryption parameters");
+        }
+        if (!targetContextData_ptr)
+        {
+            throw invalid_argument("parms_id is not valid for encryption parameters");
+        }
+        if (context_data_ptr->chainIndex() < targetContextData_ptr->chainIndex())
+        {
+            throw invalid_argument("cannot switch to higher level modulus");
+        }
+
+        switch (context_data_ptr->parms().scheme())
+        {
+        case SchemeType::bfv:
+            /* Fall through */
+        case SchemeType::bgv:
+            throw invalid_argument("unsupported operation for scheme type");
+
+        case SchemeType::ckks:
+            while (encrypted.parmsID() != parms_id)
+            {
+                // Modulus switching with scaling
+                modSwitchScaleToNext(encrypted, encrypted);
+            }
+            break;
+
+        default:
+            throw invalid_argument("unsupported scheme");
+        }
+    }
+
+
+    void EvaluatorCuda::multiplyMany(
+        const std::vector<CiphertextCuda> &encrypteds, const RelinKeysCuda &relin_keys, CiphertextCuda &destination) const
+    {
+        // Verify parameters.
+        if (encrypteds.size() == 0)
+        {
+            throw invalid_argument("encrypteds vector must not be empty");
+        }
+        for (size_t i = 0; i < encrypteds.size(); i++)
+        {
+            if (&encrypteds[i] == &destination)
+            {
+                throw invalid_argument("encrypteds must be different from destination");
+            }
+        }
+
+        // There is at least one ciphertext
+        auto context_data_ptr = context_.getContextData(encrypteds[0].parmsID());
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("encrypteds is not valid for encryption parameters");
+        }
+
+        // Extract encryption parameters.
+        auto &context_data = *context_data_ptr;
+        auto &parms = context_data.parms();
+
+        if (parms.scheme() != SchemeType::bfv && parms.scheme() != SchemeType::bgv)
+        {
+            throw logic_error("unsupported scheme");
+        }
+
+        // If there is only one ciphertext, return it.
+        if (encrypteds.size() == 1)
+        {
+            destination = encrypteds[0];
+            return;
+        }
+
+        // Do first level of multiplications
+        std::vector<CiphertextCuda> product_vec;
+        for (size_t i = 0; i < encrypteds.size() - 1; i += 2)
+        {
+            CiphertextCuda temp(context_, context_data.parmsID());
+            if (encrypteds[i].data() == encrypteds[i + 1].data())
+            {
+                square(encrypteds[i], temp);
+            }
+            else
+            {
+                multiply(encrypteds[i], encrypteds[i + 1], temp);
+            }
+            relinearizeInplace(temp, relin_keys);
+            product_vec.emplace_back(std::move(temp));
+        }
+        if (encrypteds.size() & 1)
+        {
+            product_vec.emplace_back(encrypteds.back());
+        }
+
+        // Repeatedly multiply and add to the back of the vector until the end is reached
+        for (size_t i = 0; i < product_vec.size() - 1; i += 2)
+        {
+            CiphertextCuda temp(context_, context_data.parmsID());
+            multiply(product_vec[i], product_vec[i + 1], temp);
+            relinearizeInplace(temp, relin_keys);
+            product_vec.emplace_back(std::move(temp));
+        }
+
+        destination = product_vec.back();
+    }
+
+    void EvaluatorCuda::exponentiateInplace(
+        CiphertextCuda &encrypted, uint64_t exponent, const RelinKeysCuda &relin_keys) const
+    {
+        // Verify parameters.
+        auto context_data_ptr = context_.getContextData(encrypted.parmsID());
+        if (!context_data_ptr)
+        {
+            throw invalid_argument("encrypted is not valid for encryption parameters");
+        }
+        if (!context_.getContextData(relin_keys.parmsID()))
+        {
+            throw invalid_argument("relin_keys is not valid for encryption parameters");
+        }
+        if (exponent == 0)
+        {
+            throw invalid_argument("exponent cannot be 0");
+        }
+
+        // Fast case
+        if (exponent == 1)
+        {
+            return;
+        }
+
+        // Create a vector of copies of encrypted
+        std::vector<CiphertextCuda> exp_vector(static_cast<size_t>(exponent), encrypted);
+        multiplyMany(exp_vector, relin_keys, encrypted);
+    }
+
 }
