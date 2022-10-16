@@ -31,5 +31,14 @@ target_sources(troytest PRIVATE
 )
 target_link_libraries(troytest gtest gtest_main troy)
 
+add_executable(timetest)
+target_sources(timetest PRIVATE timetest.cu)
+target_link_libraries(timetest troy)
+
+add_executable(timetest_seal)
+target_sources(timetest_seal PRIVATE timetest_seal.cpp)
+target_link_libraries(timetest_seal SEAL::seal)
+
+
 include(GoogleTest)
 gtest_discover_tests(troytest)

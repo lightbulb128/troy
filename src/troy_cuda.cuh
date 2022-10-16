@@ -16,3 +16,27 @@
 #include "relinkeys_cuda.cuh"
 #include "secretkey_cuda.cuh"
 #include "utils/rns_cuda.cuh"
+
+namespace troyn {
+    using troy::ParmsID;
+    using troy::SchemeType;
+    using troy::SecurityLevel;
+    using troy::Modulus;
+    using troy::CoeffModulus;
+    using troy::PlainModulus;
+    using EncryptionParameters = troy::EncryptionParametersCuda;
+    using SEALContext = troy::SEALContextCuda;
+    using Plaintext = troy::PlaintextCuda;
+    using Ciphertext = troy::CiphertextCuda;
+    using Encryptor = troy::EncryptorCuda;
+    using Decryptor = troy::DecryptorCuda;
+    using Evaluator = troy::EvaluatorCuda;
+    using KeyGenerator = troy::KeyGeneratorCuda;
+    using PublicKey = troy::PublicKeyCuda;
+    using SecretKey = troy::SecretKeyCuda;
+    using RelinKeys = troy::RelinKeysCuda;
+    using GaloisKeys = troy::GaloisKeysCuda;
+    using CKKSEncoder = troy::CKKSEncoderCuda;
+    using BatchEncoder = troy::BatchEncoderCuda;
+    using KernelProvider = troy::KernelProvider;
+}

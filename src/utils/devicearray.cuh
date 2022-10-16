@@ -241,8 +241,13 @@ public:
         internal(h.internal) {}
 
     DeviceDynamicArray& operator = (const DeviceDynamicArray& copy) {
-        size_ = copy.size();
-        internal = std::move(copy.internal.copy());
+        if (copy.size_ <= size_) {
+            KernelProvider::copyOnDevice(internal.get(), copy.internal.get(), copy.size_);
+            size_ = copy.size();
+        } else {
+            size_ = copy.size();
+            internal = std::move(copy.internal.copy());
+        }
         return *this;
     }
     DeviceDynamicArray& operator = (DeviceArray<T>&& move) {
