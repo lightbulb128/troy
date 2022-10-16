@@ -72,6 +72,7 @@ namespace troy
             // Generate u <-- R_3
             auto u_cpu(allocatePoly(coeff_count, coeff_modulus_size));
             samplePolyTernary(prng, parms.host(), u_cpu.get());
+            // FIXME: temporary array
             DeviceArray u(u_cpu);
 
             // c[j] = u * public_key[j]
