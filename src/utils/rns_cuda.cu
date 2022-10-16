@@ -52,8 +52,7 @@ namespace troy {
 
         void RNSBaseCuda::decomposeArray(DevicePointer<uint64_t> values, size_t coeff_count) const {
             if (size_ <= 1) return;
-            // FIXME: temporary array -> rnsbase. could use dynamic array
-            DeviceArray<uint64_t> copy(size_ * coeff_count);
+            auto copy = copy_.ensure(size_ * coeff_count);
             KernelProvider::copyOnDevice(copy.get(), values.get(), size_ * coeff_count);
             KERNEL_CALL(gDecomposeArray, coeff_count)(
                 copy.get(), size_, coeff_count, base_.get(), values.get()
@@ -62,9 +61,8 @@ namespace troy {
 
         void RNSBaseCuda::composeArray(DevicePointer<uint64_t> values, size_t coeff_count) const {
             if (size_ <= 1) return;
-            // FIXME: temporary array -> rnsbase. could use dynamic array
-            DeviceArray<uint64_t> copy(size_ * coeff_count);
-            DeviceArray<uint64_t> temp(size_ * coeff_count);
+            auto copy = copy_.ensure(size_ * coeff_count);
+            auto temp = temp_.ensure(size_ * coeff_count);
             KernelProvider::copyOnDevice(copy.get(), values.get(), size_ * coeff_count);
             KernelProvider::memsetZero<uint64_t>(values.get(), size_ * coeff_count);
             KERNEL_CALL(gComposeArray, coeff_count)(
@@ -112,8 +110,7 @@ namespace troy {
             size_t ibase_size = ibase_.size();
             size_t obase_size = obase_.size();
 
-            // FIXME: temporary array -> baseconverter.
-            DeviceArray<uint64_t> temp(count * ibase_size);
+            auto temp = temp_.ensure(count * ibase_size);
 
             KERNEL_CALL(gFastConvertArrayStepA, count)(
                 in.get(), ibase_size, count, ibase_.base().get(), 
@@ -168,9 +165,8 @@ namespace troy {
             if (obase_size != 1)
                 throw std::invalid_argument("out base in exact_convert_array must be one.");
 
-            // FIXME: temporary array -> baseconverter.
-            DeviceArray<uint64_t> temp(count * ibase_size);
-            DeviceArray<uint64_t> aggregated_rounded_v(count);
+            auto temp = temp_.ensure(count * ibase_size);
+            auto aggregated_rounded_v = aggregated_rounded_v_.ensure(count);
             KERNEL_CALL(gExactConvertArray, count)(
                 in.get(), ibase_size, count,
                 ibase_.base().get(),
@@ -181,7 +177,7 @@ namespace troy {
                 temp.get(),
                 out.get()
             );
-            auto p = temp.toHost();
+            // auto p = temp.toHost();
             // for (size_t i = 0; i < p.size(); i++)
             //     std::cout << "temp[" << i << "]=" << p[i] << std::endl;
         }
@@ -269,12 +265,11 @@ namespace troy {
             size_t base_q_size = base_q_->size();
             kernel_util::kInverseNttNegacyclicHarvey(input + coeff_count_ * (base_q_size - 1),
                 1, 1, getPowerOfTwo(coeff_count_), rns_ntt_tables + (base_q_size - 1));
-            // FIXME: temporary array -> rnstoolcuda.
-            auto temp = kernel_util::kAllocate(coeff_count_, base_q_size - 1);
+            auto temp = temp_.ensure(coeff_count_ * (base_q_size - 1));
             KERNEL_CALL(gDivideAndRoundqLastNttInplaceStepA, coeff_count_) (
                 input.get() + coeff_count_ * (base_q_size - 1), temp.get(),
                 coeff_count_, base_q_size, base_q_->base().get(), q_last_half_); 
-            kernel_util::kNttNegacyclicHarveyLazy(temp.asPointer(), 1, base_q_size - 1, getPowerOfTwo(coeff_count_), rns_ntt_tables);
+            kernel_util::kNttNegacyclicHarveyLazy(temp.get(), 1, base_q_size - 1, getPowerOfTwo(coeff_count_), rns_ntt_tables);
             gDivideAndRoundqLastNttInplaceStepB<<<block_count, 256>>>(
                 temp.get(), input.get(), coeff_count_, base_q_size,
                 base_q_->base().get(), inv_q_last_mod_q_.get()
@@ -326,9 +321,8 @@ namespace troy {
             size_t base_B_size = base_B_->size();
             base_B_to_q_conv_->fastConvertArray(input, destination, coeff_count_);
 
-            // FIXME: temporary array -> rnstoolcuda.
-            auto temp = DeviceArray<uint64_t>(coeff_count_);
-            base_B_to_m_sk_conv_->fastConvertArray(input, temp.asPointer(), coeff_count_);
+            auto temp = temp_.ensure(coeff_count_);
+            base_B_to_m_sk_conv_->fastConvertArray(input, temp.get(), coeff_count_);
 
             KERNEL_CALL(gFaskbconvSk, coeff_count_)(
                 input.get(),
@@ -420,12 +414,11 @@ namespace troy {
         void RNSToolCuda::fastbconvmTilde(ConstDevicePointer<uint64_t> input, DevicePointer<uint64_t> destination) const {
             size_t base_q_size = base_q_->size();
             size_t base_Bsk_size = base_Bsk_->size();
-            // FIXME: temporary array -> rnstoolcuda.
-            auto temp = kernel_util::kAllocate(coeff_count_, base_q_size);
+            auto temp = temp_.ensure(coeff_count_ * base_q_size);
             kernel_util::kMultiplyPolyScalarCoeffmod(input, 1, base_q_size, 
-                coeff_count_, m_tilde_.value(), base_q_->base(), temp.asPointer());
-            base_q_to_Bsk_conv_->fastConvertArray(temp.asPointer(), destination, coeff_count_);
-            base_q_to_m_tilde_conv_->fastConvertArray(temp.asPointer(), destination + base_Bsk_size * coeff_count_, coeff_count_);
+                coeff_count_, m_tilde_.value(), base_q_->base(), temp.get());
+            base_q_to_Bsk_conv_->fastConvertArray(temp.get(), destination, coeff_count_);
+            base_q_to_m_tilde_conv_->fastConvertArray(temp.get(), destination + base_Bsk_size * coeff_count_, coeff_count_);
         }
 
         __global__ void gDecryptScaleAndRoundStepA(
@@ -474,19 +467,17 @@ namespace troy {
             size_t base_q_size = base_q_->size();
             size_t base_t_gamma_size = base_t_gamma_->size();
 
-            // FIXME: temporary array -> rnstoolcuda.
-            auto temp = DeviceArray<uint64_t>(coeff_count_ * base_q_size);
+            auto temp = temp_.ensure(coeff_count_ * base_q_size);
             
             KERNEL_CALL(gDecryptScaleAndRoundStepA, coeff_count_)(
                 input.get(), base_q_size, base_q_->base().get(),
                 coeff_count_, prod_t_gamma_mod_q_.get(), temp.get()
             );
 
-            // FIXME: temporary array -> rnstoolcuda.
-            auto temp_t_gamma = DeviceArray<uint64_t>(coeff_count_ * base_t_gamma_size);
+            auto temp_t_gamma = temp_t_gamma_.ensure(coeff_count_ * base_t_gamma_size);
 
             // Convert from q to {t, gamma}
-            base_q_to_t_gamma_conv_->fastConvertArray(temp.asPointer(), temp_t_gamma.asPointer(), coeff_count_);
+            base_q_to_t_gamma_conv_->fastConvertArray(temp.get(), temp_t_gamma.get(), coeff_count_);
 
             gDecryptScaleAndRoundStepA<<<block_count, 256>>>(
                 temp_t_gamma.get(), base_t_gamma_size, base_t_gamma_->base().get(),

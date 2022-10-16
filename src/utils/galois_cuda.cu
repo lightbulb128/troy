@@ -25,6 +25,7 @@ namespace troy
 
         void GaloisToolCuda::generateTableNtt(uint32_t galois_elt, DeviceArray<uint32_t> &result) const
         {
+            if (!result.isNull()) return;
             auto temp = HostArray<uint32_t>(coeff_count_);
             auto temp_ptr = temp.get();
 

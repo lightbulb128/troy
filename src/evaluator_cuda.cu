@@ -303,30 +303,32 @@ namespace troy {
         
         encrypted1.resize(context_, context_data.parmsID(), dest_size);
         
-        auto encrypted1_q = kernel_util::kAllocate(encrypted1_size, coeff_count, base_q_size);
-        auto encrypted1_Bsk = kernel_util::kAllocate(encrypted1_size, coeff_count, base_Bsk_size);
+        auto encrypted1_q = encrypted1_q_.ensure(encrypted1_size * coeff_count * base_q_size);
+        auto encrypted1_Bsk = encrypted1_Bsk_.ensure(encrypted1_size * coeff_count * base_Bsk_size);
         
-        auto encrypted2_q = kernel_util::kAllocate(encrypted2_size, coeff_count, base_q_size);
-        auto encrypted2_Bsk = kernel_util::kAllocate(encrypted2_size, coeff_count, base_Bsk_size);
+        auto encrypted2_q = encrypted2_q_.ensure(encrypted2_size * coeff_count * base_q_size);
+        auto encrypted2_Bsk = encrypted2_Bsk_.ensure(encrypted2_size * coeff_count * base_Bsk_size);
 
-        auto temp = kernel_util::kAllocate(coeff_count, base_Bsk_m_tilde_size);
+        auto temp = temp_.ensure(coeff_count * base_Bsk_m_tilde_size);
         for (size_t i = 0; i < encrypted1_size; i++) {
             kernel_util::kSetPolyArray(encrypted1.data(i), 1, base_q_size, coeff_count, encrypted1_q.get() + i * coeff_count * base_q_size);
             kernel_util::kNttNegacyclicHarveyLazy(encrypted1_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
-            rns_tool->fastbconvmTilde(encrypted1.data(i), temp.asPointer());
-            rns_tool->smMrq(temp.asPointer(), encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size);
+            rns_tool->fastbconvmTilde(encrypted1.data(i), temp.get());
+            rns_tool->smMrq(temp.get(), encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size);
             kernel_util::kNttNegacyclicHarveyLazy(encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
         }
         for (size_t i = 0; i < encrypted2_size; i++) {
             kernel_util::kSetPolyArray(encrypted2.data(i), 1, base_q_size, coeff_count, encrypted2_q.get() + i * coeff_count * base_q_size);
             kernel_util::kNttNegacyclicHarveyLazy(encrypted2_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
-            rns_tool->fastbconvmTilde(encrypted2.data(i), temp.asPointer());
-            rns_tool->smMrq(temp.asPointer(), encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size);
+            rns_tool->fastbconvmTilde(encrypted2.data(i), temp.get());
+            rns_tool->smMrq(temp.get(), encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size);
             kernel_util::kNttNegacyclicHarveyLazy(encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
         }
 
-        auto temp_dest_q = kernel_util::kAllocateZero(dest_size, coeff_count, base_q_size);
-        auto temp_dest_Bsk = kernel_util::kAllocateZero(dest_size, coeff_count, base_Bsk_size);
+        auto temp_dest_q = temp_dest_q_.ensure(dest_size * coeff_count * base_q_size);
+        auto temp_dest_Bsk = temp_dest_Bsk_.ensure(dest_size * coeff_count * base_Bsk_size);
+        KernelProvider::memsetZero(temp_dest_q.get(), dest_size * coeff_count * base_q_size);
+        KernelProvider::memsetZero(temp_dest_Bsk.get(), dest_size * coeff_count * base_Bsk_size);
 
         for (size_t i = 0; i < dest_size; i++) {
             size_t curr_encrypted1_last = std::min<size_t>(i, encrypted1_size - 1);
@@ -352,11 +354,11 @@ namespace troy {
             }
         }
 
-        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_q.asPointer(), dest_size, base_q_size, coeff_power, base_q_ntt_tables);
-        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_Bsk.asPointer(), dest_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_q.get(), dest_size, base_q_size, coeff_power, base_q_ntt_tables);
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_Bsk.get(), dest_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
 
-        auto temp_q_Bsk = kernel_util::kAllocate(coeff_count, base_q_size + base_Bsk_size);
-        auto temp_Bsk = kernel_util::kAllocate(coeff_count, base_Bsk_size);
+        auto temp_q_Bsk = temp_q_Bsk_.ensure(coeff_count * (base_q_size + base_Bsk_size));
+        auto temp_Bsk = temp_Bsk_.ensure(coeff_count * base_Bsk_size);
         for (size_t i = 0; i < dest_size; i++) {
             kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_q + i * coeff_count * base_q_size, 
                 1, base_q_size, coeff_count, 
@@ -364,8 +366,8 @@ namespace troy {
             kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_Bsk + i * coeff_count * base_Bsk_size, 
                 1, base_Bsk_size, coeff_count, 
                 plain_modulus, base_Bsk, temp_q_Bsk + base_q_size * coeff_count);
-            rns_tool->fastFloor(temp_q_Bsk.asPointer(), temp_Bsk.asPointer());
-            rns_tool->fastbconvSk(temp_Bsk.asPointer(), encrypted1.data(i));
+            rns_tool->fastFloor(temp_q_Bsk.get(), temp_Bsk.get());
+            rns_tool->fastbconvSk(temp_Bsk.get(), encrypted1.data(i));
         }
 
     }
@@ -390,8 +392,8 @@ namespace troy {
 
         encrypted1.resize(context_, context_data.parmsID(), dest_size);
 
-        // FIXME: temporary array -> evaluator
-        auto temp = kernel_util::kAllocateZero(dest_size, coeff_count, coeff_modulus_size);
+        auto temp = temp_.ensure(dest_size * coeff_count * coeff_modulus_size);
+        KernelProvider::memsetZero(temp.get(), dest_size * coeff_count * coeff_modulus_size);
 
         for (size_t i = 0; i < dest_size; i++) {
             size_t curr_encrypted1_last = std::min<size_t>(i, encrypted1_size - 1);
@@ -464,7 +466,8 @@ namespace troy {
         }
 
         // Allocate temporary space for the result
-        auto temp = kernel_util::kAllocateZero(dest_size, coeff_count, coeff_modulus_size);
+        auto temp = temp_.ensure(dest_size * coeff_count * coeff_modulus_size);
+        KernelProvider::memsetZero(temp.get(), dest_size * coeff_count * coeff_modulus_size);
 
         for (size_t i = 0; i < dest_size; i++) {
             size_t curr_encrypted1_last = std::min<size_t>(i, encrypted1_size - 1);
@@ -545,33 +548,34 @@ namespace troy {
 
         encrypted.resize(context_, context_data.parmsID(), dest_size);
 
-        auto encrypted_q = kernel_util::kAllocate(encrypted_size, coeff_count, base_q_size);
-        auto encrypted_Bsk = kernel_util::kAllocate(encrypted_size, coeff_count, base_Bsk_size);
+        auto encrypted_q = encrypted1_q_.ensure(encrypted_size * coeff_count * base_q_size);
+        auto encrypted_Bsk = encrypted1_Bsk_.ensure(encrypted_size * coeff_count * base_Bsk_size);
         
-        // FIXME: temporary array
-        auto temp = kernel_util::kAllocate(coeff_count, base_Bsk_m_tilde_size);
+        auto temp = temp_.ensure(coeff_count * base_Bsk_m_tilde_size);
         for (size_t i = 0; i < encrypted_size; i++) {
             kernel_util::kSetPolyArray(encrypted.data(i), 1, base_q_size, coeff_count, encrypted_q.get() + i * coeff_count * base_q_size);
             kernel_util::kNttNegacyclicHarveyLazy(encrypted_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
-            rns_tool->fastbconvmTilde(encrypted.data(i), temp.asPointer());
-            rns_tool->smMrq(temp.asPointer(), encrypted_Bsk.get() + i * coeff_count * base_Bsk_size);
+            rns_tool->fastbconvmTilde(encrypted.data(i), temp.get());
+            rns_tool->smMrq(temp.get(), encrypted_Bsk.get() + i * coeff_count * base_Bsk_size);
             kernel_util::kNttNegacyclicHarveyLazy(encrypted_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
         }
 
         // printf("encrypted_q = "); printDeviceArray(encrypted_q);
         // printf("encrypted_Bsk = "); printDeviceArray(encrypted_Bsk);
 
-        auto temp_dest_q = kernel_util::kAllocateZero(dest_size, coeff_count, base_q_size);
-        auto temp_dest_Bsk = kernel_util::kAllocateZero(dest_size, coeff_count, base_Bsk_size);
+        auto temp_dest_q = temp_dest_q_.ensure(dest_size * coeff_count * base_q_size);
+        auto temp_dest_Bsk = temp_dest_Bsk_.ensure(dest_size * coeff_count * base_Bsk_size);
+        KernelProvider::memsetZero(temp_dest_q.get(), dest_size * coeff_count * base_q_size);
+        KernelProvider::memsetZero(temp_dest_Bsk.get(), dest_size * coeff_count * base_Bsk_size);
 
         kernel_util::kDyadicSquareCoeffmod(encrypted_q, base_q_size, coeff_count, base_q, temp_dest_q);
         kernel_util::kDyadicSquareCoeffmod(encrypted_Bsk, base_Bsk_size, coeff_count, base_Bsk, temp_dest_Bsk);
 
-        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_q.asPointer(), dest_size, base_q_size, coeff_power, base_q_ntt_tables);
-        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_Bsk.asPointer(), dest_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_q.get(), dest_size, base_q_size, coeff_power, base_q_ntt_tables);
+        kernel_util::kInverseNttNegacyclicHarveyLazy(temp_dest_Bsk.get(), dest_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
 
-        auto temp_q_Bsk = kernel_util::kAllocate(coeff_count, base_q_size + base_Bsk_size);
-        auto temp_Bsk = kernel_util::kAllocate(coeff_count, base_Bsk_size);
+        auto temp_q_Bsk = temp_q_Bsk_.ensure(coeff_count * (base_q_size + base_Bsk_size));
+        auto temp_Bsk = temp_Bsk_.ensure(coeff_count * base_Bsk_size);
         for (size_t i = 0; i < dest_size; i++) {
             kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_q + i * coeff_count * base_q_size, 
                 1, base_q_size, coeff_count, 
@@ -579,8 +583,8 @@ namespace troy {
             kernel_util::kMultiplyPolyScalarCoeffmod(temp_dest_Bsk + i * coeff_count * base_Bsk_size, 
                 1, base_Bsk_size, coeff_count, 
                 plain_modulus, base_Bsk, temp_q_Bsk + base_q_size * coeff_count);
-            rns_tool->fastFloor(temp_q_Bsk.asPointer(), temp_Bsk.asPointer());
-            rns_tool->fastbconvSk(temp_Bsk.asPointer(), encrypted.data(i));
+            rns_tool->fastFloor(temp_q_Bsk.get(), temp_Bsk.get());
+            rns_tool->fastbconvSk(temp_Bsk.get(), encrypted.data(i));
         }
     }
 
@@ -669,7 +673,8 @@ namespace troy {
         // Set up iterators for input ciphertext
         auto encrypted_iter = encrypted.data();
 
-        auto temp = kernel_util::kAllocateZero(dest_size, coeff_count, coeff_modulus_size);
+        auto temp = temp_.ensure(dest_size * coeff_count * coeff_modulus_size);
+        KernelProvider::memsetZero(temp.get(), dest_size * coeff_count * coeff_modulus_size);
 
         kernel_util::kDyadicSquareCoeffmod(encrypted_iter.get(), coeff_modulus_size, coeff_count, coeff_modulus, temp);
 
@@ -839,7 +844,7 @@ namespace troy {
         if (&encrypted == &destination)
         {
             // Switching in-place so need temporary space
-            auto temp = kernel_util::kAllocate(encrypted_size, coeff_count, next_coeff_modulus_size);
+            auto temp = temp_.ensure(encrypted_size * coeff_count * next_coeff_modulus_size);
 
             // Copy data over to temp; only copy the RNS components relevant after modulus drop
             for (size_t i = 0; i < encrypted_size; i++) {
@@ -1178,37 +1183,37 @@ namespace troy {
         size_t rns_modulus_size = decomp_modulus_size + 1;
         auto key_ntt_tables = key_context_data.smallNTTTables();
         auto modswitch_factors = key_context_data.rnsTool()->invqLastModq();
-        Modulus* plain_modulus_cuda_support = KernelProvider::malloc<Modulus>(1);
-        KernelProvider::copy(plain_modulus_cuda_support, &(parms.plainModulus()), 1);
-        DeviceObject<Modulus> plain_modulus_cuda(plain_modulus_cuda_support);
+        // Modulus* plain_modulus_cuda_support = KernelProvider::malloc<Modulus>(1);
+        // KernelProvider::copy(plain_modulus_cuda_support, &(parms.plainModulus()), 1);
+        ConstDevicePointer<Modulus> plain_modulus_cuda(parms.plainModulusCuda());
 
         // Prepare input
         auto &key_vector = kswitch_keys.data()[kswitch_keys_index];
         size_t key_component_count = key_vector[0].data().size();
 
         // Create a copy of target_iter
-        // FIXME: temporary array
-        auto t_target = kernel_util::kAllocate(coeff_count, decomp_modulus_size);
+        auto t_target = switch_key_t_target_.ensure(coeff_count * decomp_modulus_size);
         kernel_util::kSetPolyArray(target_iter.get(), 1, decomp_modulus_size, coeff_count, t_target.get());
 
         // std::cout << "t_target: "; printDeviceArray(t_target);
 
         // In CKKS t_target is in NTT form; switch back to normal form
         if (scheme == SchemeType::ckks)
-            kernel_util::kInverseNttNegacyclicHarvey(t_target.asPointer(), 1, decomp_modulus_size, coeff_power, key_ntt_tables);
+            kernel_util::kInverseNttNegacyclicHarvey(t_target, 1, decomp_modulus_size, coeff_power, key_ntt_tables);
 
         // Temporary result
-        auto t_poly_prod = kernel_util::kAllocateZero(key_component_count, coeff_count, rns_modulus_size);
+        auto t_poly_prod = switch_key_t_poly_prod_.ensure(key_component_count * coeff_count * rns_modulus_size);
+        KernelProvider::memsetZero(t_poly_prod.get(), key_component_count * coeff_count * rns_modulus_size);
 
         for (size_t i = 0; i < rns_modulus_size; i++) {
             // std::cout << "i = " << i << std::endl;
             size_t key_index = (i == decomp_modulus_size ? key_modulus_size - 1 : i);
             size_t lazy_reduction_summand_bound = size_t(SEAL_MULTIPLY_ACCUMULATE_USER_MOD_MAX);
             size_t lazy_reduction_counter = lazy_reduction_summand_bound;
-            auto t_poly_lazy = kernel_util::kAllocateZero(key_component_count, coeff_count, 2);
+            auto t_poly_lazy = switch_key_t_poly_lazy_.ensure(key_component_count * coeff_count * 2);
+            KernelProvider::memsetZero(t_poly_lazy.get(), key_component_count * coeff_count * 2);
             // Semantic misuse of PolyIter; this is really pointing to the data for a single RNS factor
-            // FIXME: temporary array
-            auto t_ntt = kernel_util::kAllocate(coeff_count);
+            auto t_ntt = switch_key_t_ntt_.ensure(coeff_count);
             for (size_t j = 0; j < decomp_modulus_size; j++) {
                 ConstDevicePointer<uint64_t> t_operand;
 
@@ -1302,7 +1307,8 @@ namespace troy {
                 // Lazy reduction; this needs to be then reduced mod qi
                 auto t_last = t_poly_prod + coeff_count * rns_modulus_size * i + decomp_modulus_size * coeff_count;
                 // std::cout << "t_last diff: " << coeff_count * rns_modulus_size * i + decomp_modulus_size * coeff_count << std::endl;
-                auto t_ntt = kernel_util::kAllocateZero(decomp_modulus_size * coeff_count);
+                auto t_ntt = switch_key_t_ntt_.ensure(decomp_modulus_size * coeff_count);
+                KernelProvider::memsetZero(t_ntt.get(), decomp_modulus_size * coeff_count);
                 // std::cout << "t_last: "; printArray(t_last.get(), coeff_count);
                 kernel_util::kInverseNttNegacyclicHarvey(t_last, 1, 1, coeff_power, key_ntt_tables + (key_modulus_size - 1));
 
@@ -1738,7 +1744,8 @@ namespace troy {
 
         // Generic case: any plaintext polynomial
         // Allocate temporary space for an entire RNS polynomial
-        auto temp = kernel_util::kAllocateZero(coeff_count, coeff_modulus_size);
+        auto temp = temp_.ensure(coeff_count * coeff_modulus_size);
+        KernelProvider::memsetZero(temp.get(), coeff_count * coeff_modulus_size);
 
         if (!context_data.qualifiers().using_fast_plain_lift) {
             KERNEL_CALL(gMultiplyPlainNormalUtilA, plain_coeff_count)(
@@ -1757,7 +1764,7 @@ namespace troy {
 
         // Need to multiply each component in encrypted with temp; first step is to transform to NTT form
         // RNSIter temp_iter(temp.get(), coeff_count);
-        kernel_util::kNttNegacyclicHarvey(temp.asPointer(), 1, coeff_modulus_size, coeff_power, ntt_tables);
+        kernel_util::kNttNegacyclicHarvey(temp.get(), 1, coeff_modulus_size, coeff_power, ntt_tables);
 
         for (size_t i = 0; i < encrypted_size; i++) {
             auto target_ptr = encrypted.data(i);
@@ -1876,7 +1883,8 @@ namespace troy {
         {
             // Allocate temporary space for an entire RNS polynomial
             // Slight semantic misuse of RNSIter here, but this works well
-            auto temp = kernel_util::kAllocateZero(coeff_modulus_size, coeff_count);
+            auto temp = temp_.ensure(coeff_modulus_size * coeff_count);
+            KernelProvider::memsetZero(temp.get(), coeff_modulus_size * coeff_count);
             
             KERNEL_CALL(gMultiplyPlainNormalUtilA, plain_coeff_count)(
                 plain.data(), plain_coeff_count, plain_upper_half_increment.get(),
@@ -2018,7 +2026,8 @@ namespace troy {
         }
 
         // SEAL_ALLOCATE_GET_RNS_ITER(temp, coeff_count, coeff_modulus_size, pool);
-        auto temp = kernel_util::kAllocate(coeff_count, coeff_modulus_size);
+        temp_.ensure(coeff_modulus_size * coeff_count);
+        auto temp = temp_.get();
 
         // DO NOT CHANGE EXECUTION ORDER OF FOLLOWING SECTION
         // BEGIN: Apply Galois for each ciphertext
@@ -2029,13 +2038,13 @@ namespace troy {
 
             // First transform encrypted.data(0)
             // auto encrypted_iter = iter(encrypted);
-            galois_tool->applyGalois(encrypted.data(0), 1, coeff_modulus_size, galois_elt, coeff_modulus.asPointer(), temp.asPointer());
+            galois_tool->applyGalois(encrypted.data(0), 1, coeff_modulus_size, galois_elt, coeff_modulus.asPointer(), temp);
 
             // Copy result to encrypted.data(0)
-            kernel_util::kSetPolyArray(temp.get(), 1, coeff_count, coeff_modulus_size, encrypted.data(0));
+            kernel_util::kSetPolyArray(temp, 1, coeff_count, coeff_modulus_size, encrypted.data(0));
 
             // Next transform encrypted.data(1)
-            galois_tool->applyGalois(encrypted.data(1), 1, coeff_modulus_size, galois_elt, coeff_modulus.asPointer(), temp.asPointer());
+            galois_tool->applyGalois(encrypted.data(1), 1, coeff_modulus_size, galois_elt, coeff_modulus.asPointer(), temp);
         }
         else if (parms.scheme() == SchemeType::ckks)
         {
@@ -2043,13 +2052,13 @@ namespace troy {
 
             // First transform encrypted.data(0)
             // auto encrypted_iter = iter(encrypted);
-            galois_tool->applyGaloisNtt(encrypted.data(0), 1, coeff_modulus_size, galois_elt, temp.asPointer());
+            galois_tool->applyGaloisNtt(encrypted.data(0), 1, coeff_modulus_size, galois_elt, temp);
 
             // Copy result to encrypted.data(0)
-            kernel_util::kSetPolyArray(temp.get(), 1, coeff_count, coeff_modulus_size, encrypted.data(0));
+            kernel_util::kSetPolyArray(temp, 1, coeff_count, coeff_modulus_size, encrypted.data(0));
 
             // Next transform encrypted.data(1)
-            galois_tool->applyGaloisNtt(encrypted.data(1), 1, coeff_modulus_size, galois_elt, temp.asPointer());
+            galois_tool->applyGaloisNtt(encrypted.data(1), 1, coeff_modulus_size, galois_elt, temp);
         }
         else
         {
@@ -2064,7 +2073,7 @@ namespace troy {
 
         // Calculate (temp * galois_key[0], temp * galois_key[1]) + (ct[0], 0)
         switchKeyInplace(
-            encrypted, temp.get(), static_cast<const KSwitchKeysCuda &>(galois_keys), GaloisKeys::getIndex(galois_elt));
+            encrypted, temp, static_cast<const KSwitchKeysCuda &>(galois_keys), GaloisKeys::getIndex(galois_elt));
     }
 
     void EvaluatorCuda::rotateInternal(

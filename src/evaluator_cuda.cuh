@@ -15,7 +15,10 @@ namespace troy {
     public:
 
         EvaluatorCuda(SEALContextCuda& context): context_(context)
-        {}
+        {
+            auto& parms = context_.firstContextData()->parms();
+            temp_ = util::DeviceDynamicArray<uint64_t>(parms.coeffModulus().size() * parms.polyModulusDegree());
+        }
 
         void negateInplace(CiphertextCuda& encrypted) const;
 
@@ -395,6 +398,22 @@ namespace troy {
         }
 
         SEALContextCuda context_;
+
+        mutable util::DeviceDynamicArray<uint64_t> temp_;
+        mutable util::DeviceDynamicArray<uint64_t> switch_key_t_target_;
+        mutable util::DeviceDynamicArray<uint64_t> switch_key_t_poly_prod_;
+        mutable util::DeviceDynamicArray<uint64_t> switch_key_t_ntt_;
+        mutable util::DeviceDynamicArray<uint64_t> switch_key_t_poly_lazy_;
+        mutable util::DeviceDynamicArray<uint64_t> encrypted1_q_;
+        mutable util::DeviceDynamicArray<uint64_t> encrypted1_Bsk_;
+        mutable util::DeviceDynamicArray<uint64_t> encrypted2_q_;
+        mutable util::DeviceDynamicArray<uint64_t> encrypted2_Bsk_;
+        mutable util::DeviceDynamicArray<uint64_t> temp_dest_q_;
+        mutable util::DeviceDynamicArray<uint64_t> temp_dest_Bsk_;
+        mutable util::DeviceDynamicArray<uint64_t> temp_q_Bsk_;
+        mutable util::DeviceDynamicArray<uint64_t> temp_Bsk_;
+
+
 
     };
 

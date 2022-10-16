@@ -192,6 +192,10 @@ public:
         return ret;
     }
 
+    bool isNull() const {
+        return data == nullptr;
+    }
+
 };
 
 template <typename T>
@@ -282,6 +286,11 @@ public:
     void resize(size_t newSize) {
         if (newSize > capacity()) move(newSize);
         size_ = newSize;
+    }
+
+    DevicePointer<T> ensure(size_t size) {
+        if (size > size_) resize(size);
+        return asPointer();
     }
 
     T* get() {return internal.get();}

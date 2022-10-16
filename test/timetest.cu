@@ -65,6 +65,7 @@ namespace troytest {
         SEALContext* context;
         RelinKeys rlk;
         PublicKey pk;
+        GaloisKeys gk;
         KeyGenerator* keygen;
 
     public:
@@ -145,6 +146,25 @@ namespace troytest {
             printTimer(tim.gather(repeatCount));
         }
 
+        void testSquare(int repeatCount = 1000) {
+            auto c1 = randomCiphertext();
+            Ciphertext c2;
+            Ciphertext c3;
+            auto t1 = tim.registerTimer("Square-assign");
+            auto t2 = tim.registerTimer("Square-inplace");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                evaluator->square(c1, c2);
+                tim.tock(t1);
+                c3 = c1;
+                tim.tick(t2);
+                evaluator->squareInplace(c3);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
+
     };
 
     class TimeTestCKKS: public TimeTest {
@@ -168,6 +188,7 @@ namespace troytest {
             keygen = new KeyGenerator(*context);
             keygen->createPublicKey(pk);
             keygen->createRelinKeys(rlk);
+            keygen->createGaloisKeys(gk);
             encoder = new CKKSEncoder(*context);
             encryptor = new Encryptor(*context, pk);
             decryptor = new Decryptor(*context, keygen->secretKey());
@@ -226,15 +247,37 @@ namespace troytest {
             printTimer(tim.gather(repeatCount));
         }
 
+        void testRotateVector(int repeatCount = 100) {
+            auto c1 = randomCiphertext();
+            Ciphertext c2;
+            auto t1 = tim.registerTimer("Rotate-assign");
+            auto t2 = tim.registerTimer("Rotate-inplace");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                evaluator->rotateVector(c1, 1, gk, c2);
+                tim.tock(t1);
+                tim.tick(t2);
+                evaluator->rotateVectorInplace(c1, 1, gk);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
+        void testAll() {
+            this->testAdd();
+            this->testAddPlain();
+            this->testMultiplyRescale();
+            this->testMultiplyPlain();
+            this->testSquare();
+            this->testRotateVector();
+        }
+
     };
 
 }
 
 int main() {
     troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40});
-    test.testAdd();
-    test.testAddPlain();
-    test.testMultiplyRescale();
-    test.testMultiplyPlain();
+    test.testAll();
     return 0;
 }

@@ -39,6 +39,8 @@ namespace troy {
             DeviceArray<uint64_t> base_prod_;
             DeviceArray<uint64_t> punctured_prod_array_;
             DeviceArray<MultiplyUIntModOperand> inv_punctured_prod_mod_base_array_;
+            mutable DeviceDynamicArray<uint64_t> copy_;
+            mutable DeviceDynamicArray<uint64_t> temp_;
         };
 
         class BaseConverterCuda {
@@ -64,6 +66,8 @@ namespace troy {
             RNSBaseCuda ibase_;
             RNSBaseCuda obase_;
             DeviceArray<uint64_t> base_change_matrix_; // obase_ * ibase_
+            mutable DeviceDynamicArray<uint64_t> temp_;
+            mutable DeviceDynamicArray<uint64_t> aggregated_rounded_v_;
         };
 
         class RNSToolCuda {
@@ -306,6 +310,10 @@ namespace troy {
             RNSToolCuda(RNSToolCuda&& move) = delete;
             RNSToolCuda& operator =(const RNSToolCuda&) = delete;
             RNSToolCuda& operator =(RNSToolCuda&&) = delete;
+
+            mutable DeviceDynamicArray<uint64_t> temp_;
+            mutable DeviceDynamicArray<uint64_t> temp_t_gamma_;
+
         };
 
     }
