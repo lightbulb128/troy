@@ -34,13 +34,15 @@ namespace troy {
                 prev_context_data_(),
                 next_context_data_(nullptr),
                 chain_index_(contextData.chainIndex()),
-                rns_tool_(new util::RNSToolCuda(*contextData.rns_tool_)),
                 total_coeff_modulus_(contextData.total_coeff_modulus_),
                 coeff_div_plain_modulus_(contextData.coeff_div_plain_modulus_),
                 plain_upper_half_increment_(contextData.plain_upper_half_increment_),
                 upper_half_threshold_(contextData.upper_half_threshold_),
                 upper_half_increment_(contextData.upper_half_increment_)
             { 
+                // std::cout << "constructing context data cuda" << std::endl;
+                rns_tool_ = new util::RNSToolCuda(*contextData.rns_tool_);
+                // std::cout << "constructing context data cuda: rns tool created" << std::endl;
                 size_t n = contextData.small_ntt_tables_.size();
                 small_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
                 for (size_t i = 0; i < n; i++) {
@@ -55,6 +57,7 @@ namespace troy {
                 }
                 plain_ntt_tables_ = util::DeviceArray(plain_ntt_tables_support_);
                 galois_tool_ = new util::GaloisToolCuda(util::getPowerOfTwo(contextData.parms_.polyModulusDegree()));
+                // std::cout << "constructing context data cuda done" << std::endl;
             }
 
             const EncryptionParametersCuda& parms() const {return parms_;}

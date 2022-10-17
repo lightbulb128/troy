@@ -36,6 +36,7 @@ namespace troytest
 {
     TEST(EvaluatorCudaTest, BFVEncryptNegateDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(64);
@@ -101,6 +102,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptAddDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(64);
@@ -195,6 +197,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptNegateDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(64);
@@ -260,6 +263,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptAddDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(64);
@@ -369,6 +373,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptAddDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Adding two zero vectors
@@ -533,6 +538,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptAddPlainDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Adding two zero vectors
@@ -751,6 +757,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptSubPlainDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Subtracting two zero vectors
@@ -911,6 +918,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptSubDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(64);
@@ -985,6 +993,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptAddPlainDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(64);
@@ -1049,6 +1058,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptSubPlainDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(64);
@@ -1112,6 +1122,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptMultiplyPlainDecrypt)
     {
+        KernelProvider::initialize();
         {
             EncryptionParameters parms(SchemeType::bfv);
             Modulus plain_modulus(1 << 6);
@@ -1367,6 +1378,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptMultiplyDecrypt)
     {
+        KernelProvider::initialize();
         {
             EncryptionParameters parms(SchemeType::bfv);
             Modulus plain_modulus(1 << 6);
@@ -1654,6 +1666,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptSubDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(64);
@@ -1743,6 +1756,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptAddPlainDecrypt)
     {
+        KernelProvider::initialize();
         {
             EncryptionParameters parms(SchemeType::bgv);
             Modulus plain_modulus(65);
@@ -1823,6 +1837,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptSubPlainDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(64);
@@ -1898,6 +1913,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptMultiplyPlainDecrypt)
     {
+        KernelProvider::initialize();
         {
             EncryptionParameters parms(SchemeType::bgv);
             Modulus plain_modulus(65);
@@ -2153,6 +2169,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptMultiplyDecrypt)
     {
+        KernelProvider::initialize();
         {
             EncryptionParameters parms(SchemeType::bgv);
             Modulus plain_modulus(65);
@@ -2441,6 +2458,7 @@ namespace troytest
 #include "../src/randomgen.h"
     TEST(EvaluatorCudaTest, BFVRelinearize)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(128);
@@ -2516,6 +2534,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVRelinearize)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(128);
@@ -2591,6 +2610,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptNaiveMultiplyDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Multiplying two zero vectors
@@ -2751,6 +2771,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptMultiplyByNumberDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Multiplying two random vectors by an integer
@@ -2984,6 +3005,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptMultiplyRelinDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Multiplying two random vectors 50 times
@@ -3184,6 +3206,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptSquareRelinDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Squaring two random vectors 100 times
@@ -3363,6 +3386,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptMultiplyRelinRescaleDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Multiplying two random vectors 100 times
@@ -3630,6 +3654,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptSquareRelinRescaleDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Squaring two random vectors 100 times
@@ -3757,6 +3782,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptModSwitchDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Modulus switching without rescaling for random vectors
@@ -3981,6 +4007,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptMultiplyRelinRescaleModSwitchAddDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Multiplication and addition without rescaling for random vectors
@@ -4152,6 +4179,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptRotateDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Maximal number of slots
@@ -4306,6 +4334,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, CKKSEncryptRescaleRotateDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             // Maximal number of slots
@@ -4468,6 +4497,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptSquareDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 8);
         parms.setPolyModulusDegree(128);
@@ -4544,6 +4574,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptMultiplyManyDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(128);
@@ -4650,6 +4681,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptExponentiateDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(128);
@@ -4701,6 +4733,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptAddManyDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(128);
@@ -4805,6 +4838,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptSquareDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(257);
         parms.setPolyModulusDegree(128);
@@ -4881,6 +4915,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptMultiplyManyDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(128);
@@ -4987,6 +5022,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptExponentiateDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(128);
@@ -5038,6 +5074,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptAddManyDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(128);
@@ -5142,6 +5179,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, TransformPlainToNTT)
     {
+        KernelProvider::initialize();
         auto evaluator_transform_plain_to_ntt = [](SchemeType scheme) {
             EncryptionParameters parms(scheme);
             Modulus plain_modulus(1 << 6);
@@ -5216,6 +5254,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, TransformEncryptedToFromNTT)
     {
+        KernelProvider::initialize();
         auto evaluator_transform_encrypted_to_from_ntt = [](SchemeType scheme) {
             EncryptionParameters parms(scheme);
             Modulus plain_modulus(1 << 6);
@@ -5265,6 +5304,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptMultiplyPlainNTTDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(1 << 6);
         parms.setPolyModulusDegree(128);
@@ -5336,6 +5376,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptApplyGaloisDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(257);
         parms.setPolyModulusDegree(8);
@@ -5417,6 +5458,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptRotateMatrixDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bfv);
         Modulus plain_modulus(257);
         parms.setPolyModulusDegree(8);
@@ -5469,6 +5511,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptModSwitchToNextDecrypt)
     {
+        KernelProvider::initialize();
         // The common parameters: the plaintext and the polynomial moduli
         Modulus plain_modulus(1 << 6);
 
@@ -5555,6 +5598,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BFVEncryptModSwitchToDecrypt)
     {
+        KernelProvider::initialize();
         // The common parameters: the plaintext and the polynomial moduli
         Modulus plain_modulus(1 << 6);
 
@@ -5700,6 +5744,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptMultiplyPlainNTTDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(65);
         parms.setPolyModulusDegree(128);
@@ -5771,6 +5816,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptApplyGaloisDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(257);
         parms.setPolyModulusDegree(8);
@@ -5852,6 +5898,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptRotateMatrixDecrypt)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::bgv);
         Modulus plain_modulus(257);
         parms.setPolyModulusDegree(8);
@@ -5904,6 +5951,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptModSwitchToNextDecrypt)
     {
+        KernelProvider::initialize();
         {
             // The common parameters: the plaintext and the polynomial moduli
             Modulus plain_modulus(65);
@@ -6021,6 +6069,7 @@ namespace troytest
 
     TEST(EvaluatorCudaTest, BGVEncryptModSwitchToDecrypt)
     {
+        KernelProvider::initialize();
         // The common parameters: the plaintext and the polynomial moduli
         Modulus plain_modulus(65);
 

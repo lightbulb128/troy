@@ -149,7 +149,7 @@ namespace troytest {
             printTimer(tim.gather(repeatCount));
         }
 
-        void testSquare(int repeatCount = 1000) {
+        void testSquare(int repeatCount = 100) {
             auto c1 = randomCiphertext();
             Ciphertext c2;
             Ciphertext c3;
@@ -275,10 +275,127 @@ namespace troytest {
 
     };
 
+    class TimeTestBFVBGV: public TimeTest {
+
+        BatchEncoder* encoder;
+        size_t slotCount;
+        int dataBound;
+        double delta;
+    
+    public:
+
+        TimeTestBFVBGV(bool bgv, size_t polyModulusDegree, uint64_t plainModulusBitSize, vector<int> qs, int dataBound = 1<<6) {
+            slotCount = polyModulusDegree / 2;
+            this->dataBound = dataBound;
+            this->delta = delta;
+            EncryptionParameters parms(bgv ? scheme_type::bgv : scheme_type::bfv);
+            parms.set_poly_modulus_degree(polyModulusDegree);
+            parms.set_plain_modulus(PlainModulus::Batching(polyModulusDegree, plainModulusBitSize));
+            // parms.setCoeffModulus(CoeffModulus::BFVDefault(polyModulusDegree));
+            parms.set_coeff_modulus(CoeffModulus::Create(polyModulusDegree, qs));
+            context = new SEALContext(parms);
+            keygen = new KeyGenerator(*context);
+            keygen->create_public_key(pk);
+            keygen->create_relin_keys(rlk);
+            keygen->create_galois_keys(gk);
+            encoder = new BatchEncoder(*context);
+            encryptor = new Encryptor(*context, pk);
+            decryptor = new Decryptor(*context, keygen->secret_key());
+            evaluator = new Evaluator(*context);
+        }
+
+        ~TimeTestBFVBGV() {
+            if (encoder) delete encoder;
+        }
+        
+        static vector<int64_t> randomVector(size_t count, int data_bound) {
+            vector<int64_t> input(count, 0.0);
+            for (size_t i = 0; i < count; i++)
+            {
+                input[i] = rand() % data_bound;
+            }
+            return input;
+        }
+
+        Plaintext randomPlaintext() override {
+            auto p = randomVector(slotCount, dataBound);
+            Plaintext ret; encoder->encode(p, ret);
+            return std::move(ret);
+        }
+
+        Ciphertext randomCiphertext() override {
+            auto r = randomPlaintext();
+            Ciphertext ret; encryptor->encrypt(r, ret);
+            return std::move(ret);
+        }
+
+        void testMultiplyRescale(int repeatCount = 100) {
+            auto c1 = randomCiphertext();
+            auto c2 = randomCiphertext();
+            Ciphertext c3, c4;
+            Ciphertext c5;
+            auto t1 = tim.registerTimer("Multiply-assign");
+            auto t2 = tim.registerTimer("Relinearize-assign");
+            auto t3 = tim.registerTimer("Multiply-inplace");
+            auto t4 = tim.registerTimer("Relinearize-inplace");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                evaluator->multiply(c1, c2, c3);
+                tim.tock(t1);
+                tim.tick(t2);
+                evaluator->mod_switch_to_next(c3, c4);
+                tim.tock(t2);
+                c5 = c1;
+                tim.tick(t3);
+                evaluator->multiply_inplace(c5, c2);
+                tim.tock(t3);
+                tim.tick(t4);
+                evaluator->mod_switch_to_next_inplace(c5);
+                tim.tock(t4);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
+        void testRotateVector(int repeatCount = 100) {
+            auto c1 = randomCiphertext();
+            Ciphertext c2;
+            auto t1 = tim.registerTimer("RotateRows-assign");
+            auto t2 = tim.registerTimer("RotateRows-inplace");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                evaluator->rotate_rows(c1, 1, gk, c2);
+                tim.tock(t1);
+                tim.tick(t2);
+                evaluator->rotate_rows_inplace(c1, 1, gk);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
+        void testAll() {
+            this->testAdd();
+            this->testAddPlain();
+            this->testMultiplyRescale();
+            this->testMultiplyPlain();
+            this->testSquare();
+            this->testRotateVector();
+        }
+
+    };
+
 }
 
 int main() {
+    std::cout << "----- CKKS -----\n";
     troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40});
     test.testAll();
+
+    std::cout << "----- BFV -----\n";
+    troytest::TimeTestBFVBGV test2(false, 16384, 20, {40, 40, 40, 40, 40, 40});
+    test2.testAll();
+
+    std::cout << "----- BGV -----\n";
+    troytest::TimeTestBFVBGV test3(true, 16384, 20, {40, 40, 40, 40, 40, 40});
+    test3.testAll();
     return 0;
 }

@@ -173,7 +173,8 @@ namespace troy {
                 encrypted1.data(), encrypted1.size(), coeff_modulus_size, coeff_count, std::get<1>(factors),
                 coeff_modulus.asPointer(), encrypted1.data());
 
-            CiphertextCuda encrypted2_copy = encrypted2;
+            CiphertextCuda& encrypted2_copy = temp_ciphertext_;
+            encrypted2_copy = encrypted2;
             kernel_util::kMultiplyPolyScalarCoeffmod(
                 encrypted2.data(), encrypted2.size(), coeff_modulus_size, coeff_count, std::get<2>(factors),
                 coeff_modulus.asPointer(), encrypted2_copy.data());
@@ -225,7 +226,8 @@ namespace troy {
                 encrypted1.data(), encrypted1.size(), coeff_modulus_size, coeff_count, std::get<1>(factors),
                 coeff_modulus.asPointer(), encrypted1.data());
 
-            CiphertextCuda encrypted2_copy = encrypted2;
+            CiphertextCuda& encrypted2_copy = temp_ciphertext_;
+            encrypted2_copy = encrypted2;
             kernel_util::kMultiplyPolyScalarCoeffmod(
                 encrypted2.data(), encrypted2.size(), coeff_modulus_size, coeff_count, std::get<2>(factors),
                 coeff_modulus.asPointer(), encrypted2_copy.data());
@@ -453,7 +455,7 @@ namespace troy {
         DevicePointer<uint64_t> encrypted1_iter = encrypted1.data();
         kernel_util::kNttNegacyclicHarvey(encrypted1.data(), encrypted1_size, coeff_modulus_size, coeff_power, ntt_table);
         DevicePointer<uint64_t> encrypted2_iter;
-        CiphertextCuda encrypted2_cpy;
+        CiphertextCuda& encrypted2_cpy = temp_ciphertext_;
         if (&encrypted1 == &encrypted2)
         {
             encrypted2_iter = encrypted1.data();
@@ -765,7 +767,7 @@ namespace troy {
         
         // size_t d = context_data.parms().coeffModulus().size() * context_
 
-        CiphertextCuda encrypted_copy;
+        CiphertextCuda& encrypted_copy = temp_ciphertext_;
         encrypted_copy = encrypted;
 
         switch (next_parms.scheme())

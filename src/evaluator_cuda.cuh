@@ -412,8 +412,7 @@ namespace troy {
         mutable util::DeviceDynamicArray<uint64_t> temp_dest_Bsk_;
         mutable util::DeviceDynamicArray<uint64_t> temp_q_Bsk_;
         mutable util::DeviceDynamicArray<uint64_t> temp_Bsk_;
-
-
+        mutable CiphertextCuda temp_ciphertext_;
 
     };
 

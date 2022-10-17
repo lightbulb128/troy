@@ -74,14 +74,14 @@ namespace troy {
         public:
             RNSToolCuda(const RNSTool& copy):
                 coeff_count_(copy.coeff_count_),
-                base_q_(new RNSBaseCuda(*copy.base_q_)),
-                base_B_(new RNSBaseCuda(*copy.base_B_)),
-                base_Bsk_(new RNSBaseCuda(*copy.base_Bsk_)),
-                base_Bsk_m_tilde_(new RNSBaseCuda(*copy.base_Bsk_m_tilde_)),
+                base_q_(copy.base_q_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_q_)),
+                base_B_(copy.base_B_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_B_)),
+                base_Bsk_(copy.base_Bsk_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_Bsk_)),
+                base_Bsk_m_tilde_(copy.base_Bsk_m_tilde_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_Bsk_m_tilde_)),
                 base_t_gamma_(copy.base_t_gamma_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_t_gamma_)),
-                base_q_to_Bsk_conv_(new BaseConverterCuda(*copy.base_q_to_Bsk_conv_)),
-                base_q_to_m_tilde_conv_(new BaseConverterCuda(*copy.base_q_to_m_tilde_conv_)),
-                base_B_to_q_conv_(new BaseConverterCuda(*copy.base_B_to_q_conv_)),
+                base_q_to_Bsk_conv_(copy.base_q_to_Bsk_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_Bsk_conv_)),
+                base_q_to_m_tilde_conv_(copy.base_q_to_m_tilde_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_m_tilde_conv_)),
+                base_B_to_q_conv_(copy.base_B_to_q_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_B_to_q_conv_)),
                 base_B_to_m_sk_conv_(copy.base_B_to_m_sk_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_B_to_m_sk_conv_)),
                 base_q_to_t_gamma_conv_(copy.base_q_to_t_gamma_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_t_gamma_conv_)),
                 base_q_to_t_conv_(copy.base_q_to_t_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_t_conv_)),
@@ -102,6 +102,7 @@ namespace troy {
                 inv_q_last_mod_t_(copy.inv_q_last_mod_t_),            
                 q_last_mod_t_(copy.q_last_mod_t_)
             {
+                // std::cout << "constructing rns tool\n";
                 size_t n = copy.base_Bsk_ntt_tables_.size();
                 base_Bsk_ntt_tables_support = HostArray<NTTTablesCuda>(n);
                 for (size_t i = 0; i < n; i++) {
@@ -134,6 +135,7 @@ namespace troy {
                 
                 // temp = HostObject(new Modulus(gamma_));
                 // gamma_cuda_ = DeviceObject<Modulus>(temp);
+                // std::cout << "constructing rns tool done\n";
 
             }
             
