@@ -18,15 +18,6 @@ find_package(SEAL 4.0 REQUIRED)
 
 add_subdirectory(src)
 
-add_executable(main_ckks main_ckks.cu)
-target_link_libraries(main_ckks troy)
-
-add_executable(main_bfv main_bfv.cu)
-target_link_libraries(main_bfv troy)
-
-add_executable(main_bgv main_bgv.cu)
-target_link_libraries(main_bgv troy)
-
 add_executable(main main.cu)
 target_link_libraries(main troy)
 
