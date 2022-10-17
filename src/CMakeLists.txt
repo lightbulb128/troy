@@ -7,5 +7,5 @@ source_group("Source" FILES ${CURRENT_SOURCES})
 add_library(troy STATIC ${CURRENT_HEADERS} ${CURRENT_SOURCES})
 set_target_properties(troy PROPERTIES CUDA_SEPERABLE_COMPILATION ON)
 
-# set(gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>")
-# set(nvcc_cxx "$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>")
+set(gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>")
+set(nvcc_cxx "$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>")

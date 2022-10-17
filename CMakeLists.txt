@@ -1,9 +1,8 @@
 project(Troy LANGUAGES C CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# set(CMAKE_CUDA_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -O3")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++17")
@@ -24,6 +23,3 @@ target_link_libraries(main troy)
 enable_testing()
 add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
 add_subdirectory(test)
-
-add_subdirectory(extern/pybind11)
-add_subdirectory(binder)

@@ -5,6 +5,8 @@
 #include <cassert>
 #include <map>
 #include <complex>
+#include <iostream>
+#include <iomanip>
 
 #include <seal/seal.h>
 
