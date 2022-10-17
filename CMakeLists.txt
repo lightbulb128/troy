@@ -24,3 +24,6 @@ target_link_libraries(main troy)
 enable_testing()
 add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
 add_subdirectory(test)
+
+add_subdirectory(extern/pybind11)
+add_subdirectory(binder)
