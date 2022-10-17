@@ -5,6 +5,7 @@
 #include <cassert>
 #include <map>
 #include <complex>
+#include <iomanip>
 
 using namespace troyn;
 using std::vector;
@@ -91,7 +92,9 @@ namespace troytest {
 
         void printTimer(std::map<std::string, double> r) {
             for (auto& p: r) {
-                std::cout << p.first << ": " << p.second << std::endl;
+                std::cout << std::setw(25) << std::right << p.first << ":";
+                std::cout << std::setw(10) << std::right << std::fixed << std::setprecision(3)
+                    << p.second << std::endl;
             }
         }
 

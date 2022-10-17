@@ -92,9 +92,12 @@ namespace troytest {
         virtual Ciphertext randomCiphertext() = 0;
         // virtual void testEncode() = 0;
 
+
         void printTimer(std::map<std::string, double> r) {
             for (auto& p: r) {
-                std::cout << p.first << ": " << p.second << std::endl;
+                std::cout << std::setw(25) << std::right << p.first << ":";
+                std::cout << std::setw(10) << std::right << std::fixed << std::setprecision(3)
+                    << p.second << std::endl;
             }
         }
 
