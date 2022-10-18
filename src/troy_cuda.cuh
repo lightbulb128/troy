@@ -34,6 +34,7 @@ namespace troyn {
     using KeyGenerator = troy::KeyGeneratorCuda;
     using PublicKey = troy::PublicKeyCuda;
     using SecretKey = troy::SecretKeyCuda;
+    using KSwitchKeys = troy::KSwitchKeysCuda;
     using RelinKeys = troy::RelinKeysCuda;
     using GaloisKeys = troy::GaloisKeysCuda;
     using CKKSEncoder = troy::CKKSEncoderCuda;

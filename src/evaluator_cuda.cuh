@@ -14,7 +14,7 @@ namespace troy {
 
     public:
 
-        EvaluatorCuda(SEALContextCuda& context): context_(context)
+        EvaluatorCuda(const SEALContextCuda& context): context_(context)
         {
             auto& parms = context_.firstContextData()->parms();
             temp_ = util::DeviceDynamicArray<uint64_t>(parms.coeffModulus().size() * parms.polyModulusDegree());
