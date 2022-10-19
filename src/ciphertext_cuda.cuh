@@ -178,6 +178,9 @@ namespace troy {
             return poly_uint64_count ? data_.capacity() / poly_uint64_count : std::size_t(0);
         }
 
+        void save(std::ostream& stream) const;
+        void load(std::istream& stream);
+
     private:
     
         void reserveInternal(

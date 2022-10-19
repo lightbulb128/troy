@@ -249,6 +249,13 @@ namespace troy
             return pk_.parmsID();
         }
 
+        void save(std::ostream& stream) const {
+            pk_.save(stream);
+        }
+        void load(std::istream& stream) {
+            pk_.load(stream);
+        }
+
         /**
         Enables access to private members of seal::PublicKey for SEAL_C.
         */

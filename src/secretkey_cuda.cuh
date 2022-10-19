@@ -287,6 +287,14 @@ namespace troy
         {
             return sk_.parmsID();
         }
+        
+
+        void save(std::ostream& stream) const {
+            sk_.save(stream);
+        }
+        void load(std::istream& stream) {
+            sk_.load(stream);
+        }
 
     private:
         // We use a fresh memory pool with `clear_on_destruction' enabled.

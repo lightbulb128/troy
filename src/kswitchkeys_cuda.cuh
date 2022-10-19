@@ -327,6 +327,31 @@ namespace troy
         //     return in_size;
         // }
 
+        void save(std::ostream& stream) const {
+            stream.write(reinterpret_cast<const char*>(&parms_id_), sizeof(ParmsID));
+            size_t n = keys_.size();
+            stream.write(reinterpret_cast<char*>(&n), sizeof(size_t));
+            for (size_t i = 0; i < n; i++) {
+                size_t m = keys_[i].size();
+                stream.write(reinterpret_cast<char*>(&m), sizeof(size_t));
+                for (size_t j = 0; j < m; j++) keys_[i][j].save(stream);
+            }
+        }
+        void load(std::istream& stream) {
+            stream.read(reinterpret_cast<char*>(&parms_id_), sizeof(ParmsID));
+            size_t n; stream.read(reinterpret_cast<char*>(&n), sizeof(size_t));
+            keys_.clear(); keys_.reserve(n);
+            for (size_t i = 0; i < n; i++) {
+                size_t m; stream.read(reinterpret_cast<char*>(&m), sizeof(size_t));
+                std::vector<PublicKeyCuda> append; append.reserve(m);
+                for (size_t j = 0; j < m; j++) {
+                    PublicKeyCuda p; p.load(stream);
+                    append.push_back(std::move(p));
+                }
+                keys_.push_back(std::move(append));
+            }
+        }
+
 
     private:
         // void save_members(std::ostream &stream) const;

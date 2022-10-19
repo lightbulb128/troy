@@ -6212,4 +6212,79 @@ namespace troytest
         ASSERT_TRUE(encrypted.parmsID() == parms_id);
         ASSERT_TRUE(plain.to_string() == "5x^64 + Ax^5");
     }
+
+    TEST(EvaluatorCudaTest, SerializeTest) {
+
+        KernelProvider::initialize();
+        EncryptionParameters parms(SchemeType::ckks);
+        {
+            // Multiplying two random vectors 50 times
+            size_t slot_size = 32;
+            parms.setPolyModulusDegree(slot_size * 2);
+            parms.setCoeffModulus(CoeffModulus::Create(slot_size * 2, { 60, 60, 60 }));
+
+            SEALContext context(parms, false, SecurityLevel::none);
+            KeyGenerator keygen(context);
+            PublicKey pk;
+            keygen.createPublicKey(pk);
+            RelinKeys rlk;
+            keygen.createRelinKeys(rlk);
+
+            stringstream p;
+            pk.save(p);
+            string str = p.str();
+            stringstream q(str);
+            pk.load(q);
+
+            CKKSEncoder encoder(context);
+            Encryptor encryptor(context, pk);
+            Decryptor decryptor(context, keygen.secretKey());
+            Evaluator evaluator(context);
+
+            Ciphertext encrypted1;
+            Ciphertext encrypted2;
+            Ciphertext encryptedRes;
+            Plaintext plain1;
+            Plaintext plain2;
+            Plaintext plainRes;
+
+            vector<complex<double>> input1(slot_size, 0.0);
+            vector<complex<double>> input2(slot_size, 0.0);
+            vector<complex<double>> expected(slot_size, 0.0);
+            int data_bound = 1 << 10;
+
+            srand(static_cast<unsigned>(time(NULL)));
+            for (size_t i = 0; i < slot_size; i++)
+            {
+                input1[i] = static_cast<double>(rand() % data_bound);
+                input2[i] = static_cast<double>(rand() % data_bound);
+                expected[i] = input1[i] * input2[i];
+            }
+
+            vector<complex<double>> output(slot_size);
+            const double delta = static_cast<double>(1ULL << 40);
+            encoder.encode(input1, context.firstParmsID(), delta, plain1);
+            encoder.encode(input2, context.firstParmsID(), delta, plain2);
+
+            encryptor.encrypt(plain1, encrypted1);
+            encryptor.encrypt(plain2, encrypted2);
+
+            // Check correctness of encryption
+            ASSERT_TRUE(encrypted1.parmsID() == context.firstParmsID());
+            // Check correctness of encryption
+            ASSERT_TRUE(encrypted2.parmsID() == context.firstParmsID());
+
+            evaluator.multiplyInplace(encrypted1, encrypted2);
+            evaluator.relinearizeInplace(encrypted1, rlk);
+
+            decryptor.decrypt(encrypted1, plainRes);
+            encoder.decode(plainRes, output);
+            for (size_t i = 0; i < slot_size; i++)
+            {
+                auto tmp = abs(expected[i].real() - output[i].real());
+                ASSERT_TRUE(tmp < 0.5);
+            }
+        }
+    }
+
 } // namespace sealtest

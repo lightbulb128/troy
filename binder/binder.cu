@@ -4,12 +4,20 @@
 
 #include "../src/troy_cuda.cuh"
 #include <iostream>
+#include <memory.h>
 
 namespace py = pybind11;
 
 using namespace troyn;
 using std::vector;
 using std::complex;
+using std::stringstream;
+using std::istringstream;
+using std::ostringstream;
+using std::string;
+
+#define SAVE_MACRO ostringstream stream; p.save(stream); return py::bytes(stream.str());
+#define LOAD_MACRO istringstream stream(str);  self.load(stream);
 
 class Smoke {
 public:
@@ -137,6 +145,15 @@ PYBIND11_MODULE(pytroy, m) {
         .def("set_scale", [](Plaintext& self, double s) {
             self.scale() = s;
         })
+        .def("copy", [](const Plaintext& p) {
+            return Plaintext(p);
+        })
+        .def("save", [](const Plaintext& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](Plaintext& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
         ;
 
     py::class_<Ciphertext>(m, "Ciphertext")
@@ -161,31 +178,99 @@ PYBIND11_MODULE(pytroy, m) {
         .def("is_ntt_form", py::overload_cast<>(&Ciphertext::isNttForm, py::const_))
         .def("coeff_modulus_size", &Ciphertext::coeffModulusSize)
         .def("poly_modulus_degree", &Ciphertext::polyModulusDegree)
+        .def("copy", [](const Ciphertext& p) {
+            return Ciphertext(p);
+        })
+        .def("save", [](const Ciphertext& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](Ciphertext& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
+        ;
+
+    py::class_<KeyGenerator>(m, "KeyGenerator")
+        .def(py::init<const SEALContext&>())
+        .def("secret_key", &KeyGenerator::secretKey)
+        .def("create_public_key", py::overload_cast<PublicKey&>(
+            &KeyGenerator::createPublicKey, py::const_
+        ))
+        .def("create_public_key", py::overload_cast<>(
+            &KeyGenerator::createPublicKey, py::const_
+        ))
+        .def("create_relin_keys", py::overload_cast<RelinKeys&>(
+            &KeyGenerator::createRelinKeys
+        ))
+        .def("create_relin_keys", py::overload_cast<>(
+            &KeyGenerator::createRelinKeys
+        ))
+        .def("create_galois_keys", py::overload_cast<GaloisKeys&>(
+            &KeyGenerator::createGaloisKeys
+        ))
+        .def("create_galois_keys", py::overload_cast<>(
+            &KeyGenerator::createGaloisKeys
+        ))
+        .def("create_galois_keys", py::overload_cast<const vector<int>&, GaloisKeys&>(
+            &KeyGenerator::createGaloisKeys
+        ))
+        .def("create_galois_keys", py::overload_cast<const vector<int>&, >(
+            &KeyGenerator::createGaloisKeys
+        ))
         ;
 
     py::class_<SecretKey>(m, "SecretKey")
         .def(py::init<>())
         .def("parms_id", py::overload_cast<>(&SecretKey::parmsID, py::const_))
+        .def("save", [](const SecretKey& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](SecretKey& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
         ;
 
     py::class_<PublicKey>(m, "PublicKey")
         .def(py::init<>())
         .def("parms_id", py::overload_cast<>(&PublicKey::parmsID, py::const_))
+        .def("save", [](const PublicKey& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](PublicKey& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
         ;
 
     py::class_<KSwitchKeys>(m, "KSwitchKeys")
         .def(py::init<>())
         .def("parms_id", py::overload_cast<>(&KSwitchKeys::parmsID, py::const_))
+        .def("save", [](const KSwitchKeys& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](KSwitchKeys& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
         ;
 
     py::class_<RelinKeys>(m, "RelinKeys")
         .def(py::init<>())
         .def("parms_id", py::overload_cast<>(&RelinKeys::parmsID, py::const_))
+        .def("save", [](const RelinKeys& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](RelinKeys& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
         ;
 
     py::class_<GaloisKeys>(m, "GaloisKeys")
         .def(py::init<>())
         .def("parms_id", py::overload_cast<>(&GaloisKeys::parmsID, py::const_))
+        .def("save", [](const GaloisKeys& p) {
+            SAVE_MACRO
+        })
+        .def("load", [](GaloisKeys& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
         ;
 
     py::class_<BatchEncoder>(m, "BatchEncoder")

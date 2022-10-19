@@ -1,5 +1,3 @@
-
-
 nvcc -x cu \
     -std=c++17 \
     -lpython3.8 \
@@ -26,3 +24,10 @@ cp build/pytroy.cpython-38-x86_64-linux-gnu.so ./binder/pytroy.cpython-38-x86_64
 cp ./build/src/libtroy.so ./binder/libtroy.so
 
 echo "Copied to ./binder"
+
+echo "Need sudo"
+
+sudo rm /usr/lib/libtroy.so
+sudo cp ./binder/libtroy.so   /usr/lib
+
+echo "Created soft link in /usr/lib"
