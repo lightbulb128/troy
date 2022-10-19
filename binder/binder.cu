@@ -91,7 +91,7 @@ PYBIND11_MODULE(pytroy, m) {
     py::class_<EncryptionParameters>(m, "EncryptionParameters")
         .def(py::init<SchemeType>())
         .def("set_poly_modulus_degree", &EncryptionParameters::setPolyModulusDegree)
-        .def("sef_coeff_modulus", &EncryptionParameters::setCoeffModulus)
+        .def("set_coeff_modulus", &EncryptionParameters::setCoeffModulus)
         .def("set_plain_modulus", py::overload_cast<uint64_t>(&EncryptionParameters::setPlainModulus))
         .def("set_plain_modulus", py::overload_cast<const Modulus&>(&EncryptionParameters::setPlainModulus))
         .def("scheme", &EncryptionParameters::scheme)
