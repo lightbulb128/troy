@@ -167,6 +167,24 @@ namespace troytest {
             printTimer(tim.gather(repeatCount));
         }
 
+        void testMemoryPool(int repeatCount = 1000) {
+            auto t1 = tim.registerTimer("Preallocate");
+            auto t2 = tim.registerTimer("Allocate");
+            tim.tick(t1);
+            auto c1 = randomCiphertext();
+            Ciphertext c2;
+            for (int t = 0; t < repeatCount; t++) {
+                evaluator->square(c1, c2);
+            }
+            tim.tock(t1);
+            tim.tick(t2);
+            for (int t = 0; t < repeatCount; t++) {
+                Ciphertext c3;
+                evaluator->square(c1, c3);
+            }
+            tim.tock(t2);
+            printTimer(tim.gather(repeatCount));
+        }
 
     };
 
@@ -273,6 +291,7 @@ namespace troytest {
             this->testMultiplyPlain();
             this->testSquare();
             this->testRotateVector();
+            this->testMemoryPool();
         }
 
     };
@@ -384,6 +403,7 @@ namespace troytest {
             this->testMultiplyPlain();
             this->testSquare();
             this->testRotateVector();
+            this->testMemoryPool();
         }
 
     };

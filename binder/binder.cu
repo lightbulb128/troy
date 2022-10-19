@@ -277,6 +277,12 @@ PYBIND11_MODULE(pytroy, m) {
         .def(py::init<const SEALContext&>())
         .def("encode_int64", py::overload_cast<const vector<int64_t>&, Plaintext&>(&BatchEncoder::encode, py::const_))
         .def("encode", py::overload_cast<const vector<uint64_t>&, Plaintext&>(&BatchEncoder::encode, py::const_))
+        .def("encode_int64", [](const BatchEncoder& self, const vector<int64_t>& t) {
+            Plaintext p; self.encode(t, p); return p;
+        })
+        .def("encode", [](const BatchEncoder& self, const vector<uint64_t>& t) {
+            Plaintext p; self.encode(t, p); return p;
+        })
         .def("decode_int64", [](const BatchEncoder& self, const Plaintext& plain) {
             vector<int64_t> ret; self.decode(plain, ret); return ret;
         })
@@ -290,6 +296,12 @@ PYBIND11_MODULE(pytroy, m) {
         .def(py::init<const SEALContext&>())
         .def("encode", py::overload_cast<const vector<complex<double>>&, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", py::overload_cast<const vector<complex<double>>&, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
+        .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, double scale) {
+            Plaintext p; self.encode(v, scale, p); return p;
+        })
+        .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, ParmsID parms_id, double scale) {
+            Plaintext p; self.encode(v, parms_id, scale, p); return p;
+        })
         .def("decode", [](CKKSEncoder& self, const Plaintext& plain) {
             vector<complex<double>> ret; self.decode(plain, ret); return ret;
         })
@@ -302,17 +314,41 @@ PYBIND11_MODULE(pytroy, m) {
         .def(py::init<const SEALContext&, const PublicKey&, const SecretKey&>())
         .def("set_public_key", &Encryptor::setPublicKey)
         .def("set_secret_key", &Encryptor::setSecretKey)
+
         .def("encrypt", py::overload_cast<const Plaintext&, Ciphertext&>(&Encryptor::encrypt, py::const_))
         .def("encrypt_zero", py::overload_cast<Ciphertext&>(&Encryptor::encryptZero, py::const_))
         .def("encrypt_zero", py::overload_cast<ParmsID, Ciphertext&>(&Encryptor::encryptZero, py::const_))
         .def("encrypt_symmetric", py::overload_cast<const Plaintext&, Ciphertext&>(&Encryptor::encryptSymmetric, py::const_))
         .def("encrypt_zero_symmetric", py::overload_cast<Ciphertext&>(&Encryptor::encryptZeroSymmetric, py::const_))
         .def("encrypt_zero_symmetric", py::overload_cast<ParmsID, Ciphertext&>(&Encryptor::encryptZeroSymmetric, py::const_))
+
+        .def("encrypt", [](const Encryptor& self, const Plaintext& plain) {
+            Ciphertext ret; self.encrypt(plain, ret); return ret;
+        })
+        .def("encrypt_zero", [](const Encryptor& self) {
+            Ciphertext ret; self.encryptZero(ret); return ret;
+        })
+        .def("encrypt_zero", [](const Encryptor& self, ParmsID parms_id) {
+            Ciphertext ret; self.encryptZero(parms_id, ret); return ret;
+        })
+        .def("encrypt_symmetric", [](const Encryptor& self, const Plaintext& plain) {
+            Ciphertext ret; self.encryptSymmetric(plain, ret); return ret;
+        })
+        .def("encrypt_zero_symmetric", [](const Encryptor& self) {
+            Ciphertext ret; self.encryptZeroSymmetric(ret); return ret;
+        })
+        .def("encrypt_zero_symmetric", [](const Encryptor& self, ParmsID parms_id) {
+            Ciphertext ret; self.encryptZeroSymmetric(parms_id, ret); return ret;
+        })
+
         ;
 
     py::class_<Decryptor>(m, "Decryptor")
         .def(py::init<const SEALContext&, const SecretKey&>())
         .def("decrypt", &Decryptor::decrypt)
+        .def("decrypt", [](Decryptor& self, const Ciphertext& cipher) {
+            Plaintext p; self.decrypt(cipher, p); return p;
+        })
         ;
 
     py::class_<Evaluator>(m, "Evaluator")
@@ -320,17 +356,44 @@ PYBIND11_MODULE(pytroy, m) {
 
         .def("negate_inplace",             &Evaluator::negateInplace)
         .def("negate",                     &Evaluator::negate)
+        .def("negate", [](const Evaluator& self, const Ciphertext& c) {
+            Ciphertext ret; self.negate(c, ret); return ret;
+        })
+
         .def("add_inplace",                &Evaluator::addInplace)
         .def("add",                        &Evaluator::add)
+        .def("add", [](const Evaluator& self, const Ciphertext& c1, const Ciphertext& c2) {
+            Ciphertext ret; self.add(c1, c2, ret); return ret;
+        })
+
         .def("add_many",                   &Evaluator::addMany)
+        .def("add_many", [](const Evaluator& self, const vector<Ciphertext>& c) {
+            Ciphertext ret; self.addMany(c, ret); return ret;
+        })
+
         .def("sub_inplace",                &Evaluator::subInplace)
         .def("sub",                        &Evaluator::sub)
+        .def("sub", [](const Evaluator& self, const Ciphertext& c1, const Ciphertext& c2) {
+            Ciphertext ret; self.sub(c1, c2, ret); return ret;
+        })
+
         .def("multiply_inplace",           &Evaluator::multiplyInplace)
         .def("multiply",                   &Evaluator::multiply)
+        .def("multiply", [](const Evaluator& self, const Ciphertext& c1, const Ciphertext& c2) {
+            Ciphertext ret; self.multiply(c1, c2, ret); return ret;
+        })
+
         .def("square_inplace",             &Evaluator::squareInplace)
         .def("square",                     &Evaluator::square)
+        .def("square", [](const Evaluator& self, const Ciphertext& c) {
+            Ciphertext ret; self.square(c, ret); return ret;
+        })
+
         .def("relinearize_inplace",        &Evaluator::relinearizeInplace)
         .def("relinearize",                &Evaluator::relinearize)
+        .def("relinearize", [](const Evaluator& self, const Ciphertext& c, const RelinKeys& relin_keys) {
+            Ciphertext ret; self.relinearize(c, relin_keys, ret); return ret;
+        })
 
         .def("mod_switch_to_next_inplace", py::overload_cast<Ciphertext&>(
             &Evaluator::modSwitchToNextInplace, py::const_
@@ -341,9 +404,15 @@ PYBIND11_MODULE(pytroy, m) {
         .def("mod_switch_to_next", py::overload_cast<const Ciphertext&, Ciphertext&>(
             &Evaluator::modSwitchToNext, py::const_
         ))
+        .def("mod_switch_to_next", [](const Evaluator& self, const Ciphertext& c) {
+            Ciphertext ret; self.modSwitchToNext(c, ret); return ret;
+        })
         .def("mod_switch_to_next", py::overload_cast<const Plaintext&, Plaintext&>(
             &Evaluator::modSwitchToNext, py::const_
         ))
+        .def("mod_switch_to_next", [](const Evaluator& self, const Plaintext& p) {
+            Plaintext ret; self.modSwitchToNext(p, ret); return ret;
+        })
 
         .def("mod_switch_to_inplace", py::overload_cast<Ciphertext&, ParmsID>(
             &Evaluator::modSwitchToInplace, py::const_
@@ -354,25 +423,55 @@ PYBIND11_MODULE(pytroy, m) {
         .def("mod_switch_to", py::overload_cast<const Ciphertext&, ParmsID, Ciphertext&>(
             &Evaluator::modSwitchTo, py::const_
         ))
+        .def("mod_switch_to", [](const Evaluator& self, ParmsID parms_id, const Ciphertext& c) {
+            Ciphertext ret; self.modSwitchTo(c, parms_id, ret); return ret;
+        })
         .def("mod_switch_to", py::overload_cast<const Plaintext&, ParmsID, Plaintext&>(
             &Evaluator::modSwitchTo, py::const_
         ))
+        .def("mod_switch_to", [](const Evaluator& self, ParmsID parms_id, const Plaintext& p) {
+            Plaintext ret; self.modSwitchTo(p, parms_id, ret); return ret;
+        })
 
         .def("rescale_to_next_inplace", &Evaluator::rescaleToNextInplace)
         .def("rescale_to_next", &Evaluator::rescaleToNext)
+        .def("rescale_to_next", [](const Evaluator& self, const Ciphertext& c) {
+            Ciphertext ret; self.rescaleToNext(c, ret); return ret;
+        })
 
         .def("rescale_to_inplace", &Evaluator::rescaleToInplace)
         .def("rescale_to", &Evaluator::rescaleTo)
+        .def("rescale_to", [](const Evaluator& self, ParmsID parms_id, const Ciphertext& c) {
+            Ciphertext ret; self.rescaleTo(c, parms_id, ret); return ret;
+        })
 
         .def("multiply_many",          &Evaluator::multiplyMany)
+        .def("multiply_many", [](const Evaluator& self, const vector<Ciphertext>& c, const RelinKeys&relin_keys) {
+            Ciphertext ret; self.multiplyMany(c, relin_keys, ret); return ret;
+        })
         .def("exponentiate_inplace",   &Evaluator::exponentiateInplace)
         .def("exponentiate",           &Evaluator::exponentiate)
+        .def("exponentiate", [](const Evaluator& self, const Ciphertext &encrypted, std::uint64_t exponent, const RelinKeys &relin_keys) {
+            Ciphertext ret; self.exponentiate(encrypted, exponent, relin_keys, ret); return ret;
+        })
+
         .def("add_plain_inplace",      &Evaluator::addPlainInplace)
         .def("add_plain",              &Evaluator::addPlain)
+        .def("add_plain", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
+            Ciphertext ret; self.addPlain(c1, p2, ret); return ret;
+        })
+
         .def("sub_plain_inplace",      &Evaluator::subPlainInplace)
         .def("sub_plain",              &Evaluator::subPlain)
+        .def("sub_plain", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
+            Ciphertext ret; self.subPlain(c1, p2, ret); return ret;
+        })
+
         .def("multiply_plain_inplace", &Evaluator::multiplyPlainInplace)
         .def("multiply_plain",         &Evaluator::multiplyPlain)
+        .def("multiply_plain", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
+            Ciphertext ret; self.multiplyPlain(c1, p2, ret); return ret;
+        })
 
         .def("transform_to_ntt_inplace", py::overload_cast<Plaintext&, ParmsID>(
             &Evaluator::transformToNttInplace, py::const_
@@ -380,29 +479,59 @@ PYBIND11_MODULE(pytroy, m) {
         .def("transform_to_ntt_inplace", py::overload_cast<Ciphertext&>(
             &Evaluator::transformToNttInplace, py::const_
         ))
+
         .def("transform_to_ntt", py::overload_cast<const Plaintext&, ParmsID, Plaintext&>(
             &Evaluator::transformToNtt, py::const_
         ))
+        .def("transform_to_ntt", [](const Evaluator& self, const Plaintext& plaintext, ParmsID parms_id) {
+            Plaintext ret; self.transformToNtt(plaintext, parms_id, ret); return ret;
+        })
         .def("transform_to_ntt", py::overload_cast<const Ciphertext&, Ciphertext&>(
             &Evaluator::transformToNtt, py::const_
         ))
+        .def("transform_to_ntt", [](const Evaluator& self, const Ciphertext& cipher) {
+            Ciphertext ret; self.transformToNtt(cipher, ret); return ret;
+        })
+
         .def("transform_from_ntt_inplace", py::overload_cast<Ciphertext&>(
             &Evaluator::transformFromNttInplace, py::const_
         ))
         .def("transform_from_ntt", py::overload_cast<const Ciphertext&, Ciphertext&>(
             &Evaluator::transformFromNtt, py::const_
         ))
+        .def("transform_to_ntt", [](const Evaluator& self, const Ciphertext& cipher) {
+            Ciphertext ret; self.transformFromNtt(cipher, ret); return ret;
+        })
 
         .def("apply_galois_inplace", &Evaluator::applyGaloisInplace)
         .def("apply_galois", &Evaluator::applyGalois)
+        .def("apply_galois", [](const Evaluator& self, const Ciphertext& cipher, std::uint32_t galois_elt, const GaloisKeys &galois_keys) {
+            Ciphertext ret; self.applyGalois(cipher, galois_elt, galois_keys, ret); return ret;
+        })
+
         .def("rotate_rows_inplace", &Evaluator::rotateRowsInplace)
         .def("rotate_rows", &Evaluator::rotateRows)
+        .def("rotate_rows", [](const Evaluator& self, const Ciphertext& cipher, int steps, const GaloisKeys &galois_keys) {
+            Ciphertext ret; self.rotateRows(cipher, steps, galois_keys, ret); return ret;
+        })
+
         .def("rotate_columns_inplace", &Evaluator::rotateColumnsInplace)
         .def("rotate_columns", &Evaluator::rotateColumns)
+        .def("rotate_rows", [](const Evaluator& self, const Ciphertext& cipher, const GaloisKeys &galois_keys) {
+            Ciphertext ret; self.rotateColumns(cipher, galois_keys, ret); return ret;
+        })
+
         .def("rotate_vector_inplace", &Evaluator::rotateVectorInplace)
         .def("rotate_vector", &Evaluator::rotateVector)
+        .def("rotate_vector", [](const Evaluator& self, const Ciphertext& cipher, int steps, const GaloisKeys &galois_keys) {
+            Ciphertext ret; self.rotateVector(cipher, steps, galois_keys, ret); return ret;
+        })
+
         .def("complex_conjugate_inplace", &Evaluator::complexConjugateInplace)
         .def("complex_conjugate", &Evaluator::complexConjugate)
+        .def("complex_conjugate", [](const Evaluator& self, const Ciphertext& cipher, const GaloisKeys &galois_keys) {
+            Ciphertext ret; self.complexConjugate(cipher, galois_keys, ret); return ret;
+        })
         
         ;
     

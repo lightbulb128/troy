@@ -114,7 +114,7 @@ namespace troy {
 
         
         inline void relinearize(
-            const CiphertextCuda &encrypted, const RelinKeys &relin_keys, CiphertextCuda &destination) const
+            const CiphertextCuda &encrypted, const RelinKeysCuda &relin_keys, CiphertextCuda &destination) const
         {
             destination = encrypted;
             relinearizeInplace(destination, relin_keys);
