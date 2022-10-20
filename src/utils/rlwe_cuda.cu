@@ -3,15 +3,157 @@
 
 #include "rlwe_cuda.cuh"
 #include "../kernelutils.cuh"
+#include <curand_normal.h>
 
 using namespace std;
 
+
+#define KERNEL_CALL(funcname, n) size_t block_count = kernel_util::ceilDiv_(n, 256); funcname<<<block_count, 256>>>
+#define POLY_ARRAY_ARGUMENTS size_t poly_size, size_t coeff_modulus_size, size_t poly_modulus_degree
+#define POLY_ARRAY_ARGCALL poly_size, coeff_modulus_size, poly_modulus_degree
+#define GET_INDEX size_t gindex = blockDim.x * blockIdx.x + threadIdx.x
+#define GET_INDEX_COND_RETURN(n) size_t gindex = blockDim.x * blockIdx.x + threadIdx.x; if (gindex >= (n)) return
+#define FOR_N(name, count) for (size_t name = 0; name < count; name++)
 
 namespace troy
 {
     namespace util
     {
         
+        namespace sampler {
+
+            __global__ void gSamplePolyTenary(
+                curandState* states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                const Modulus* modulus,
+                uint64_t* destination
+            ) {
+                GET_INDEX_COND_RETURN(coeff_count);
+                int r = static_cast<int>(curand_uniform(states + gindex) * 3);
+                FOR_N(j, coeff_modulus_size) {
+                    uint64_t modulus_value = DeviceHelper::getModulusValue(modulus[j]);
+                    if (r==2) destination[gindex + j * coeff_count] = modulus_value - 1;
+                    else destination[gindex + j * coeff_count] = r;
+                }
+            }
+
+            inline void kSamplePolyTenary(
+                DevicePointer<curandState> states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                ConstDevicePointer<Modulus> modulus,
+                DevicePointer<uint64_t> destination
+            ) {
+                KERNEL_CALL(gSamplePolyTenary, coeff_count)(
+                    states.get(), coeff_modulus_size, coeff_count, modulus.get(), destination.get()
+                );
+            }
+
+            constexpr double standard_deviation = 3.2;
+            constexpr double noise_max_deviation = 19.2;
+
+            __global__ void gSamplePolyNormal(
+                curandState* states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                const Modulus* modulus,
+                uint64_t* destination
+            ) {
+                GET_INDEX_COND_RETURN(coeff_count);
+                double r;
+                while (true) {
+                    r = curand_normal(states + gindex);
+                    if (r < noise_max_deviation / standard_deviation) break;
+                }
+                r *= standard_deviation;
+                int64_t ri = static_cast<int64_t>(r);
+                FOR_N(j, coeff_modulus_size) {
+                    uint64_t modulus_value = DeviceHelper::getModulusValue(modulus[j]);
+                    if (ri >= 0) destination[gindex + j * coeff_count] = ri;
+                    else destination[gindex + j * coeff_count] = modulus_value - static_cast<uint64_t>(-ri);
+                }
+            }
+
+            inline void kSamplePolyNormal(
+                DevicePointer<curandState> states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                ConstDevicePointer<Modulus> modulus,
+                DevicePointer<uint64_t> destination
+            ) {
+                KERNEL_CALL(gSamplePolyNormal, coeff_count)(
+                    states.get(), coeff_modulus_size, coeff_count, modulus.get(), destination.get()
+                );
+            }
+
+            __device__ inline int dHammingWeight(unsigned char value)
+            {
+                int t = static_cast<int>(value);
+                t -= (t >> 1) & 0x55;
+                t = (t & 0x33) + ((t >> 2) & 0x33);
+                return (t + (t >> 4)) & 0x0F;
+            }
+
+            __global__ void gSamplePolyCbd(
+                curandState* states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                const Modulus* modulus,
+                uint64_t* destination
+            ) {
+                GET_INDEX_COND_RETURN(coeff_count);
+                unsigned char x[6];
+                for (size_t j = 0; j < 6; j++) 
+                    x[j] = static_cast<unsigned char>(curand_uniform(states + gindex) * 256);
+                x[2] &= 0x1f; x[5] &= 0x1f;
+                int r = dHammingWeight(x[0]) + dHammingWeight(x[1]) + dHammingWeight(x[2]) - dHammingWeight(x[3]) -
+                       dHammingWeight(x[4]) - dHammingWeight(x[5]);
+                FOR_N(j, coeff_modulus_size) {
+                    uint64_t modulus_value = DeviceHelper::getModulusValue(modulus[j]);
+                    if (r >= 0) destination[gindex + j * coeff_count] = r;
+                    else destination[gindex + j * coeff_count] = modulus_value - static_cast<uint64_t>(-r);
+                }
+            }
+
+            inline void kSamplePolyCbd(
+                DevicePointer<curandState> states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                ConstDevicePointer<Modulus> modulus,
+                DevicePointer<uint64_t> destination
+            ) {
+                KERNEL_CALL(gSamplePolyCbd, coeff_count)(
+                    states.get(), coeff_modulus_size, coeff_count, modulus.get(), destination.get()
+                );
+            }
+
+            __global__ void gSamplePolyUniform(
+                curandState* states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                const Modulus* modulus,
+                uint64_t* destination
+            ) {
+                GET_INDEX_COND_RETURN(coeff_count);
+                FOR_N(j, coeff_modulus_size) {
+                    destination[gindex + j * coeff_count] = curand_uniform_double(states + gindex) * DeviceHelper::getModulusValue(modulus[j]);
+                }
+            }
+
+            inline void kSamplePolyUniform(
+                DevicePointer<curandState> states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                ConstDevicePointer<Modulus> modulus,
+                DevicePointer<uint64_t> destination
+            ) {
+                KERNEL_CALL(gSamplePolyUniform, coeff_count)(
+                    states.get(), coeff_modulus_size, coeff_count, modulus.get(), destination.get()
+                );
+            }
+
+        }
 
         [[maybe_unused]] void printDeviceArray(const DeviceArray<uint64_t>& r, bool dont_compress = false) {
             HostArray<uint64_t> start = r.toHost();
@@ -41,7 +183,7 @@ namespace troy
 
         void encryptZeroAsymmetric(
             const PublicKeyCuda &public_key, const SEALContextCuda &context, ParmsID parms_id, bool is_ntt_form,
-            CiphertextCuda &destination)
+            CiphertextCuda &destination, DevicePointer<curandState> curandStates)
         {
             // We use a fresh memory pool with `clear_on_destruction' enabled
 
@@ -70,10 +212,8 @@ namespace troy
             auto prng = parms.randomGenerator()->create();
 
             // Generate u <-- R_3
-            auto u_cpu(allocatePoly(coeff_count, coeff_modulus_size));
-            samplePolyTernary(prng, parms.host(), u_cpu.get());
-            // FIXME: temporary array
-            DeviceArray u(u_cpu);
+            DeviceArray<uint64_t> u(coeff_count * coeff_modulus_size);
+            sampler::kSamplePolyTenary(curandStates, coeff_modulus_size, coeff_count, coeff_modulus, u);
 
             // c[j] = u * public_key[j]
             kernel_util::kNttNegacyclicHarvey(u.get(), 1, coeff_modulus_size, coeff_power, ntt_tables);
@@ -89,8 +229,7 @@ namespace troy
             // c[j] = public_key[j] * u + e[j] in BFV/CKKS, = public_key[j] * u + p * e[j] in BGV,
             for (size_t j = 0; j < encrypted_size; j++)
             {
-                samplePolyCbd(prng, parms.host(), u_cpu.get());
-                u = DeviceArray(u_cpu);
+                sampler::kSamplePolyCbd(curandStates, coeff_modulus_size, coeff_count, coeff_modulus, u);
                 auto gaussian_iter = u.asPointer();
 
                 // In BGV, p * e is used
@@ -112,7 +251,7 @@ namespace troy
         // The second last argument "save_seed" is deleted. set it to false.
         void encryptZeroSymmetric(
             const SecretKeyCuda &secret_key, const SEALContextCuda &context, ParmsID parms_id, bool is_ntt_form,
-            CiphertextCuda &destination)
+            CiphertextCuda &destination, DevicePointer<curandState> curandStates)
         {
             // We use a fresh memory pool with `clear_on_destruction' enabled.
 
@@ -145,14 +284,11 @@ namespace troy
             auto c1 = destination.data(1);
 
             // Sample a uniformly at random
-            auto u_cpu = allocatePoly(coeff_count, coeff_modulus_size);
-            samplePolyUniform(ciphertext_prng, parms.host(), u_cpu.get());
-            KernelProvider::copy(c1.get(), u_cpu.get(), coeff_count * coeff_modulus_size);
+            sampler::kSamplePolyUniform(curandStates.get(), coeff_modulus_size, coeff_count, coeff_modulus, c1.get());
 
             // Sample e <-- chi
-            auto noise_cpu(allocatePoly(coeff_count, coeff_modulus_size));
-            samplePolyCbd(bootstrap_prng, parms.host(), noise_cpu.get());
-            DeviceArray noise(noise_cpu);
+            DeviceArray<uint64_t> noise(coeff_modulus_size * coeff_count);
+            sampler::kSamplePolyCbd(curandStates, coeff_modulus_size, coeff_count, coeff_modulus, noise);
 
             // Calculate -(as+ e) (mod q) and store in c[0] in BFV/CKKS
             // Calculate -(as+pe) (mod q) and store in c[0] in BGV

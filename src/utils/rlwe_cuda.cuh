@@ -11,6 +11,8 @@
 #include "../secretkey_cuda.cuh"
 #include <cstdint>
 
+#include <curand_kernel.h>
+
 namespace troy
 {
     namespace util
@@ -19,10 +21,11 @@ namespace troy
         
         void encryptZeroAsymmetric(
             const PublicKeyCuda &public_key, const SEALContextCuda &context, ParmsID parms_id, bool is_ntt_form,
-            CiphertextCuda &destination);
+            CiphertextCuda &destination, DevicePointer<curandState> curandStates);
 
         void encryptZeroSymmetric(
             const SecretKeyCuda &secret_key, const SEALContextCuda &context, ParmsID parms_id, bool is_ntt_form,
-            CiphertextCuda &destination);
+            CiphertextCuda &destination, DevicePointer<curandState> curandStates);
+            
     } // namespace util
 } // namespace seal

@@ -13,8 +13,25 @@
 using namespace std;
 using namespace troy::util;
 
+#define KERNEL_CALL(funcname, n) size_t block_count = kernel_util::ceilDiv_(n, 256); funcname<<<block_count, 256>>>
+#define GET_INDEX size_t gindex = blockDim.x * blockIdx.x + threadIdx.x
+#define GET_INDEX_COND_RETURN(n) size_t gindex = blockDim.x * blockIdx.x + threadIdx.x; if (gindex >= (n)) return
+#define FOR_N(name, count) for (size_t name = 0; name < count; name++)
+
 namespace troy
 {
+
+    __global__ void gInitCurandStates(curandState* states, size_t n) {
+        GET_INDEX_COND_RETURN(n);
+        curand_init(gindex, 0, 0, &(states[gindex]));
+    }
+
+    void EncryptorCuda::setupCurandStates() {
+        size_t n = context_.firstContextData()->parms().polyModulusDegree();
+        curandStates = DeviceArray<curandState>(n);
+        KERNEL_CALL(gInitCurandStates, n)(curandStates.get(), n);
+    }
+
     EncryptorCuda::EncryptorCuda(const SEALContextCuda &context, const PublicKeyCuda &public_key) : context_(context)
     {
 
@@ -30,6 +47,8 @@ namespace troy
         {
             throw logic_error("invalid parameters");
         }
+
+        setupCurandStates();
     }
 
     EncryptorCuda::EncryptorCuda(const SEALContextCuda &context, const SecretKeyCuda &secret_key) : context_(context)
@@ -47,6 +66,7 @@ namespace troy
         {
             throw logic_error("invalid parameters");
         }
+        setupCurandStates();
     }
 
     EncryptorCuda::EncryptorCuda(const SEALContextCuda &context, const PublicKeyCuda &public_key, const SecretKeyCuda &secret_key)
@@ -66,6 +86,7 @@ namespace troy
         {
             throw logic_error("invalid parameters");
         }
+        setupCurandStates();
     }
 
     void EncryptorCuda::encryptZeroInternal(
@@ -111,7 +132,7 @@ namespace troy
 
                 // Zero encryption without modulus switching
                 CiphertextCuda temp;
-                util::encryptZeroAsymmetric(public_key_, context_, prev_parms_id, isNttForm, temp);
+                util::encryptZeroAsymmetric(public_key_, context_, prev_parms_id, isNttForm, temp, curandStates);
 
                 // Modulus switching
                 for (size_t i = 0; i < temp.size(); i++) {
@@ -141,13 +162,13 @@ namespace troy
             else
             {
                 // Does not require modulus switching
-                util::encryptZeroAsymmetric(public_key_, context_, parms_id, isNttForm, destination);
+                util::encryptZeroAsymmetric(public_key_, context_, parms_id, isNttForm, destination, curandStates.asPointer());
             }
         }
         else
         {
             // Does not require modulus switching
-            util::encryptZeroSymmetric(secret_key_, context_, parms_id, isNttForm, destination);
+            util::encryptZeroSymmetric(secret_key_, context_, parms_id, isNttForm, destination, curandStates.asPointer());
         }
     }
 

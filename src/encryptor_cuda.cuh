@@ -10,6 +10,8 @@
 #include "secretkey_cuda.cuh"
 #include "encryptionparams_cuda.cuh"
 
+#include <curand_kernel.h>
+
 namespace troy
 {
     /**
@@ -410,5 +412,11 @@ namespace troy
         PublicKeyCuda public_key_;
 
         SecretKeyCuda secret_key_;
+
+        void setupCurandStates();
+
+        mutable util::DeviceArray<curandState> curandStates;
+        
+
     };
 } // namespace seal
