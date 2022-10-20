@@ -3,6 +3,7 @@
 
 #include "hostarray.h"
 #include "../kernelprovider.cuh"
+#include "memorypool_cuda.cuh"
 #include <vector>
 #include <exception>
 
@@ -110,7 +111,7 @@ public:
         data = nullptr; len = 0;
     }
     DeviceArray(size_t cnt) {
-        data = KernelProvider::malloc<T>(cnt);
+        data = reinterpret_cast<T*>(MemoryPoolCuda::Get(cnt * sizeof(T)));
         len = cnt;
     }
 
@@ -127,7 +128,7 @@ public:
         a.data = nullptr; a.len = 0;
     }
     DeviceArray& operator=(DeviceArray&& a) {
-        if (data) KernelProvider::free(data);
+        if (data) MemoryPoolCuda::Free(reinterpret_cast<void*>(data), len * sizeof(T));
         data = a.data; 
         len = a.len;
         a.data = nullptr; a.len = 0;
@@ -136,29 +137,29 @@ public:
 
     DeviceArray(const HostArray<T>& host) {
         len = host.length();
-        data = KernelProvider::malloc<T>(len);
+        data = reinterpret_cast<T*>(MemoryPoolCuda::Get(len * sizeof(T)));
         KernelProvider::copy<T>(data, host.get(), len);
     }
 
     ~DeviceArray() {
-        if (data) KernelProvider::free(data);
+        if (data) MemoryPoolCuda::Free(reinterpret_cast<void*>(data), len * sizeof(T));
     }
 
     DeviceArray copy() const {
-        T* copied = KernelProvider::malloc<T>(len);
+        T* copied = reinterpret_cast<T*>(MemoryPoolCuda::Get(len * sizeof(T)));
         KernelProvider::copyOnDevice<T>(copied, data, len);
         return DeviceArray(copied, len);
     }
     DeviceArray& operator = (const DeviceArray& r) {
-        if (data) KernelProvider::free(data);
+        if (data) MemoryPoolCuda::Free(reinterpret_cast<void*>(data), len * sizeof(T));
         len = r.len;
-        data = KernelProvider::malloc<T>(len);
+        data = reinterpret_cast<T*>(MemoryPoolCuda::Get(len * sizeof(T)));
         KernelProvider::copyOnDevice<T>(data, r.data, len);
         return *this;
     }
     DeviceArray(const DeviceArray& r) {
         len = r.len;
-        data = KernelProvider::malloc<T>(len);
+        data = reinterpret_cast<T*>(MemoryPoolCuda::Get(len * sizeof(T)));
         KernelProvider::copyOnDevice<T>(data, r.data, len);
     }
 
