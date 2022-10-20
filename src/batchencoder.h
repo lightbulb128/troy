@@ -47,6 +47,7 @@ namespace troy
     */
     class BatchEncoder
     {
+        friend class BatchEncoderCuda;
     public:
         /**
         Creates a BatchEncoder. It is necessary that the encryption parameters

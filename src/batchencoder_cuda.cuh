@@ -56,95 +56,22 @@ namespace troy
         @throws std::invalid_argument if the encryption parameters are not valid for batching
         @throws std::invalid_argument if scheme is not scheme_type::bfv
         */
-        BatchEncoderCuda(const SEALContextCuda &context): host(context.host()) {}
+        BatchEncoderCuda(const SEALContextCuda &context);
 
-        /**
-        Creates a plaintext from a given matrix. This function "batches" a given matrix
-        of integers modulo the plaintext modulus into a plaintext element, and stores
-        the result in the destination parameter. The input vector must have size at most equal
-        to the degree of the polynomial modulus. The first half of the elements represent the
-        first row of the matrix, and the second half represent the second row. The numbers
-        in the matrix can be at most equal to the plaintext modulus for it to represent
-        a valid plaintext.
+        void encode(const std::vector<std::uint64_t> &values, PlaintextCuda &destination) const;
 
-        If the destination plaintext overlaps the input values in memory, the behavior of
-        this function is undefined.
+        void encode(const std::vector<std::int64_t> &values, PlaintextCuda &destination) const;
 
-        @param[in] values The matrix of integers modulo plaintext modulus to batch
-        @param[out] destination The plaintext polynomial to overwrite with the result
-        @throws std::invalid_argument if values is too large
-        */
-        void encode(const std::vector<std::uint64_t> &values, PlaintextCuda &destination) const {
-            Plaintext ret; host.encode(values, ret);
-            destination = ret;
-        }
+        void decode(const PlaintextCuda &plain, std::vector<std::uint64_t> &destination) const;
 
-        /**
-        Creates a plaintext from a given matrix. This function "batches" a given matrix
-        of integers modulo the plaintext modulus into a plaintext element, and stores
-        the result in the destination parameter. The input vector must have size at most equal
-        to the degree of the polynomial modulus. The first half of the elements represent the
-        first row of the matrix, and the second half represent the second row. The numbers
-        in the matrix can be at most equal to the plaintext modulus for it to represent
-        a valid plaintext.
-
-        If the destination plaintext overlaps the input values in memory, the behavior of
-        this function is undefined.
-
-        @param[in] values The matrix of integers modulo plaintext modulus to batch
-        @param[out] destination The plaintext polynomial to overwrite with the result
-        @throws std::invalid_argument if values is too large
-        */
-
-        void encode(const std::vector<std::int64_t> &values, PlaintextCuda &destination) const {
-            Plaintext ret; host.encode(values, ret);
-            destination = ret;
-        }
-        /**
-        Inverse of encode. This function "unbatches" a given plaintext into a matrix
-        of integers modulo the plaintext modulus, and stores the result in the destination
-        parameter. The input plaintext must have degrees less than the polynomial modulus,
-        and coefficients less than the plaintext modulus, i.e. it must be a valid plaintext
-        for the encryption parameters. Dynamic memory allocations in the process are
-        allocated from the memory pool pointed to by the given MemoryPoolHandle.
-
-        @param[in] plain The plaintext polynomial to unbatch
-        @param[out] destination The matrix to be overwritten with the values in the slots
-        @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
-        @throws std::invalid_argument if plain is not valid for the encryption parameters
-        @throws std::invalid_argument if plain is in NTT form
-        @throws std::invalid_argument if pool is uninitialized
-        */
-
-        void decode(const PlaintextCuda &plain, std::vector<std::uint64_t> &destination) const {
-            host.decode(plain.toHost(), destination);
-        }
-
-        /**
-        Inverse of encode. This function "unbatches" a given plaintext into a matrix
-        of integers modulo the plaintext modulus, and stores the result in the destination
-        parameter. The input plaintext must have degrees less than the polynomial modulus,
-        and coefficients less than the plaintext modulus, i.e. it must be a valid plaintext
-        for the encryption parameters. Dynamic memory allocations in the process are
-        allocated from the memory pool pointed to by the given MemoryPoolHandle.
-
-        @param[in] plain The plaintext polynomial to unbatch
-        @param[out] destination The matrix to be overwritten with the values in the slots
-        @param[in] pool The MemoryPoolHandle pointing to a valid memory pool
-        @throws std::invalid_argument if plain is not valid for the encryption parameters
-        @throws std::invalid_argument if plain is in NTT form
-        @throws std::invalid_argument if pool is uninitialized
-        */
-        void decode(const PlaintextCuda &plain, std::vector<std::int64_t> &destination) const {
-            host.decode(plain.toHost(), destination);
-        }
+        void decode(const PlaintextCuda &plain, std::vector<std::int64_t> &destination) const;
 
         /**
         Returns the number of slots.
         */
         inline auto slotCount() const noexcept
         {
-            return host.slotCount();
+            return slots_;
         }
 
     private:
@@ -155,7 +82,13 @@ namespace troy
         BatchEncoderCuda &operator=(const BatchEncoderCuda &assign) = delete;
 
         BatchEncoderCuda &operator=(BatchEncoderCuda &&assign) = delete;
-        
-        BatchEncoder host;
+
+        SEALContextCuda context_;
+
+        std::size_t slots_;
+
+        util::DeviceArray<std::uint64_t> roots_of_unity_;
+
+        util::DeviceArray<std::size_t> matrix_reps_index_map_;
     };
 } // namespace seal
