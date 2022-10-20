@@ -1,4 +1,5 @@
 #include "src/troy_cuda.cuh"
+#include "src/troy_cpu.h"
 #include <cstddef>
 #include <cstdint>
 #include <ctime>
@@ -6,9 +7,8 @@
 #include <iomanip>
 #include <sys/time.h>
 
-// using namespace troy;
+using namespace troy;
 using namespace std;
-using namespace troyn;
 
 #define ASSERT_TRUE(p) if (!(p)) std::cout << "===== Assert failed: line " << std::dec << __LINE__ << "\n"; \
     else std::cout << "ooooo Assert accept: line " << std::dec << __LINE__ << std::endl;
@@ -20,7 +20,7 @@ using namespace troyn;
     else std::cout << "ooooo Assert accept: line " << std::dec << __LINE__ << std::endl;
 #define ASSERT_EQ(a, b) ASSERT_TRUE((a)==(b))
 
-
+/*
 namespace troytest {
 
     template<typename T> vector<T> vectorAdd(const vector<T> a, const vector<T> b) {
@@ -509,12 +509,82 @@ namespace troytest {
     };
 
 }
+*/
+
+void test() {
+    KernelProvider::initialize();
+
+        EncryptionParameters parms(SchemeType::ckks);
+        {
+            size_t slots = 64;
+            parms.setPolyModulusDegree(slots << 1);
+            parms.setCoeffModulus(CoeffModulus::Create(slots << 1, { 40, 40, 40, 40, 40 }));
+            SEALContext context(parms, false, SecurityLevel::none);
+            SEALContextCuda c_context(context);
+
+            vector<complex<double>> values(slots);
+
+            srand(static_cast<unsigned>(time(NULL)));
+            int data_bound = (1 << 20);
+
+            for (size_t i = 0; i < slots; i++)
+            {
+                complex<double> value(static_cast<double>(rand() % data_bound), 0);
+                values[i] = value;
+            }
+
+            CKKSEncoder encoder(context);
+            CKKSEncoderCuda c_encoder(c_context);
+            {
+                // Use a very large scale
+                double delta = pow(2.0, 110);
+                Plaintext plain;
+                PlaintextCuda c_plain;
+
+                encoder.encode(values, context.firstParmsID(), delta, plain);
+                vector<complex<double>> result;
+                encoder.decode(plain, result);
+
+                for (size_t i = 0; i < 3; ++i)
+                {
+                    auto tmp = abs(values[i].real() - result[i].real());
+                    ASSERT_TRUE(tmp < 0.5);
+                }
+
+                c_encoder.encode(values, context.firstParmsID(), delta, c_plain);
+                c_encoder.decode(c_plain, result);
+
+                for (size_t i = 0; i < 3; ++i)
+                {
+                    auto tmp = abs(values[i].real() - result[i].real());
+                    ASSERT_TRUE(tmp < 0.5);
+                }
+            }
+            // {
+            //     // Use a scale over 128 bits
+            //     double delta = pow(2.0, 130);
+            //     Plaintext plain;
+            //     encoder.encode(values, context.firstParmsID(), delta, plain);
+            //     vector<complex<double>> result;
+            //     encoder.decode(plain, result);
+
+            //     for (size_t i = 0; i < slots; ++i)
+            //     {
+            //         auto tmp = abs(values[i].real() - result[i].real());
+            //         ASSERT_TRUE(tmp < 0.5);
+            //     }
+            // }
+        }
+}
 
 int main() {
-    std::cout << "----- CKKS -----\n";
-    troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
-    test.correctMultiply();
-    test.correctMultiplyPlain();
+
+    test();
+
+    // std::cout << "----- CKKS -----\n";
+    // troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
+    // test.correctMultiply();
+    // test.correctMultiplyPlain();
     // test.testAll();
 
     // std::cout << "----- BFV -----\n";

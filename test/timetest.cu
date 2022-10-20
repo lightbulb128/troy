@@ -90,6 +90,23 @@ namespace troytest {
         virtual Ciphertext randomCiphertext() = 0;
         // virtual void testEncode() = 0;
 
+        void testEncrypt(int repeatCount = 1000) {
+            auto p1 = randomPlaintext();
+            Ciphertext c2;
+            Plaintext p2;
+            auto t1 = tim.registerTimer("Encrypt");
+            auto t2 = tim.registerTimer("Decrypt");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                encryptor->encrypt(p1, c2);
+                tim.tock(t1);
+                tim.tick(t2);
+                decryptor->decrypt(c2, p2);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
         void printTimer(std::map<std::string, double> r) {
             for (auto& p: r) {
                 std::cout << std::setw(25) << std::right << p.first << ":";
@@ -241,6 +258,23 @@ namespace troytest {
             return std::move(ret);
         }
 
+        void testEncode(int repeatCount = 1000) {
+            auto m1 = randomVector(slotCount, dataBound);
+            auto m2 = randomVector(slotCount, dataBound);
+            Plaintext p1;
+            auto t1 = tim.registerTimer("Encode");
+            auto t2 = tim.registerTimer("Decode");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                encoder->encode(m1, delta, p1);
+                tim.tock(t1);
+                tim.tick(t2);
+                encoder->decode(p1, m2);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
         void testMultiplyRescale(int repeatCount = 100) {
             auto c1 = randomCiphertext();
             auto c2 = randomCiphertext();
@@ -285,6 +319,8 @@ namespace troytest {
         }
 
         void testAll() {
+            this->testEncode();
+            this->testEncrypt();
             this->testAdd();
             this->testAddPlain();
             this->testMultiplyRescale();
@@ -353,6 +389,23 @@ namespace troytest {
             return std::move(ret);
         }
 
+        void testEncode(int repeatCount = 1000) {
+            auto m1 = randomVector(slotCount, dataBound);
+            auto m2 = randomVector(slotCount, dataBound);
+            Plaintext p1;
+            auto t1 = tim.registerTimer("Encode");
+            auto t2 = tim.registerTimer("Decode");
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                encoder->encode(m1, p1);
+                tim.tock(t1);
+                tim.tick(t2);
+                encoder->decode(p1, m2);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
         void testMultiplyRescale(int repeatCount = 100) {
             auto c1 = randomCiphertext();
             auto c2 = randomCiphertext();
@@ -397,6 +450,8 @@ namespace troytest {
         }
 
         void testAll() {
+            this->testEncode();
+            this->testEncrypt();
             this->testAdd();
             this->testAddPlain();
             this->testMultiplyRescale();

@@ -23,6 +23,7 @@ namespace troy {
             RNSBaseCuda(const RNSBaseCuda& copy) = default;
 
             void decomposeArray(DevicePointer<uint64_t> value, size_t coeff_count) const;
+            void decomposeArrayKeepOrder(DevicePointer<uint64_t> value, size_t coeff_count) const;
             void composeArray(DevicePointer<uint64_t> value, size_t coeff_count) const;
             size_t size() const {return size_;}
             ConstDevicePointer<Modulus> base() const {return base_.asPointer();}

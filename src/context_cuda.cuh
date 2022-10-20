@@ -129,6 +129,10 @@ namespace troy {
 
             inline const util::GaloisToolCuda* galoisTool() const {return galois_tool_.get();}
 
+            inline const util::DeviceArray<uint64_t>& totalCoeffModulus() const {
+                return total_coeff_modulus_;
+            }
+
 
         private:
 

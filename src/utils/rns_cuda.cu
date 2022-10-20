@@ -26,6 +26,18 @@ namespace troy {
             }
         } 
 
+        __global__ void gDecomposeArrayKeepOrder(
+            const uint64_t* values, POLY_ARGUMENTS, const Modulus* moduli,
+            uint64_t* result
+        ) {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            FOR_N(rns_index, coeff_modulus_size) {
+                size_t oid = gindex * coeff_modulus_size;
+                size_t nid = gindex * coeff_modulus_size + rns_index;
+                result[nid] = kernel_util::dModuloUint(values + oid, coeff_modulus_size, moduli[rns_index]);
+            }
+        } 
+
         // temp should be at least coeff_modulus_size * poly_modulus_degree large
         __global__ void gComposeArray(
             const uint64_t* value, POLY_ARGUMENTS, const Modulus* moduli,
@@ -55,6 +67,15 @@ namespace troy {
             auto copy = copy_.ensure(size_ * coeff_count);
             KernelProvider::copyOnDevice(copy.get(), values.get(), size_ * coeff_count);
             KERNEL_CALL(gDecomposeArray, coeff_count)(
+                copy.get(), size_, coeff_count, base_.get(), values.get()
+            );
+        }
+
+        void RNSBaseCuda::decomposeArrayKeepOrder(DevicePointer<uint64_t> values, size_t coeff_count) const {
+            if (size_ <= 1) return;
+            auto copy = copy_.ensure(size_ * coeff_count);
+            KernelProvider::copyOnDevice(copy.get(), values.get(), size_ * coeff_count);
+            KERNEL_CALL(gDecomposeArrayKeepOrder, coeff_count)(
                 copy.get(), size_, coeff_count, base_.get(), values.get()
             );
         }
