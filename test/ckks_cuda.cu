@@ -13,6 +13,7 @@ namespace troytest
 {
     TEST(CKKSEncoderCudaTest, CKKSEncoderEncodeVectorDecodeTest)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             size_t slots = 32;
@@ -244,6 +245,7 @@ namespace troytest
 
     TEST(CKKSEncoderCudaTest, CKKSEncoderEncodeSingleDecodeTest)
     {
+        KernelProvider::initialize();
         EncryptionParameters parms(SchemeType::ckks);
         {
             size_t slots = 16;
