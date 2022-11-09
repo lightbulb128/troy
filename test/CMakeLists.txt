@@ -40,6 +40,10 @@ add_executable(timetest_seal)
 target_sources(timetest_seal PRIVATE timetest_seal.cpp)
 target_link_libraries(timetest_seal SEAL::seal)
 
+add_executable(matmul)
+target_sources(matmul PRIVATE app/matmul.cu)
+target_link_libraries(matmul troy)
+
 
 include(GoogleTest)
 gtest_discover_tests(troytest)

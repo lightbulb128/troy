@@ -110,7 +110,7 @@ PYBIND11_MODULE(pytroy, m) {
         .def("parms_id", &EncryptionParameters::parmsID)
         ;
 
-    py::class_<SEALContext::ContextDataCuda>(m, "ContextData")
+    py::class_<SEALContext::ContextDataCuda, std::shared_ptr<SEALContext::ContextDataCuda>>(m, "ContextData")
         .def("parms", &SEALContext::ContextDataCuda::parms)
         .def("parms_id", &SEALContext::ContextDataCuda::parmsID)
         .def("chain_index", &SEALContext::ContextDataCuda::chainIndex)
@@ -296,10 +296,18 @@ PYBIND11_MODULE(pytroy, m) {
         .def(py::init<const SEALContext&>())
         .def("encode", py::overload_cast<const vector<complex<double>>&, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", py::overload_cast<const vector<complex<double>>&, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
+        .def("encode", py::overload_cast<complex<double>, double, Plaintext&>(&CKKSEncoder::encode))
+        .def("encode", py::overload_cast<complex<double>, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, double scale) {
             Plaintext p; self.encode(v, scale, p); return p;
         })
         .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, ParmsID parms_id, double scale) {
+            Plaintext p; self.encode(v, parms_id, scale, p); return p;
+        })
+        .def("encode", [](CKKSEncoder& self, complex<double> v, double scale) {
+            Plaintext p; self.encode(v, scale, p); return p;
+        })
+        .def("encode", [](CKKSEncoder& self, complex<double> v, ParmsID parms_id, double scale) {
             Plaintext p; self.encode(v, parms_id, scale, p); return p;
         })
         .def("decode", [](CKKSEncoder& self, const Plaintext& plain) {

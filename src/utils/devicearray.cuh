@@ -234,6 +234,7 @@ public:
     DeviceDynamicArray(DeviceDynamicArray<T>&& move) {
         size_ = move.size();
         internal = std::move(move.internal);
+        move.size_ = 0;
     }
     
     DeviceDynamicArray(const DeviceDynamicArray<T>& copy) {
@@ -263,6 +264,7 @@ public:
     DeviceDynamicArray& operator = (DeviceDynamicArray<T>&& move) {
         size_ = move.size();
         internal = std::move(move.internal);
+        move.size_ = 0;
         return *this;
     }
     

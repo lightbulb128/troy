@@ -1,3 +1,10 @@
+echo "Making base library"
+
+cd build
+cmake ..
+make
+cd ..
+
 nvcc -x cu \
     -std=c++17 \
     -lpython3.8 \
