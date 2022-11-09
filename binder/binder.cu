@@ -296,6 +296,8 @@ PYBIND11_MODULE(pytroy, m) {
         .def(py::init<const SEALContext&>())
         .def("encode", py::overload_cast<const vector<complex<double>>&, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", py::overload_cast<const vector<complex<double>>&, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
+        .def("encode_polynomial", py::overload_cast<const vector<double>&, double, Plaintext&>(&CKKSEncoder::encodePolynomial))
+        .def("encode_polynomial", py::overload_cast<const vector<double>&, ParmsID, double, Plaintext&>(&CKKSEncoder::encodePolynomial))
         .def("encode", py::overload_cast<complex<double>, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", py::overload_cast<complex<double>, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, double scale) {
@@ -303,6 +305,12 @@ PYBIND11_MODULE(pytroy, m) {
         })
         .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, ParmsID parms_id, double scale) {
             Plaintext p; self.encode(v, parms_id, scale, p); return p;
+        })
+        .def("encode_polynomial", [](CKKSEncoder& self, const vector<double>& v, double scale) {
+            Plaintext p; self.encodePolynomial(v, scale, p); return p;
+        })
+        .def("encode_polynomial", [](CKKSEncoder& self, const vector<double>& v, ParmsID parms_id, double scale) {
+            Plaintext p; self.encodePolynomial(v, parms_id, scale, p); return p;
         })
         .def("encode", [](CKKSEncoder& self, complex<double> v, double scale) {
             Plaintext p; self.encode(v, scale, p); return p;
@@ -312,6 +320,9 @@ PYBIND11_MODULE(pytroy, m) {
         })
         .def("decode", [](CKKSEncoder& self, const Plaintext& plain) {
             vector<complex<double>> ret; self.decode(plain, ret); return ret;
+        })
+        .def("decode_polynomial", [](CKKSEncoder& self, const Plaintext& plain) {
+            vector<double> ret; self.decodePolynomial(plain, ret); return ret;
         })
         .def("slot_count", &CKKSEncoder::slotCount)
         ;

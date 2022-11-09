@@ -207,15 +207,32 @@ namespace troy {
         out[gindex] = m;
     }
 
+    __global__ void gMax(
+        double* values,
+        size_t n_sqrt,
+        size_t n, 
+        double* out
+    ) {
+        GET_INDEX_COND_RETURN(n_sqrt);
+        double m = 0;
+        FOR_N(i, n_sqrt) {
+            size_t id = gindex * n_sqrt + i;
+            if (id >= n) break;
+            if (fabs(values[id]) > m) m = fabs(values[id]);
+        }
+        out[gindex] = m;
+    }
+
     __global__ void gEncodeInternalComplexArrayUtilA(
         double* conj_values,
         size_t n,
         size_t coeff_modulus_size,
         const Modulus* coeff_modulus,
-        uint64_t* destination
+        uint64_t* destination,
+        bool is_complex = true
     ) {
         GET_INDEX_COND_RETURN(n);
-        double coeffd = round(conj_values[gindex * 2]);
+        double coeffd = round(conj_values[gindex * (is_complex ? 2 : 1)]);
         bool is_negative = coeffd < 0;
         uint64_t coeffu = static_cast<uint64_t>(abs(coeffd));
         FOR_N(j, coeff_modulus_size) {
@@ -234,11 +251,12 @@ namespace troy {
         size_t n,
         size_t coeff_modulus_size,
         const Modulus* coeff_modulus,
-        uint64_t* destination
+        uint64_t* destination,
+        bool is_complex = true
     ) {
         GET_INDEX_COND_RETURN(n);
         double two_pow_64 = pow(2.0, 64);
-        double coeffd = round(conj_values[gindex * 2]);
+        double coeffd = round(conj_values[gindex * (is_complex ? 2 : 1)]);
         bool is_negative = coeffd < 0;
         coeffd = fabs(coeffd);
         uint64_t coeffu[2] = {
@@ -261,11 +279,12 @@ namespace troy {
         size_t n,
         size_t coeff_modulus_size,
         const Modulus* coeff_modulus,
-        uint64_t* coeffu_array
+        uint64_t* coeffu_array,
+        bool is_complex = true
     ) {
         GET_INDEX_COND_RETURN(n);
         double two_pow_64 = pow(2.0, 64);
-        double coeffd = round(conj_values[gindex * 2]);
+        double coeffd = round(conj_values[gindex * (is_complex ? 2 : 1)]);
         coeffd = fabs(coeffd);
         uint64_t* coeffu = coeffu_array + gindex * coeff_modulus_size;
         uint64_t* coeffu_ptr = coeffu;
@@ -281,10 +300,11 @@ namespace troy {
         size_t n,
         size_t coeff_modulus_size,
         const Modulus* coeff_modulus,
-        uint64_t* destination
+        uint64_t* destination,
+        bool is_complex = true
     ) {
         GET_INDEX_COND_RETURN(n);
-        double coeffd = round(conj_values[gindex * 2]);
+        double coeffd = round(conj_values[gindex * (is_complex ? 2 : 1)]);
         bool is_negative = coeffd < 0;
         const uint64_t* coeffu = coeffu_array + gindex * coeff_modulus_size;
         FOR_N(j, coeff_modulus_size) {
@@ -294,6 +314,16 @@ namespace troy {
                 destination[gindex + j * n] = coeffu[j];
             }
         }
+    }
+
+    __global__ void gCopyMulScalar(
+        const double* from,
+        double* to,
+        size_t n,
+        double scalar
+    ) {
+        GET_INDEX_COND_RETURN(n);
+        to[gindex] = from[gindex] * scalar;
     }
 
     void CKKSEncoderCuda::encodeInternal(
@@ -437,7 +467,124 @@ namespace troy {
         destination.scale() = scale;
     }
 
+    void CKKSEncoderCuda::encodePolynomialInternal(
+        const double* values, std::size_t values_size,
+        ParmsID parms_id, double scale, PlaintextCuda& destination
+    ) {
+        // Verify parameters.
+        auto context_data_ptr = context_.getContextData(parms_id);
+        if (!context_data_ptr)
+        {
+            throw std::invalid_argument("parms_id is not valid for encryption parameters");
+        }
+        if (!values && values_size > 0)
+        {
+            throw std::invalid_argument("values cannot be null");
+        }
+        if (values_size > slots_ * 2)
+        {
+            throw std::invalid_argument("values_size is too large");
+        }
 
+        auto &context_data = *context_data_ptr;
+        auto &parms = context_data.parms();
+        auto &coeff_modulus = parms.coeffModulus();
+        std::size_t coeff_modulus_size = coeff_modulus.size();
+        std::size_t coeff_count = parms.polyModulusDegree();
+        auto ntt_tables = context_data.smallNTTTables();
+        
+        std::size_t n = util::mul_safe(slots_, std::size_t(2));
+        
+        auto values_cuda = DeviceArray<double>(n);
+        KernelProvider::memsetZero(values_cuda.get(), n);
+        KernelProvider::copy(values_cuda.get(), values, values_size);
+
+        auto conj_values = util::DeviceArray<double>(n);
+        KernelProvider::memsetZero<double>(conj_values.get(), n);
+        {
+            KERNEL_CALL(gCopyMulScalar, n)(
+                values_cuda.get(),
+                conj_values.get(),
+                n,
+                scale
+            );
+        }
+
+        size_t n_sqrt = static_cast<size_t>(std::sqrt(n)) + 1;
+        auto max_coeff_array = util::DeviceArray<double>(n_sqrt);
+        { 
+            KERNEL_CALL(gMax, n_sqrt)(
+                reinterpret_cast<double*>(conj_values.get()), 
+                n_sqrt, n, max_coeff_array.get() 
+            );
+        }
+
+        // std::cout << "here" << std::endl;
+
+        auto max_coeff_array_cpu = max_coeff_array.toHost();
+        double max_coeff = 0;
+        for (std::size_t i = 0; i < max_coeff_array_cpu.size(); i++) {
+            max_coeff = std::max<>(max_coeff, max_coeff_array_cpu[i]);
+        }
+        
+        // Verify that the values are not too large to fit in coeff_modulus
+        // Note that we have an extra + 1 for the sign bit
+        // Don't compute logarithmis of numbers less than 1
+        int max_coeff_bit_count = static_cast<int>(std::ceil(std::log2(std::max<>(max_coeff, 1.0)))) + 1;
+        if (max_coeff_bit_count >= context_data.totalCoeffModulusBitCount())
+        {
+            throw std::invalid_argument("encoded values are too large");
+        }
+
+        double two_pow_64 = std::pow(2.0, 64);
+
+        // Resize destination to appropriate size
+        // Need to first set parms_id to zero, otherwise resize
+        // will throw an exception.
+        destination.parmsID() = parmsIDZero;
+        destination.resize(util::mul_safe(coeff_count, coeff_modulus_size));
+
+        // Use faster decomposition methods when possible
+        if (max_coeff_bit_count <= 64)
+        {
+            KERNEL_CALL(gEncodeInternalComplexArrayUtilA, n) (
+                reinterpret_cast<double*>(conj_values.get()), 
+                n, coeff_modulus_size, coeff_modulus.get(), destination.data(),
+                false
+            );
+        }
+        else if (max_coeff_bit_count <= 128)
+        {
+            KERNEL_CALL(gEncodeInternalComplexArrayUtilB, n) (
+                reinterpret_cast<double*>(conj_values.get()), 
+                n, coeff_modulus_size, coeff_modulus.get(), destination.data(),
+                false
+            );
+        }
+        else
+        {
+            auto coeffu_array = DeviceArray<uint64_t>(coeff_modulus_size * n);
+            kernel_util::kSetZeroPolyArray(1, coeff_modulus_size, n, coeffu_array);
+            KERNEL_CALL(gEncodeInternalComplexArrayUtilC, n) (
+                reinterpret_cast<double*>(conj_values.get()), 
+                n, coeff_modulus_size, coeff_modulus.get(), coeffu_array.get(),
+                false
+            );
+            context_data.rnsTool()->baseq()->decomposeArrayKeepOrder(coeffu_array.get(), n);
+            gEncodeInternalComplexArrayUtilD<<<block_count, 256>>>(
+                reinterpret_cast<double*>(conj_values.get()), 
+                coeffu_array.get(), n, 
+                coeff_modulus_size, coeff_modulus.get(),
+                destination.data(),
+                false
+            );
+        }
+
+        kernel_util::kNttNegacyclicHarvey(destination.data(), 1, coeff_modulus_size, getPowerOfTwo(n), ntt_tables);
+
+        destination.parmsID() = parms_id;
+        destination.scale() = scale;
+    }
 
 
 
@@ -836,6 +983,90 @@ namespace troy {
         ); }
 
         KernelProvider::retrieve(destination, destination_device.get(), slots_);
+    }
+
+
+    __global__ void gRetrieveReals(
+        const double* from,
+        double* to,
+        size_t n
+    ) {
+        GET_INDEX_COND_RETURN(n);
+        to[gindex] = from[gindex * 2];
+    }
+
+    void CKKSEncoderCuda::decodePolynomialInternal(const PlaintextCuda &plain, double *destination)
+    {
+        if (!plain.isNttForm())
+        {
+            throw std::invalid_argument("plain is not in NTT form");
+        }
+        if (!destination)
+        {
+            throw std::invalid_argument("destination cannot be null");
+        }
+
+        auto &context_data = *context_.getContextData(plain.parmsID());
+        auto &parms = context_data.parms();
+        std::size_t coeff_modulus_size = parms.coeffModulus().size();
+        std::size_t coeff_count = parms.polyModulusDegree();
+        std::size_t rns_poly_uint64_count = util::mul_safe(coeff_count, coeff_modulus_size);
+
+        auto ntt_tables = context_data.smallNTTTables();
+
+        // Check that scale is positive and not too large
+        if (plain.scale() <= 0 ||
+            (static_cast<int>(log2(plain.scale())) >= context_data.totalCoeffModulusBitCount()))
+        {
+            throw std::invalid_argument("scale out of bounds");
+        }
+
+        auto& decryption_modulus = context_data.totalCoeffModulus();
+        auto upper_half_threshold = context_data.upperHalfThreshold();
+        int logn = util::getPowerOfTwo(coeff_count);
+
+        // Quick sanity check
+        if ((logn < 0) || (coeff_count < SEAL_POLY_MOD_DEGREE_MIN) || (coeff_count > SEAL_POLY_MOD_DEGREE_MAX))
+        {
+            throw std::logic_error("invalid parameters");
+        }
+
+        double inv_scale = double(1.0) / plain.scale();
+
+        // Create mutable copy of input
+        auto plain_copy = kernel_util::kAllocate(rns_poly_uint64_count);
+        kernel_util::kSetPolyArray(plain.data(), 1, coeff_modulus_size, coeff_count, plain_copy.get());
+
+        // Transform each polynomial from NTT domain
+        kernel_util::kInverseNttNegacyclicHarvey(plain_copy.get(), 1, coeff_modulus_size, logn, ntt_tables);
+
+        // printDeviceArray(plain_copy);
+
+        // CRT-compose the polynomial
+        context_data.rnsTool()->baseq()->composeArray(plain_copy.get(), coeff_count);
+
+        // Create floating-point representations of the multi-precision integer coefficients
+        double two_pow_64 = std::pow(2.0, 64);
+        auto res = util::DeviceArray<std::complex<double>>(coeff_count);
+
+        { KERNEL_CALL(gDecodeInternal, coeff_count)(
+            plain_copy.get(), coeff_count, coeff_modulus_size, decryption_modulus.get(),
+            upper_half_threshold.get(), inv_scale, 
+            reinterpret_cast<double*>(res.get())
+        ); }
+
+        auto destination_device = util::DeviceArray<double>(coeff_count);
+
+        {
+            KERNEL_CALL(gRetrieveReals, coeff_count)(
+                reinterpret_cast<double*>(res.get()),
+                destination_device.get(),
+                coeff_count
+            );
+        }
+
+        KernelProvider::retrieve(destination, destination_device.get(), coeff_count);
+        
     }
 
 }

@@ -31,6 +31,14 @@ namespace troy
             encode(values, context_.firstParmsID(), scale, destination);
         }
         
+        inline void encodePolynomial(const std::vector<double>& values, ParmsID parms_id, double scale, PlaintextCuda& destination) {
+            encodePolynomialInternal(values.data(), values.size(), parms_id, scale, destination);
+        }
+
+        inline void encodePolynomial(const std::vector<double>& values, double scale, PlaintextCuda& destination) {
+            encodePolynomial(values, context_.firstParmsID(), scale, destination);
+        }
+        
         inline void encode(
             double value, ParmsID parms_id, double scale, PlaintextCuda &destination)
         {
@@ -73,6 +81,11 @@ namespace troy
             decodeInternal(plain, destination.data());
         }
 
+        inline void decodePolynomial(const PlaintextCuda& plain, std::vector<double> &destination) {
+            destination.resize(slots_ * 2);
+            decodePolynomialInternal(plain, destination.data());
+        }
+
         inline std::size_t slotCount() const noexcept
         {
             return slots_;
@@ -84,9 +97,17 @@ namespace troy
         void encodeInternal(
             const std::complex<double> *values, std::size_t values_size, 
             ParmsID parms_id, double scale, PlaintextCuda &destination);
+
+        
+        void encodePolynomialInternal(
+            const double* coeffs, std::size_t values_size,
+            ParmsID parms_id, double scale, PlaintextCuda& destination
+        );
         
         
         void decodeInternal(const PlaintextCuda &plain, std::complex<double> *destination);
+
+        void decodePolynomialInternal(const PlaintextCuda& plain, double *destination);
 
         
         void encodeInternal(

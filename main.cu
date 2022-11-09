@@ -7,7 +7,7 @@
 #include <iomanip>
 #include <sys/time.h>
 
-using namespace troy;
+using namespace troyn;
 using namespace std;
 
 #define ASSERT_TRUE(p) if (!(p)) std::cout << "===== Assert failed: line " << std::dec << __LINE__ << "\n"; \
@@ -67,6 +67,19 @@ namespace troytest {
                 std::cout << std::setprecision(3) << std::fixed << r[i].real();
                 if (r[i].imag() > 0.05) assert(false);
             }
+        }
+        std::cout << "]" << std::endl;
+    }
+
+    void printVector(const vector<double>& r, bool full = false) {
+        std::cout << "[";
+        for (size_t i = 0; i < r.size(); i++) {
+            if (r.size() > 8 && !full && i == 4) {
+                std::cout << " ...";
+                i = r.size() - 4;
+            }
+            if (i!=0) std::cout << ", ";
+            std::cout << std::setprecision(3) << std::fixed << r[i];
         }
         std::cout << "]" << std::endl;
     }
@@ -270,6 +283,17 @@ namespace troytest {
             }
             return input;
         }
+        
+        vector<double> randomRealVector(size_t count = 0, int data_bound = 0) {
+            if (count == 0) count = slotCount;
+            if (data_bound == 0) data_bound = dataBound;
+            vector<double> input(count, 0.0);
+            for (size_t i = 0; i < count; i++)
+            {
+                input[i] = static_cast<double>(rand() % data_bound);
+            }
+            return input;
+        }
 
         vector<complex<double>> constantVector(complex<double> value) {
             size_t count = slotCount;
@@ -412,6 +436,37 @@ namespace troytest {
 
         }
 
+        void testPolynomial() {
+            auto r = randomRealVector(slotCount * 2);
+            auto s = randomRealVector(slotCount * 2);
+            auto correct = vector<double>(slotCount*2, 0);
+            for (int i=0; i<slotCount*2; i++) {
+                for (int j=0; j<slotCount*2; j++) {
+                    if (i+j < slotCount*2) correct[i+j] += r[i] * s[j];
+                    else correct[i+j-slotCount*2] -= r[i] * s[j];
+                }
+            }
+            Plaintext plain_r, plain_s;
+            encoder->encodePolynomial(r, delta, plain_r);
+            encoder->encodePolynomial(s, delta, plain_s);
+
+            vector<double> rx, sx;
+            // encoder->decodePolynomial(plain_r, rx);
+            // encoder->decodePolynomial(plain_s, sx);
+
+
+            printf("Encoded\n");
+            Ciphertext cipher_r = encryptor->encrypt(plain_r);
+            printf("Encrypted\n");
+            evaluator->multiplyPlainInplace(cipher_r, plain_s);
+            Plaintext dec_r; decryptor->decrypt(cipher_r, dec_r);
+            printf("Decrypted\n");
+            encoder->decodePolynomial(dec_r, rx);
+            printf("Decoded\n");
+            printVector(rx);
+            printVector(correct);
+        }
+
     };
 
 
@@ -534,6 +589,7 @@ int main() {
     // test.correctMultiply();
     // test.correctMultiplyPlain();
     test.testSingle();
+    test.testPolynomial();
 
     // std::cout << "----- BFV -----\n";
     // troytest::TimeTestBFVBGV test2(false, 16384, 20, {40, 40, 40, 40, 40, 40});
