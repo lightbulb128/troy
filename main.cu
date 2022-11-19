@@ -265,6 +265,7 @@ namespace troytest {
             keygen->createGaloisKeys(gk);
             encoder = new CKKSEncoder(*context);
             encryptor = new Encryptor(*context, pk);
+            encryptor->setSecretKey(keygen->secretKey());
             decryptor = new Decryptor(*context, keygen->secretKey());
             evaluator = new Evaluator(*context);
         }
@@ -467,6 +468,29 @@ namespace troytest {
             printVector(correct);
         }
 
+        void testSaveLoad() {
+            auto r = randomVector();
+            Plaintext p; encoder->encode(r, delta, p);
+            auto c1 = encryptor->encrypt(p);
+            ostringstream o1; c1.save(o1);
+            auto str1 = o1.str();
+            printf("Length of str1: %ld\n", str1.size());
+            istringstream i1(str1);
+            Ciphertext rec1; rec1.load(i1);
+            auto dec1 = decrypt(rec1);
+            printVector(r);
+            printVector(dec1);
+
+            auto c2 = encryptor->encryptSymmetric(p);
+            ostringstream o2; c2.save(o2);
+            auto str2 = o2.str();
+            printf("Length of str2: %ld\n", str2.size());
+            istringstream i2(str2);
+            Ciphertext rec2; rec2.load(i2, *context);
+            auto dec2 = decrypt(rec2);
+            printVector(dec1);
+        }
+
     };
 
 
@@ -588,8 +612,9 @@ int main() {
     troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
     // test.correctMultiply();
     // test.correctMultiplyPlain();
-    test.testSingle();
-    test.testPolynomial();
+    // test.testSingle();
+    // test.testPolynomial();
+    test.testSaveLoad();
 
     // std::cout << "----- BFV -----\n";
     // troytest::TimeTestBFVBGV test2(false, 16384, 20, {40, 40, 40, 40, 40, 40});

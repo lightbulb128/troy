@@ -21,15 +21,15 @@ using namespace troy::util;
 namespace troy
 {
 
-    __global__ void gInitCurandStates(curandState* states, size_t n) {
+    __global__ void gInitCurandStates(curandState* states, size_t n, uint64_t seed) {
         GET_INDEX_COND_RETURN(n);
-        curand_init(gindex, 0, 0, &(states[gindex]));
+        curand_init(gindex + seed, 0, 0, &(states[gindex]));
     }
 
-    void EncryptorCuda::setupCurandStates() {
+    void EncryptorCuda::setupCurandStates(uint64_t seed) {
         size_t n = context_.firstContextData()->parms().polyModulusDegree();
         curandStates = DeviceArray<curandState>(n);
-        KERNEL_CALL(gInitCurandStates, n)(curandStates.get(), n);
+        KERNEL_CALL(gInitCurandStates, n)(curandStates.get(), n, seed);
     }
 
     EncryptorCuda::EncryptorCuda(const SEALContextCuda &context, const PublicKeyCuda &public_key) : context_(context)

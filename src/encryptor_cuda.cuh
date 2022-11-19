@@ -413,7 +413,7 @@ namespace troy
 
         SecretKeyCuda secret_key_;
 
-        void setupCurandStates();
+        void setupCurandStates(uint64_t seed = 0);
 
         mutable util::DeviceArray<curandState> curandStates;
         

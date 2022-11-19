@@ -21,6 +21,15 @@ namespace troy
     {
         
         namespace sampler {
+            
+            __global__ void gInitCurandStates(curandState* states, size_t n, uint64_t seed) {
+                GET_INDEX_COND_RETURN(n);
+                curand_init(gindex + seed, 0, 0, &(states[gindex]));
+            }
+
+            void setupCurandStates(curandState* states, size_t n, uint64_t seed) {
+                KERNEL_CALL(gInitCurandStates, n)(states, n, seed);
+            }
 
             __global__ void gSamplePolyTenary(
                 curandState* states,
@@ -141,7 +150,7 @@ namespace troy
                 }
             }
 
-            inline void kSamplePolyUniform(
+            void kSamplePolyUniform(
                 DevicePointer<curandState> states,
                 size_t coeff_modulus_size,
                 size_t coeff_count,
@@ -204,6 +213,7 @@ namespace troy
             destination.isNttForm() = is_ntt_form;
             destination.scale() = 1.0;
             destination.correctionFactor() = 1;
+            destination.seed() = 0;
 
             // c[j] = public_key[j] * u + e[j] in BFV/CKKS = public_key[j] * u + p * e[j] in BGV
             // where e[j] <-- chi, u <-- R_3
@@ -278,13 +288,23 @@ namespace troy
 
             auto ciphertext_prng = UniformRandomGeneratorFactory::DefaultFactory()->create(public_prng_seed);
 
+            auto newStates = DeviceArray<curandState>(coeff_count);
+            uint64_t seed;
+            while (true) {
+                seed = (static_cast<uint64_t>(ciphertext_prng->generate()) << 32) + static_cast<uint64_t>(ciphertext_prng->generate());
+                if (seed) break;
+            }
+            destination.seed() = seed;
+            sampler::setupCurandStates(newStates.get(), coeff_count, seed);
+
             // Generate ciphertext: (c[0], c[1]) = ([-(as+ e)]_q, a) in BFV/CKKS
             // Generate ciphertext: (c[0], c[1]) = ([-(as+pe)]_q, a) in BGV
             auto c0 = destination.data();
             auto c1 = destination.data(1);
 
             // Sample a uniformly at random
-            sampler::kSamplePolyUniform(curandStates.get(), coeff_modulus_size, coeff_count, coeff_modulus, c1.get());
+
+            sampler::kSamplePolyUniform(newStates.get(), coeff_modulus_size, coeff_count, coeff_modulus, c1.get());
 
             // Sample e <-- chi
             DeviceArray<uint64_t> noise(coeff_modulus_size * coeff_count);

@@ -18,6 +18,17 @@ namespace troy
     namespace util
     {
 
+        namespace sampler {
+            void setupCurandStates(curandState* states, size_t n, uint64_t seed);
+            
+            void kSamplePolyUniform(
+                DevicePointer<curandState> states,
+                size_t coeff_modulus_size,
+                size_t coeff_count,
+                ConstDevicePointer<Modulus> modulus,
+                DevicePointer<uint64_t> destination
+            );
+        }
         
         void encryptZeroAsymmetric(
             const PublicKeyCuda &public_key, const SEALContextCuda &context, ParmsID parms_id, bool is_ntt_form,

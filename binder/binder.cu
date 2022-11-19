@@ -187,6 +187,9 @@ PYBIND11_MODULE(pytroy, m) {
         .def("load", [](Ciphertext& self, const py::bytes& str) {
             LOAD_MACRO
         })
+        .def("load", [](Ciphertext& self, const py::bytes& str, const SEALContext& context){
+            istringstream stream(str); self.load(stream, context);
+        })
         ;
 
     py::class_<KeyGenerator>(m, "KeyGenerator")

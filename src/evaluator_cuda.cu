@@ -143,6 +143,8 @@ namespace troy {
     }
 
     void EvaluatorCuda::negateInplace(CiphertextCuda& encrypted) const {
+        encrypted.seed() = 0;
+
         auto &context_data = *context_.getContextData(encrypted.parmsID());
         auto &parms = context_data.parms();
         auto &coeff_modulus = parms.coeffModulus();
@@ -152,6 +154,7 @@ namespace troy {
     }
 
     void EvaluatorCuda::addInplace(CiphertextCuda& encrypted1, const CiphertextCuda& encrypted2) const {
+        encrypted1.seed() = 0;
 
         auto &context_data = *context_.getContextData(encrypted1.parmsID());
         auto &parms = context_data.parms();
@@ -205,6 +208,7 @@ namespace troy {
 
     
     void EvaluatorCuda::subInplace(CiphertextCuda& encrypted1, const CiphertextCuda& encrypted2) const {
+        encrypted1.seed() = 0;
         
         auto &context_data = *context_.getContextData(encrypted1.parmsID());
         auto &parms = context_data.parms();
@@ -256,6 +260,7 @@ namespace troy {
     }
 
     void EvaluatorCuda::multiplyInplace(CiphertextCuda& encrypted1, const CiphertextCuda& encrypted2) const {
+        encrypted1.seed() = 0;
         auto context_data_ptr = context_.firstContextData();
         switch (context_data_ptr->parms().scheme()) {
         case SchemeType::bfv:
@@ -494,6 +499,7 @@ namespace troy {
     }
 
     void EvaluatorCuda::squareInplace(CiphertextCuda& encrypted) const {
+        encrypted.seed() = 0;
         auto context_data_ptr = context_.firstContextData();
         switch (context_data_ptr->parms().scheme())
         {
@@ -693,6 +699,7 @@ namespace troy {
 
     
     void EvaluatorCuda::relinearizeInternal(CiphertextCuda &encrypted, const RelinKeysCuda &relin_keys, std::size_t destination_size) const {
+        encrypted.seed() = 0;
 
         // Verify parameters.
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
@@ -740,6 +747,7 @@ namespace troy {
     void EvaluatorCuda::modSwitchScaleToNext(
         const CiphertextCuda &encrypted, CiphertextCuda &destination) const
     {
+        destination.seed() = 0;
         // Assuming at this point encrypted is already validated.
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         if (context_data_ptr->parms().scheme() == SchemeType::bfv && encrypted.isNttForm())
@@ -816,6 +824,7 @@ namespace troy {
     void EvaluatorCuda::modSwitchDropToNext(
         const CiphertextCuda &encrypted, CiphertextCuda &destination) const
     {
+        destination.seed() = 0;
         // Assuming at this point encrypted is already validated.
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         if (context_data_ptr->parms().scheme() == SchemeType::ckks && !encrypted.isNttForm())
@@ -915,6 +924,7 @@ namespace troy {
     void EvaluatorCuda::modSwitchToNext(
         const CiphertextCuda &encrypted, CiphertextCuda &destination) const
     {
+        destination.seed() = 0;
 
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         if (context_.lastParmsID() == encrypted.parmsID())
@@ -1152,6 +1162,7 @@ namespace troy {
     void EvaluatorCuda::switchKeyInplace(
         CiphertextCuda &encrypted, ConstDevicePointer<uint64_t> target_iter, const KSwitchKeysCuda &kswitch_keys, size_t kswitch_keys_index) const
     {
+        encrypted.seed() = 0;
         auto parms_id = encrypted.parmsID();
         auto &context_data = *context_.getContextData(parms_id);
         auto &parms = context_data.parms();
@@ -1353,6 +1364,7 @@ namespace troy {
 
     void EvaluatorCuda::rescaleToNext(const CiphertextCuda &encrypted, CiphertextCuda &destination) const
     {
+        destination.seed() = 0;
         if (context_.lastParmsID() == encrypted.parmsID())
         {
             throw invalid_argument("end of modulus switching chain reached");
@@ -1379,6 +1391,7 @@ namespace troy {
 
     void EvaluatorCuda::rescaleToInplace(CiphertextCuda &encrypted, ParmsID parms_id) const
     {
+        encrypted.seed() = 0;
 
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         auto targetContextData_ptr = context_.getContextData(parms_id);
@@ -1419,6 +1432,7 @@ namespace troy {
     void EvaluatorCuda::multiplyMany(
         const std::vector<CiphertextCuda> &encrypteds, const RelinKeysCuda &relin_keys, CiphertextCuda &destination) const
     {
+        destination.seed() = 0;
         // Verify parameters.
         if (encrypteds.size() == 0)
         {
@@ -1496,6 +1510,7 @@ namespace troy {
     void EvaluatorCuda::exponentiateInplace(
         CiphertextCuda &encrypted, uint64_t exponent, const RelinKeysCuda &relin_keys) const
     {
+        encrypted.seed() = 0;
         // Verify parameters.
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         if (!context_data_ptr)
@@ -1526,6 +1541,7 @@ namespace troy {
 
     void EvaluatorCuda::addPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
     {
+        encrypted.seed() = 0;
 
         auto &context_data = *context_.getContextData(encrypted.parmsID());
         auto &parms = context_data.parms();
@@ -1598,6 +1614,7 @@ namespace troy {
 
     void EvaluatorCuda::subPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
     {        
+        encrypted.seed() = 0;
 
         auto &context_data = *context_.getContextData(encrypted.parmsID());
         auto &parms = context_data.parms();
@@ -1671,6 +1688,7 @@ namespace troy {
     
     void EvaluatorCuda::multiplyPlainInplace(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
     {
+        encrypted.seed() = 0;
         if (encrypted.isNttForm() != plain.isNttForm())
         {
             throw invalid_argument("NTT form mismatch");
@@ -1723,6 +1741,7 @@ namespace troy {
 
     void EvaluatorCuda::multiplyPlainNormal(CiphertextCuda &encrypted, const PlaintextCuda &plain) const
     {
+        encrypted.seed() = 0;
         // Extract encryption parameters.
         auto &context_data = *context_.getContextData(encrypted.parmsID());
         auto &parms = context_data.parms();
@@ -1789,6 +1808,7 @@ namespace troy {
 
     void EvaluatorCuda::multiplyPlainNtt(CiphertextCuda &encrypted_ntt, const PlaintextCuda &plain_ntt) const
     {
+        encrypted_ntt.seed() = 0;
         // Verify parameters.
         if (!plain_ntt.isNttForm())
         {
@@ -1914,6 +1934,7 @@ namespace troy {
 
     void EvaluatorCuda::transformToNttInplace(CiphertextCuda &encrypted) const
     {
+        encrypted.seed() = 0;
 
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         if (!context_data_ptr)
@@ -1950,6 +1971,7 @@ namespace troy {
 
     void EvaluatorCuda::transformFromNttInplace(CiphertextCuda &encrypted_ntt) const
     {
+        encrypted_ntt.seed() = 0;
 
         auto context_data_ptr = context_.getContextData(encrypted_ntt.parmsID());
         if (!context_data_ptr)
@@ -1987,6 +2009,7 @@ namespace troy {
     void EvaluatorCuda::applyGaloisInplace(
         CiphertextCuda &encrypted, uint32_t galois_elt, const GaloisKeysCuda &galois_keys) const
     {
+        encrypted.seed() = 0;
 
         // Don't validate all of galois_keys but just check the parms_id.
         if (galois_keys.parmsID() != context_.keyParmsID())
@@ -2081,6 +2104,7 @@ namespace troy {
     void EvaluatorCuda::rotateInternal(
         CiphertextCuda &encrypted, int steps, const GaloisKeysCuda &galois_keys) const
     {
+        encrypted.seed() = 0;
         auto context_data_ptr = context_.getContextData(encrypted.parmsID());
         if (!context_data_ptr)
         {

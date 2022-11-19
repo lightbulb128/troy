@@ -180,6 +180,10 @@ namespace troy {
 
         void save(std::ostream& stream) const;
         void load(std::istream& stream);
+        void load(std::istream& stream, const SEALContextCuda& context);
+
+        inline std::uint64_t seed() const noexcept {return seed_;}
+        inline std::uint64_t& seed() {return seed_;}
 
     private:
     
@@ -233,6 +237,8 @@ namespace troy {
         std::uint64_t correction_factor_ = 1;
 
         util::DeviceDynamicArray<ct_coeff_type> data_;
+
+        std::uint64_t seed_ = 0;
     };
 
 }
