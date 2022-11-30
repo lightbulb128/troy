@@ -342,6 +342,19 @@ namespace troytest {
             return decode(decryptp(c));
         }
 
+        void testEncode(int repeatCount = 100) {
+            // FFT
+            auto t1 = tim.registerTimer("Encode");
+            Plaintext p;
+            for (int t = 0; t < repeatCount; t++) {
+                auto m = randomVector();
+                tim.tick(t1);
+                encoder->encode(m, delta, p);
+                tim.tock(t1);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
         void testMultiplyRescale(int repeatCount = 100) {
             auto c1 = randomCiphertext();
             auto c2 = randomCiphertext();
@@ -610,11 +623,11 @@ int main() {
 
     std::cout << "----- CKKS -----\n";
     troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
-    // test.correctMultiply();
+    test.correctMultiply();
     // test.correctMultiplyPlain();
     // test.testSingle();
     // test.testPolynomial();
-    test.testSaveLoad();
+    test.testEncode();
 
     // std::cout << "----- BFV -----\n";
     // troytest::TimeTestBFVBGV test2(false, 16384, 20, {40, 40, 40, 40, 40, 40});

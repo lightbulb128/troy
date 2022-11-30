@@ -123,18 +123,15 @@ namespace troy {
     ) {
         GET_INDEX_COND_RETURN(1 << (poly_modulus_degree_power - 1));
         size_t m = 1 << (poly_modulus_degree_power - 1 - layer);
-        size_t gap_power = layer;
-        size_t gap = 1 << gap_power;
-        size_t rid = (1 << poly_modulus_degree_power) - (m << 1) + 1 + (gindex >> gap_power);
-        size_t coeff_index = ((gindex >> gap_power) << (gap_power + 1)) + (gindex & (gap - 1));
-        double ur, ui, vr, vi;
-        double rr = roots[rid * 2], ri = roots[rid * 2 + 1];
-        
+        size_t gap = 1 << layer;
+        size_t rid = (1 << poly_modulus_degree_power) - (m << 1) + 1 + (gindex >> layer);
+        size_t coeff_index = ((gindex >> layer) << (layer + 1)) + (gindex & (gap - 1));
         double* x = operand + coeff_index * 2;
         double* y = x + gap * 2;
 
-        ur = x[0]; ui = x[1];
-        vr = y[0]; vi = y[1];
+        double ur = x[0], ui = x[1], vr = y[0], vi = y[1];
+        double rr = roots[rid * 2], ri = roots[rid * 2 + 1];
+
         // x = u + v
         x[0] = ur + vr;
         x[1] = ui + vi;
@@ -155,20 +152,6 @@ namespace troy {
         operand[gindex * 2 + 1] *= scalar;
     }
 
-    void kFftTransferFromRevLayered(
-        size_t layer,
-        complex<double>* operand,
-        size_t poly_modulus_degree_power,
-        const complex<double>* roots
-    ) {
-        std::size_t n = size_t(1) << poly_modulus_degree_power;
-        KERNEL_CALL(gFftTransferFromRevLayered, n)(
-            layer, reinterpret_cast<double*>(operand),
-            poly_modulus_degree_power,
-            reinterpret_cast<const double*>(roots)
-        );
-    }
-
     void kFftTransferFromRev(
         complex<double>* operand,
         size_t poly_modulus_degree_power,
@@ -177,11 +160,12 @@ namespace troy {
     ) {
         std::size_t n = size_t(1) << poly_modulus_degree_power;
         std::size_t m = n >> 1; std::size_t layer = 0;
-        for(; m >= 1; m>>=1) {
-            kFftTransferFromRevLayered(
-                layer, operand,
-                poly_modulus_degree_power, 
-                roots);
+        for(; m >= 1; m>>=2) {
+            KERNEL_CALL(gFftTransferFromRevLayered, n>>1)(
+                layer, reinterpret_cast<double*>(operand),
+                poly_modulus_degree_power,
+                reinterpret_cast<const double*>(roots)
+            );
             layer++;
         }
         if (fix != 1) {
