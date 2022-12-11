@@ -481,6 +481,43 @@ namespace troytest {
             printVector(correct);
         }
 
+        void testPolynomialExtract() {
+            auto r = randomRealVector(slotCount * 2);
+            auto s = randomRealVector(slotCount * 2);
+            auto correct = vector<double>(slotCount*2, 0);
+            for (int i=0; i<slotCount*2; i++) {
+                for (int j=0; j<slotCount*2; j++) {
+                    if (i+j < slotCount*2) correct[i+j] += r[i] * s[j];
+                    else correct[i+j-slotCount*2] -= r[i] * s[j];
+                }
+            }
+            Plaintext plain_r, plain_s;
+            encoder->encodePolynomial(r, delta, plain_r);
+            // encoder->encodePolynomial(s, delta, plain_s);
+
+            vector<double> rx, sx;
+            Ciphertext cipher_r = encryptor->encrypt(plain_r);
+
+            vector<size_t> terms;
+            for (int i=0; i<slotCount; i++) terms.push_back(i*2);
+
+            ostringstream o; cipher_r.saveTerms(o, *evaluator, terms);
+            istringstream loads(o.str());
+            Ciphertext cipher_r_recon; cipher_r_recon.loadTerms(loads, *evaluator, terms);
+
+            Plaintext dec_r; decryptor->decrypt(cipher_r_recon, dec_r);
+            encoder->decodePolynomial(dec_r, rx);
+            printVector(rx);
+            printVector(r);
+
+            // evaluator->multiplyPlainInplace(cipher_r, plain_s);
+
+            // Plaintext dec_r; decryptor->decrypt(cipher_r, dec_r);
+            // encoder->decodePolynomial(dec_r, rx);
+            // printVector(rx);
+            // printVector(correct);
+        }
+
         void testSaveLoad() {
             auto r = randomVector();
             Plaintext p; encoder->encode(r, delta, p);
@@ -623,11 +660,12 @@ int main() {
 
     std::cout << "----- CKKS -----\n";
     troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
-    test.correctMultiply();
+    // test.correctMultiply();
     // test.correctMultiplyPlain();
     // test.testSingle();
     // test.testPolynomial();
-    test.testEncode();
+    test.testPolynomialExtract();
+    // test.testEncode();
 
     // std::cout << "----- BFV -----\n";
     // troytest::TimeTestBFVBGV test2(false, 16384, 20, {40, 40, 40, 40, 40, 40});

@@ -184,11 +184,17 @@ PYBIND11_MODULE(pytroy, m) {
         .def("save", [](const Ciphertext& p) {
             SAVE_MACRO
         })
+        .def("save_terms", [](const Ciphertext& p, Evaluator& evaluator, const vector<size_t>& terms){
+            ostringstream stream; p.saveTerms(stream, evaluator, terms); return py::bytes(stream.str());
+        })
         .def("load", [](Ciphertext& self, const py::bytes& str) {
             LOAD_MACRO
         })
         .def("load", [](Ciphertext& self, const py::bytes& str, const SEALContext& context){
             istringstream stream(str); self.load(stream, context);
+        })
+        .def("load_terms", [](Ciphertext& self, const py::bytes& str, Evaluator& evaluator, const vector<size_t>& terms){
+            istringstream stream(str); self.loadTerms(stream, evaluator, terms);
         })
         ;
 

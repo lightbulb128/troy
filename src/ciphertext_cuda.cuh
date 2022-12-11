@@ -7,6 +7,8 @@
 
 namespace troy {
 
+    class EvaluatorCuda;
+
     class CiphertextCuda {
 
     public:
@@ -179,8 +181,10 @@ namespace troy {
         }
 
         void save(std::ostream& stream) const;
+        void saveTerms(std::ostream& stream, EvaluatorCuda& evaluator, const std::vector<size_t>& termIds) const;
         void load(std::istream& stream);
         void load(std::istream& stream, const SEALContextCuda& context);
+        void loadTerms(std::istream& stream, EvaluatorCuda& evaluator, const std::vector<size_t>& termIds);
 
         inline std::uint64_t seed() const noexcept {return seed_;}
         inline std::uint64_t& seed() {return seed_;}
