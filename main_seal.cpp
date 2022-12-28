@@ -1,15 +1,19 @@
-#include "../src/troy_cuda.cuh"
+
 #include <vector>
 #include <string>
 #include <sys/time.h>
 #include <cassert>
 #include <map>
 #include <complex>
+#include <iostream>
 #include <iomanip>
 
-using namespace troyn;
+#include <seal/seal.h>
+
 using std::vector;
 using std::complex;
+
+using namespace seal;
 
 namespace troytest {
     
@@ -126,7 +130,7 @@ namespace troytest {
                 evaluator->add(c1, c2, c3);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->addInplace(c3, c1);
+                evaluator->add_inplace(c3, c1);
                 tim.tock(t2);
             }
             printTimer(tim.gather(repeatCount));
@@ -140,10 +144,10 @@ namespace troytest {
             auto t2 = tim.registerTimer("AddPlain-inplace");
             for (int t = 0; t < repeatCount; t++) {
                 tim.tick(t1);
-                evaluator->addPlain(c1, p2, c3);
+                evaluator->add_plain(c1, p2, c3);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->addPlainInplace(c3, p2);
+                evaluator->add_plain_inplace(c3, p2);
                 tim.tock(t2);
             }
             printTimer(tim.gather(repeatCount));
@@ -157,16 +161,16 @@ namespace troytest {
             auto t2 = tim.registerTimer("MultiplyPlain-inplace");
             for (int t = 0; t < repeatCount; t++) {
                 tim.tick(t1);
-                evaluator->multiplyPlain(c1, p2, c3);
+                evaluator->multiply_plain(c1, p2, c3);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->multiplyPlainInplace(c3, p2);
+                evaluator->multiply_plain_inplace(c3, p2);
                 tim.tock(t2);
             }
             printTimer(tim.gather(repeatCount));
         }
 
-        void testSquare(int repeatCount = 1000) {
+        void testSquare(int repeatCount = 100) {
             auto c1 = randomCiphertext();
             Ciphertext c2;
             Ciphertext c3;
@@ -178,28 +182,9 @@ namespace troytest {
                 tim.tock(t1);
                 c3 = c1;
                 tim.tick(t2);
-                evaluator->squareInplace(c3);
+                evaluator->square_inplace(c3);
                 tim.tock(t2);
             }
-            printTimer(tim.gather(repeatCount));
-        }
-
-        void testMemoryPool(int repeatCount = 1000) {
-            auto t1 = tim.registerTimer("Preallocate");
-            auto t2 = tim.registerTimer("Allocate");
-            tim.tick(t1);
-            auto c1 = randomCiphertext();
-            Ciphertext c2;
-            for (int t = 0; t < repeatCount; t++) {
-                evaluator->square(c1, c2);
-            }
-            tim.tock(t1);
-            tim.tick(t2);
-            for (int t = 0; t < repeatCount; t++) {
-                Ciphertext c3;
-                evaluator->square(c1, c3);
-            }
-            tim.tock(t2);
             printTimer(tim.gather(repeatCount));
         }
 
@@ -215,21 +200,20 @@ namespace troytest {
     public:
 
         TimeTestCKKS(size_t polyModulusDegree, vector<int> qs, int dataBound = 1<<6, double delta=static_cast<double>(1<<16)) {
-            KernelProvider::initialize();
             slotCount = polyModulusDegree / 2;
             this->dataBound = dataBound;
             this->delta = delta;
-            EncryptionParameters parms(SchemeType::ckks);
-            parms.setPolyModulusDegree(polyModulusDegree);
-            parms.setCoeffModulus(CoeffModulus::Create(polyModulusDegree, qs));
+            EncryptionParameters parms(scheme_type::ckks);
+            parms.set_poly_modulus_degree(polyModulusDegree);
+            parms.set_coeff_modulus(CoeffModulus::Create(polyModulusDegree, qs));
             context = new SEALContext(parms);
             keygen = new KeyGenerator(*context);
-            keygen->createPublicKey(pk);
-            keygen->createRelinKeys(rlk);
-            keygen->createGaloisKeys(gk);
+            keygen->create_public_key(pk);
+            keygen->create_relin_keys(rlk);
+            keygen->create_galois_keys(gk);
             encoder = new CKKSEncoder(*context);
             encryptor = new Encryptor(*context, pk);
-            decryptor = new Decryptor(*context, keygen->secretKey());
+            decryptor = new Decryptor(*context, keygen->secret_key());
             evaluator = new Evaluator(*context);
         }
 
@@ -289,14 +273,14 @@ namespace troytest {
                 evaluator->multiply(c1, c2, c3);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->rescaleToNext(c3, c4);
+                evaluator->rescale_to_next(c3, c4);
                 tim.tock(t2);
                 c5 = c1;
                 tim.tick(t3);
-                evaluator->multiplyInplace(c5, c2);
+                evaluator->multiply_inplace(c5, c2);
                 tim.tock(t3);
                 tim.tick(t4);
-                evaluator->rescaleToNextInplace(c5);
+                evaluator->rescale_to_next_inplace(c5);
                 tim.tock(t4);
             }
             printTimer(tim.gather(repeatCount));
@@ -309,10 +293,10 @@ namespace troytest {
             auto t2 = tim.registerTimer("Rotate-inplace");
             for (int t = 0; t < repeatCount; t++) {
                 tim.tick(t1);
-                evaluator->rotateVector(c1, 1, gk, c2);
+                evaluator->rotate_vector(c1, 1, gk, c2);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->rotateVectorInplace(c1, 1, gk);
+                evaluator->rotate_vector_inplace(c1, 1, gk);
                 tim.tock(t2);
             }
             printTimer(tim.gather(repeatCount));
@@ -327,12 +311,9 @@ namespace troytest {
             this->testMultiplyPlain();
             this->testSquare();
             this->testRotateVector();
-            this->testMemoryPool();
         }
 
     };
-
-
 
     class TimeTestBFVBGV: public TimeTest {
 
@@ -344,23 +325,22 @@ namespace troytest {
     public:
 
         TimeTestBFVBGV(bool bgv, size_t polyModulusDegree, uint64_t plainModulusBitSize, vector<int> qs, int dataBound = 1<<6) {
-            KernelProvider::initialize();
             slotCount = polyModulusDegree / 2;
             this->dataBound = dataBound;
             this->delta = delta;
-            EncryptionParameters parms(bgv ? SchemeType::bgv : SchemeType::bfv);
-            parms.setPolyModulusDegree(polyModulusDegree);
-            parms.setPlainModulus(PlainModulus::Batching(polyModulusDegree, plainModulusBitSize));
+            EncryptionParameters parms(bgv ? scheme_type::bgv : scheme_type::bfv);
+            parms.set_poly_modulus_degree(polyModulusDegree);
+            parms.set_plain_modulus(PlainModulus::Batching(polyModulusDegree, plainModulusBitSize));
             // parms.setCoeffModulus(CoeffModulus::BFVDefault(polyModulusDegree));
-            parms.setCoeffModulus(CoeffModulus::Create(polyModulusDegree, qs));
+            parms.set_coeff_modulus(CoeffModulus::Create(polyModulusDegree, qs));
             context = new SEALContext(parms);
             keygen = new KeyGenerator(*context);
-            keygen->createPublicKey(pk);
-            keygen->createRelinKeys(rlk);
-            keygen->createGaloisKeys(gk);
+            keygen->create_public_key(pk);
+            keygen->create_relin_keys(rlk);
+            keygen->create_galois_keys(gk);
             encoder = new BatchEncoder(*context);
             encryptor = new Encryptor(*context, pk);
-            decryptor = new Decryptor(*context, keygen->secretKey());
+            decryptor = new Decryptor(*context, keygen->secret_key());
             evaluator = new Evaluator(*context);
         }
 
@@ -388,6 +368,7 @@ namespace troytest {
             Ciphertext ret; encryptor->encrypt(r, ret);
             return std::move(ret);
         }
+
 
         void testEncode(int repeatCount = 1000) {
             auto m1 = randomVector(slotCount, dataBound);
@@ -420,14 +401,14 @@ namespace troytest {
                 evaluator->multiply(c1, c2, c3);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->modSwitchToNext(c3, c4);
+                evaluator->mod_switch_to_next(c3, c4);
                 tim.tock(t2);
                 c5 = c1;
                 tim.tick(t3);
-                evaluator->multiplyInplace(c5, c2);
+                evaluator->multiply_inplace(c5, c2);
                 tim.tock(t3);
                 tim.tick(t4);
-                evaluator->modSwitchToNextInplace(c5);
+                evaluator->mod_switch_to_next_inplace(c5);
                 tim.tock(t4);
             }
             printTimer(tim.gather(repeatCount));
@@ -440,10 +421,10 @@ namespace troytest {
             auto t2 = tim.registerTimer("RotateRows-inplace");
             for (int t = 0; t < repeatCount; t++) {
                 tim.tick(t1);
-                evaluator->rotateRows(c1, 1, gk, c2);
+                evaluator->rotate_rows(c1, 1, gk, c2);
                 tim.tock(t1);
                 tim.tick(t2);
-                evaluator->rotateRowsInplace(c1, 1, gk);
+                evaluator->rotate_rows_inplace(c1, 1, gk);
                 tim.tock(t2);
             }
             printTimer(tim.gather(repeatCount));
@@ -458,7 +439,6 @@ namespace troytest {
             this->testMultiplyPlain();
             this->testSquare();
             this->testRotateVector();
-            this->testMemoryPool();
         }
 
     };
@@ -467,15 +447,15 @@ namespace troytest {
 
 int main() {
     std::cout << "----- CKKS -----\n";
-    troytest::TimeTestCKKS test(8192, {60, 40, 60});
-    test.testAll();
+    troytest::TimeTestCKKS test(4096, {50, 50}, 10, 1<<15);
+    test.testMultiplyPlain();
 
-    std::cout << "----- BFV -----\n";
-    troytest::TimeTestBFVBGV test2(false, 8192, 20, {40, 40, 40});
-    test2.testAll();
+    // std::cout << "----- BFV -----\n";
+    // troytest::TimeTestBFVBGV test2(false, 8192, 20, {40, 40, 40});
+    // test2.testAll();
 
-    std::cout << "----- BGV -----\n";
-    troytest::TimeTestBFVBGV test3(true, 8192, 20, {40, 40, 40});
-    test3.testAll();
+    // std::cout << "----- BGV -----\n";
+    // troytest::TimeTestBFVBGV test3(true, 8192, 20, {40, 40, 40});
+    // test3.testAll();
     return 0;
 }

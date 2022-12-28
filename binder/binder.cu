@@ -1,10 +1,19 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11/complex.h>
+#include <pybind11/numpy.h>
 
 #include "../src/troy_cuda.cuh"
+#include "../app/LinearHelper.cuh"
 #include <iostream>
 #include <memory.h>
+#include <ctime>
+
+PYBIND11_MAKE_OPAQUE(std::vector<double>);
+PYBIND11_MAKE_OPAQUE(std::vector<int64_t>);
+PYBIND11_MAKE_OPAQUE(std::vector<uint64_t>);
+PYBIND11_MAKE_OPAQUE(std::vector<std::complex<double>>);
 
 namespace py = pybind11;
 
@@ -16,8 +25,10 @@ using std::istringstream;
 using std::ostringstream;
 using std::string;
 
+using namespace LinearHelper;
+
 #define SAVE_MACRO ostringstream stream; p.save(stream); return py::bytes(stream.str());
-#define LOAD_MACRO istringstream stream(str);  self.load(stream);
+#define LOAD_MACRO istringstream stream(str); self.load(stream);
 
 class Smoke {
 public:
@@ -30,6 +41,86 @@ public:
 void initializeKernel() {
     KernelProvider::initialize();
 }
+
+std::vector<double> getVectorFromBuffer(py::array_t<double>& values) {
+    py::buffer_info buf = values.request();
+    double *ptr = (double *)buf.ptr;
+    std::vector<double> vec(buf.shape[0]);
+    for (auto i = 0; i < buf.shape[0]; i++)
+        vec[i] = ptr[i];
+    return vec;
+}
+
+std::vector<int64_t> getVectorFromBuffer(py::array_t<int64_t>& values) {
+    py::buffer_info buf = values.request();
+    int64_t *ptr = (int64_t *)buf.ptr;
+    std::vector<int64_t> vec(buf.shape[0]);
+    for (auto i = 0; i < buf.shape[0]; i++)
+        vec[i] = ptr[i];
+    return vec;
+}
+
+std::vector<uint64_t> getVectorFromBuffer(py::array_t<uint64_t>& values) {
+    py::buffer_info buf = values.request();
+    uint64_t *ptr = (uint64_t *)buf.ptr;
+    std::vector<uint64_t> vec(buf.shape[0]);
+    for (auto i = 0; i < buf.shape[0]; i++)
+        vec[i] = ptr[i];
+    return vec;
+}
+
+std::vector<std::complex<double>> getVectorFromBuffer(py::array_t<std::complex<double>>& values) {
+    py::buffer_info buf = values.request();
+    std::complex<double> *ptr = (std::complex<double> *)buf.ptr;
+    std::vector<std::complex<double>> vec(buf.shape[0]);
+    for (auto i = 0; i < buf.shape[0]; i++)
+        vec[i] = ptr[i];
+    return vec;
+}
+
+py::array_t<double> getBufferFromVector(const std::vector<double>& vec) {
+    py::array_t<double> values(vec.size());
+    py::buffer_info buf = values.request();
+    double *ptr = (double *)buf.ptr;
+    for (auto i = 0; i < buf.shape[0]; i++)
+        ptr[i] = vec[i];
+    return values;
+}
+
+py::array_t<int64_t> getBufferFromVector(const std::vector<int64_t>& vec) {
+    py::array_t<int64_t> values(vec.size());
+    py::buffer_info buf = values.request();
+    int64_t *ptr = (int64_t *)buf.ptr;
+    for (auto i = 0; i < buf.shape[0]; i++)
+        ptr[i] = vec[i];
+    return values;
+}
+
+py::array_t<uint64_t> getBufferFromVector(const std::vector<uint64_t>& vec) {
+    py::array_t<uint64_t> values(vec.size());
+    py::buffer_info buf = values.request();
+    uint64_t *ptr = (uint64_t *)buf.ptr;
+    for (auto i = 0; i < buf.shape[0]; i++)
+        ptr[i] = vec[i];
+    return values;
+}
+
+py::array_t<std::complex<double>> getBufferFromVector(const std::vector<std::complex<double>>& vec) {
+    py::array_t<std::complex<double>> values(vec.size());
+    py::buffer_info buf = values.request();
+    std::complex<double> *ptr = (std::complex<double> *)buf.ptr;
+    for (auto i = 0; i < buf.shape[0]; i++)
+        ptr[i] = vec[i];
+    return values;
+}
+
+inline double getTime() {
+    timeval t; gettimeofday(&t, 0);
+    auto d = t.tv_sec * 1000.0;
+    d += t.tv_usec / 1000.0;
+    return d;
+}
+
 
 template<typename T>
 std::vector<T> hostArrayToVector(const troy::util::HostArray<T>& from) {
@@ -184,8 +275,8 @@ PYBIND11_MODULE(pytroy, m) {
         .def("save", [](const Ciphertext& p) {
             SAVE_MACRO
         })
-        .def("save_terms", [](const Ciphertext& p, Evaluator& evaluator, const vector<size_t>& terms){
-            ostringstream stream; p.saveTerms(stream, evaluator, terms); return py::bytes(stream.str());
+        .def("save_terms", [](const Ciphertext& p, Evaluator& evaluator, py::array_t<size_t> terms){
+            ostringstream stream; p.saveTerms(stream, evaluator, getVectorFromBuffer(terms)); return py::bytes(stream.str());
         })
         .def("load", [](Ciphertext& self, const py::bytes& str) {
             LOAD_MACRO
@@ -193,8 +284,8 @@ PYBIND11_MODULE(pytroy, m) {
         .def("load", [](Ciphertext& self, const py::bytes& str, const SEALContext& context){
             istringstream stream(str); self.load(stream, context);
         })
-        .def("load_terms", [](Ciphertext& self, const py::bytes& str, Evaluator& evaluator, const vector<size_t>& terms){
-            istringstream stream(str); self.loadTerms(stream, evaluator, terms);
+        .def("load_terms", [](Ciphertext& self, const py::bytes& str, Evaluator& evaluator, py::array_t<size_t> terms){
+            istringstream stream(str); self.loadTerms(stream, evaluator, getVectorFromBuffer(terms));
         })
         ;
 
@@ -284,42 +375,56 @@ PYBIND11_MODULE(pytroy, m) {
 
     py::class_<BatchEncoder>(m, "BatchEncoder")
         .def(py::init<const SEALContext&>())
-        .def("encode_int64", py::overload_cast<const vector<int64_t>&, Plaintext&>(&BatchEncoder::encode, py::const_))
-        .def("encode", py::overload_cast<const vector<uint64_t>&, Plaintext&>(&BatchEncoder::encode, py::const_))
-        .def("encode_int64", [](const BatchEncoder& self, const vector<int64_t>& t) {
-            Plaintext p; self.encode(t, p); return p;
+        .def("encode_int64", [](const BatchEncoder& self, py::array_t<int64_t> t, Plaintext& p){
+            self.encode(getVectorFromBuffer(t), p);
         })
-        .def("encode", [](const BatchEncoder& self, const vector<uint64_t>& t) {
-            Plaintext p; self.encode(t, p); return p;
+        .def("encode", [](const BatchEncoder& self, py::array_t<uint64_t> t, Plaintext& p){
+            self.encode(getVectorFromBuffer(t), p);
+        })
+        .def("encode_int64", [](const BatchEncoder& self, py::array_t<int64_t> t) {
+            Plaintext p; self.encode(getVectorFromBuffer(t), p); return p;
+        })
+        .def("encode", [](const BatchEncoder& self, py::array_t<uint64_t> t) {
+            Plaintext p; self.encode(getVectorFromBuffer(t), p); return p;
         })
         .def("decode_int64", [](const BatchEncoder& self, const Plaintext& plain) {
-            vector<int64_t> ret; self.decode(plain, ret); return ret;
+            vector<int64_t> ret; self.decode(plain, ret); return getBufferFromVector(ret);
         })
         .def("decode", [](const BatchEncoder& self, const Plaintext& plain) {
-            vector<uint64_t> ret; self.decode(plain, ret); return ret;
+            vector<uint64_t> ret; self.decode(plain, ret); return getBufferFromVector(ret);
         })
         .def("slot_count", &BatchEncoder::slotCount)
         ;
 
     py::class_<CKKSEncoder>(m, "CKKSEncoder")
         .def(py::init<const SEALContext&>())
-        .def("encode", py::overload_cast<const vector<complex<double>>&, double, Plaintext&>(&CKKSEncoder::encode))
-        .def("encode", py::overload_cast<const vector<complex<double>>&, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
-        .def("encode_polynomial", py::overload_cast<const vector<double>&, double, Plaintext&>(&CKKSEncoder::encodePolynomial))
-        .def("encode_polynomial", py::overload_cast<const vector<double>&, ParmsID, double, Plaintext&>(&CKKSEncoder::encodePolynomial))
+        .def("encode", [](CKKSEncoder& self, py::array_t<complex<double>> v, double scale, Plaintext& p){
+            self.encode(getVectorFromBuffer(v), scale, p);
+        })
+        .def("encode", [](CKKSEncoder& self, py::array_t<complex<double>> v, ParmsID parms_id, double scale, Plaintext& p){
+            self.encode(getVectorFromBuffer(v), parms_id, scale, p);
+        })
+        .def("encode_polynomial", [](CKKSEncoder& self, py::array_t<double> v, double scale, Plaintext& p){
+            self.encodePolynomial(getVectorFromBuffer(v), scale, p);
+        })
+        .def("encode_polynomial", [](CKKSEncoder& self, py::array_t<double> v, ParmsID parms_id, double scale, Plaintext& p){
+            self.encodePolynomial(getVectorFromBuffer(v), parms_id, scale, p);
+        })
         .def("encode", py::overload_cast<complex<double>, double, Plaintext&>(&CKKSEncoder::encode))
         .def("encode", py::overload_cast<complex<double>, ParmsID, double, Plaintext&>(&CKKSEncoder::encode))
-        .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, double scale) {
-            Plaintext p; self.encode(v, scale, p); return p;
+        .def("encode", [](CKKSEncoder& self, py::array_t<complex<double>> v, double scale) {
+            Plaintext p; self.encode(getVectorFromBuffer(v), scale, p); return p;
         })
-        .def("encode", [](CKKSEncoder& self, const vector<complex<double>>& v, ParmsID parms_id, double scale) {
-            Plaintext p; self.encode(v, parms_id, scale, p); return p;
+        .def("encode", [](CKKSEncoder& self, py::array_t<complex<double>> v, ParmsID parms_id, double scale) {
+            Plaintext p; self.encode(getVectorFromBuffer(v), parms_id, scale, p); return p;
         })
-        .def("encode_polynomial", [](CKKSEncoder& self, const vector<double>& v, double scale) {
-            Plaintext p; self.encodePolynomial(v, scale, p); return p;
+        .def("encode_polynomial", [](CKKSEncoder& self, py::array_t<double> values, double scale) {
+            Plaintext p; 
+            self.encodePolynomial(getVectorFromBuffer(values), scale, p); 
+            return p;
         })
-        .def("encode_polynomial", [](CKKSEncoder& self, const vector<double>& v, ParmsID parms_id, double scale) {
-            Plaintext p; self.encodePolynomial(v, parms_id, scale, p); return p;
+        .def("encode_polynomial", [](CKKSEncoder& self, py::array_t<double> v, ParmsID parms_id, double scale) {
+            Plaintext p; self.encodePolynomial(getVectorFromBuffer(v), parms_id, scale, p); return p;
         })
         .def("encode", [](CKKSEncoder& self, complex<double> v, double scale) {
             Plaintext p; self.encode(v, scale, p); return p;
@@ -328,10 +433,10 @@ PYBIND11_MODULE(pytroy, m) {
             Plaintext p; self.encode(v, parms_id, scale, p); return p;
         })
         .def("decode", [](CKKSEncoder& self, const Plaintext& plain) {
-            vector<complex<double>> ret; self.decode(plain, ret); return ret;
+            vector<complex<double>> ret; self.decode(plain, ret); return getBufferFromVector(ret);
         })
         .def("decode_polynomial", [](CKKSEncoder& self, const Plaintext& plain) {
-            vector<double> ret; self.decodePolynomial(plain, ret); return ret;
+            vector<double> ret; self.decodePolynomial(plain, ret); return getBufferFromVector(ret);
         })
         .def("slot_count", &CKKSEncoder::slotCount)
         ;
@@ -383,16 +488,16 @@ PYBIND11_MODULE(pytroy, m) {
         .def(py::init<const SEALContext&>())
 
         .def("negate_inplace",             &Evaluator::negateInplace)
-        .def("negate",                     &Evaluator::negate)
         .def("negate", [](const Evaluator& self, const Ciphertext& c) {
             Ciphertext ret; self.negate(c, ret); return ret;
         })
+        .def("negate",                     &Evaluator::negate)
 
         .def("add_inplace",                &Evaluator::addInplace)
-        .def("add",                        &Evaluator::add)
         .def("add", [](const Evaluator& self, const Ciphertext& c1, const Ciphertext& c2) {
             Ciphertext ret; self.add(c1, c2, ret); return ret;
         })
+        .def("add",                        &Evaluator::add)
 
         .def("add_many",                   &Evaluator::addMany)
         .def("add_many", [](const Evaluator& self, const vector<Ciphertext>& c) {
@@ -400,22 +505,22 @@ PYBIND11_MODULE(pytroy, m) {
         })
 
         .def("sub_inplace",                &Evaluator::subInplace)
-        .def("sub",                        &Evaluator::sub)
         .def("sub", [](const Evaluator& self, const Ciphertext& c1, const Ciphertext& c2) {
             Ciphertext ret; self.sub(c1, c2, ret); return ret;
         })
+        .def("sub",                        &Evaluator::sub)
 
         .def("multiply_inplace",           &Evaluator::multiplyInplace)
-        .def("multiply",                   &Evaluator::multiply)
         .def("multiply", [](const Evaluator& self, const Ciphertext& c1, const Ciphertext& c2) {
             Ciphertext ret; self.multiply(c1, c2, ret); return ret;
         })
+        .def("multiply",                   &Evaluator::multiply)
 
         .def("square_inplace",             &Evaluator::squareInplace)
-        .def("square",                     &Evaluator::square)
         .def("square", [](const Evaluator& self, const Ciphertext& c) {
             Ciphertext ret; self.square(c, ret); return ret;
         })
+        .def("square",                     &Evaluator::square)
 
         .def("relinearize_inplace",        &Evaluator::relinearizeInplace)
         .def("relinearize",                &Evaluator::relinearize)
@@ -484,22 +589,39 @@ PYBIND11_MODULE(pytroy, m) {
         })
 
         .def("add_plain_inplace",      &Evaluator::addPlainInplace)
-        .def("add_plain",              &Evaluator::addPlain)
         .def("add_plain", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
             Ciphertext ret; self.addPlain(c1, p2, ret); return ret;
         })
+        .def("add_plain",              &Evaluator::addPlain)
 
         .def("sub_plain_inplace",      &Evaluator::subPlainInplace)
-        .def("sub_plain",              &Evaluator::subPlain)
         .def("sub_plain", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
             Ciphertext ret; self.subPlain(c1, p2, ret); return ret;
         })
+        .def("sub_plain",              &Evaluator::subPlain)
 
         .def("multiply_plain_inplace", &Evaluator::multiplyPlainInplace)
-        .def("multiply_plain",         &Evaluator::multiplyPlain)
         .def("multiply_plain", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
-            Ciphertext ret; self.multiplyPlain(c1, p2, ret); return ret;
+            Ciphertext ret; 
+            // double p = getTime();
+            self.multiplyPlain(c1, p2, ret); 
+            // printf("time = %lf\n", getTime() - p);
+            return ret;
         })
+        .def("multiply_plain_1000", [](const Evaluator& self, const Ciphertext& c1, const Plaintext& p2) {
+            Ciphertext ret; 
+            // double p = getTime();
+            for (size_t i = 0; i < 1000; i++) self.multiplyPlain(c1, p2, ret); 
+            // printf("time = %lf\n", getTime() - p);
+            return ret;
+        })
+        .def("multiply_batch", [](const Evaluator& self, const vector<Ciphertext>& c1, const vector<Plaintext>& p2) {
+            vector<Ciphertext> ret(c1.size());
+            for (size_t i = 0; i < c1.size(); i++) self.multiplyPlain(c1[i], p2[i], ret[i]);
+            return ret;
+        })
+
+        .def("multiply_plain",         &Evaluator::multiplyPlain)
 
         .def("transform_to_ntt_inplace", py::overload_cast<Plaintext&, ParmsID>(
             &Evaluator::transformToNttInplace, py::const_
@@ -562,5 +684,92 @@ PYBIND11_MODULE(pytroy, m) {
         })
         
         ;
+
+    py::class_<Cipher2d>(m, "Cipher2d")
+        .def(py::init<>())
+        .def("save", [](const Cipher2d& p){
+            ostringstream stream; p.save(stream); return py::bytes(stream.str());
+        })
+        .def("load", [](Cipher2d& self, const py::bytes& str) {
+            LOAD_MACRO
+        })
+        .def("load", [](Cipher2d& self, const py::bytes& str, const SEALContext& context){
+            istringstream stream(str); self.load(stream, context);
+        })
+        ;
+
+    py::class_<Plain2d>(m, "Plain2d");
+
+    py::class_<MatmulHelper>(m, "MatmulHelper")
+        .def(py::init<size_t, size_t, size_t, size_t>())
+        .def("encode_weights", [](MatmulHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> weights, double scale){
+            self.encodeWeights(encoder, parmsID, getVectorFromBuffer(weights), scale);
+        })
+        .def("encode_inputs", [](MatmulHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
+            return self.encodeInputs(encoder, parmsID, getVectorFromBuffer(inputs), scale);
+        })
+        .def("encrypt_inputs", [](MatmulHelper& self, const Encryptor& encryptor, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
+            return self.encryptInputs(encryptor, encoder, parmsID, getVectorFromBuffer(inputs), scale);
+        })
+        .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Cipher2d& a){
+            return self.matmul(evaluator, a);
+        })
+        .def("encode_outputs", [](MatmulHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> outputs, double scale){
+            return self.encodeOutputs(encoder, parmsID, getVectorFromBuffer(outputs), scale);
+        })
+        .def("add_plain_inplace", [](MatmulHelper& self, const Evaluator& evaluator, Cipher2d& y, const Plain2d& x) {
+            self.addPlainInplace(evaluator, y, x);
+        })
+        .def("decrypt_outputs", [](MatmulHelper& self, CKKSEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
+            return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
+        })
+        .def("serialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const Cipher2d& x) {
+            ostringstream stream; self.serializeOutputs(evaluator, x, stream);
+            return py::bytes(stream.str());
+        })
+        .def("deserialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const py::bytes& str) {
+            istringstream stream(str);
+            return self.deserializeOutputs(evaluator, stream);
+        })
+        ;
+
+
+
+    py::class_<Conv2dHelper>(m, "Conv2dHelper")
+        .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, size_t, size_t>())
+        .def("encode_weights", [](Conv2dHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> weights, double scale){
+            self.encodeWeights(encoder, parmsID, getVectorFromBuffer(weights), scale);
+        })
+        .def("encode_inputs", [](Conv2dHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
+            return self.encodeInputs(encoder, parmsID, getVectorFromBuffer(inputs), scale);
+        })
+        .def("encrypt_inputs", [](Conv2dHelper& self, const Encryptor& encryptor, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
+            return self.encryptInputs(encryptor, encoder, parmsID, getVectorFromBuffer(inputs), scale);
+        })
+        .def("conv2d", [](Conv2dHelper& self, const Evaluator& evaluator, const Cipher2d& a){
+            return self.conv2d(evaluator, a);
+        })
+        .def("encode_outputs", [](Conv2dHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> outputs, double scale){
+            return self.encodeOutputs(encoder, parmsID, getVectorFromBuffer(outputs), scale);
+        })
+        .def("add_plain_inplace", [](Conv2dHelper& self, const Evaluator& evaluator, Cipher2d& y, const Plain2d& x) {
+            self.addPlainInplace(evaluator, y, x);
+        })
+        .def("add_inplace", [](Conv2dHelper& self, const Evaluator& evaluator, Cipher2d& y, const Cipher2d& x) {
+            self.addInplace(evaluator, y, x);
+        })
+        .def("decrypt_outputs", [](Conv2dHelper& self, CKKSEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
+            return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
+        })
+        .def("serialize_outputs", [](Conv2dHelper& self, Evaluator& evaluator, const Cipher2d& x) {
+            ostringstream stream; self.serializeOutputs(evaluator, x, stream);
+            return py::bytes(stream.str());
+        })
+        .def("deserialize_outputs", [](Conv2dHelper& self, Evaluator& evaluator, const py::bytes& str) {
+            istringstream stream(str);
+            return self.deserializeOutputs(evaluator, stream);
+        })
+        ;
+
     
 }

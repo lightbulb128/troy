@@ -209,10 +209,13 @@ namespace troytest {
             Ciphertext c3;
             auto t1 = tim.registerTimer("MultiplyPlain-assign");
             auto t2 = tim.registerTimer("MultiplyPlain-inplace");
+            // double p = 0;
             for (int t = 0; t < repeatCount; t++) {
                 tim.tick(t1);
                 evaluator->multiplyPlain(c1, p2, c3);
-                tim.tock(t1);
+                double px = tim.tock(t1);
+                // printf("time = %lf\n", px - p);
+                // p = px;
                 tim.tick(t2);
                 evaluator->multiplyPlainInplace(c3, p2);
                 tim.tock(t2);
@@ -481,6 +484,23 @@ namespace troytest {
             printVector(correct);
         }
 
+        void testEncodePolynomial(int repeatCount = 100) {
+            auto m = randomRealVector(slotCount * 2);
+            auto t1 = tim.registerTimer("EncodePoly");
+            auto t2 = tim.registerTimer("DecodePoly");
+            vector<double> d;
+            for (int t = 0; t < repeatCount; t++) {
+                tim.tick(t1);
+                Plaintext p;
+                encoder->encodePolynomial(m, delta, p);
+                tim.tock(t1);
+                tim.tick(t2);
+                encoder->decodePolynomial(p, d);
+                tim.tock(t2);
+            }
+            printTimer(tim.gather(repeatCount));
+        }
+
         void testPolynomialExtract() {
             auto r = randomRealVector(slotCount * 2);
             auto s = randomRealVector(slotCount * 2);
@@ -659,13 +679,17 @@ namespace troytest {
 int main() {
 
     std::cout << "----- CKKS -----\n";
-    troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
+    // troytest::TimeTestCKKS test(16384, {40, 40, 40, 40, 40, 40}, 64, 1<<30);
+    troytest::TimeTestCKKS test(4096, {50, 50}, 10, 1<<15);
     // test.correctMultiply();
     // test.correctMultiplyPlain();
     // test.testSingle();
     // test.testPolynomial();
-    test.testPolynomialExtract();
+    // test.testPolynomialExtract();
     // test.testEncode();
+    test.testEncodePolynomial();
+    test.testMultiplyPlain();
+    test.testAddPlain();
 
     // std::cout << "----- BFV -----\n";
     // troytest::TimeTestBFVBGV test2(false, 16384, 20, {40, 40, 40, 40, 40, 40});
