@@ -160,7 +160,7 @@ namespace troy {
     ) {
         std::size_t n = size_t(1) << poly_modulus_degree_power;
         std::size_t m = n >> 1; std::size_t layer = 0;
-        for(; m >= 1; m>>=2) {
+        for(; m >= 1; m>>=1) {
             KERNEL_CALL(gFftTransferFromRevLayered, n>>1)(
                 layer, reinterpret_cast<double*>(operand),
                 poly_modulus_degree_power,
@@ -190,6 +190,7 @@ namespace troy {
         }
         out[gindex] = m;
     }
+
 
     __global__ void gMax(
         double* values,
