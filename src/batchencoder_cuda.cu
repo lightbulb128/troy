@@ -121,6 +121,53 @@ namespace troy {
         );
     }
 
+    void BatchEncoderCuda::encodePolynomial(const std::vector<std::uint64_t>& values, PlaintextCuda& destination) const {
+
+        auto &context_data = *context_.firstContextData();
+        uint64_t modulus = context_data.parms().plainModulus().value();
+
+        // Validate input parameters
+        size_t values_matrix_size = values.size();
+        if (values_matrix_size > slots_)
+        {
+            throw invalid_argument("values_matrix size is too large");
+        }
+        // Set destination to full size
+        destination.resize(slots_);
+        destination.parmsID() = parmsIDZero;
+        
+        HostArray<uint64_t> vs(slots_);
+        for (size_t i = 0; i < values_matrix_size; i++) vs[i] = values[i] % modulus;
+        for (size_t i = values_matrix_size; i < slots_; i++) vs[i] = 0;
+
+        KernelProvider::copy(destination.data(), vs.get(), slots_);
+    }
+
+
+    void BatchEncoderCuda::encodePolynomial(const std::vector<std::int64_t>& values, PlaintextCuda& destination) const {
+
+        auto &context_data = *context_.firstContextData();
+        uint64_t modulus = context_data.parms().plainModulus().value();
+
+        // Validate input parameters
+        size_t values_matrix_size = values.size();
+        if (values_matrix_size > slots_)
+        {
+            throw invalid_argument("values_matrix size is too large");
+        }
+        // Set destination to full size
+        destination.resize(slots_);
+        destination.parmsID() = parmsIDZero;
+        
+        HostArray<uint64_t> vs(values_matrix_size);
+        for (size_t i = 0; i < values_matrix_size; i++) {
+            if (values[i] < 0) vs[i] = modulus - ((-values[i]) % modulus);
+            else vs[i] = values[i] % modulus;
+        }
+        for (size_t i = values_matrix_size; i < slots_; i++) vs[i] = 0;
+
+        KernelProvider::copy(destination.data(), vs.get(), slots_);
+    }
 
     __global__ void gDecodeUnsignedUtil(
         const uint64_t* temp_dest,
@@ -215,6 +262,26 @@ namespace troy {
         );
 
         KernelProvider::retrieve(destination.data(), destination_device.get(), slots_);
+    }
+
+    void BatchEncoderCuda::decodePolynomial(const PlaintextCuda& plain, std::vector<std::uint64_t>& destination) const {
+        destination.resize(slots_);
+        KernelProvider::retrieve(destination.data(), plain.data(), slots_);
+    }
+
+    void BatchEncoderCuda::decodePolynomial(const PlaintextCuda& plain, std::vector<std::int64_t>& destination) const {
+        destination.resize(slots_);
+        std::vector<std::uint64_t> r(slots_);
+        KernelProvider::retrieve(r.data(), plain.data(), slots_);
+
+        auto &context_data = *context_.firstContextData();
+        uint64_t modulus = context_data.parms().plainModulus().value();
+        uint64_t half = modulus >> 1;
+        
+        for (size_t i = 0; i < slots_; i++) {
+            if (r[i] > half) destination[i] = r[i] - modulus;
+            else destination[i] = r[i];
+        }
     }
 
 }

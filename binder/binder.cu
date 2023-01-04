@@ -387,11 +387,17 @@ PYBIND11_MODULE(pytroy, m) {
         .def("encode", [](const BatchEncoder& self, py::array_t<uint64_t> t) {
             Plaintext p; self.encode(getVectorFromBuffer(t), p); return p;
         })
+        .def("encode_polynomial", [](const BatchEncoder& self, py::array_t<uint64_t> t) {
+            Plaintext p; self.encodePolynomial(getVectorFromBuffer(t), p); return p;
+        })
         .def("decode_int64", [](const BatchEncoder& self, const Plaintext& plain) {
             vector<int64_t> ret; self.decode(plain, ret); return getBufferFromVector(ret);
         })
         .def("decode", [](const BatchEncoder& self, const Plaintext& plain) {
             vector<uint64_t> ret; self.decode(plain, ret); return getBufferFromVector(ret);
+        })
+        .def("decode_polynomial", [](const BatchEncoder& self, const Plaintext& plain) {
+            vector<uint64_t> ret; self.decodePolynomial(plain, ret); return getBufferFromVector(ret);
         })
         .def("slot_count", &BatchEncoder::slotCount)
         ;
@@ -696,9 +702,27 @@ PYBIND11_MODULE(pytroy, m) {
         .def("load", [](Cipher2d& self, const py::bytes& str, const SEALContext& context){
             istringstream stream(str); self.load(stream, context);
         })
+        .def("add_inplace", [](Cipher2d& self, const Evaluator& evaluator, const Cipher2d& x){
+            self.addInplace(evaluator, x);
+        })
+        .def("add_plain_inplace", [](Cipher2d& self, const Evaluator& evaluator, const Plain2d& x){
+            self.addPlainInplace(evaluator, x);
+        })
+        .def("add_plain", [](const Cipher2d& self, const Evaluator& evaluator, Plain2d& x){
+            return self.addPlain(evaluator, x);
+        })
+        .def("mod_switch_to_next", [](Cipher2d& self, const Evaluator& evaluator){
+            self.modSwitchToNext(evaluator);
+        })
         ;
 
-    py::class_<Plain2d>(m, "Plain2d");
+    py::class_<Plain2d>(m, "Plain2d")
+        .def("encrypt", [](const Plain2d& self, const Encryptor& encryptor){
+            return self.encrypt(encryptor);
+        })
+        ;
+
+    /*
 
     py::class_<MatmulHelper>(m, "MatmulHelper")
         .def(py::init<size_t, size_t, size_t, size_t>())
@@ -732,8 +756,6 @@ PYBIND11_MODULE(pytroy, m) {
             return self.deserializeOutputs(evaluator, stream);
         })
         ;
-
-
 
     py::class_<Conv2dHelper>(m, "Conv2dHelper")
         .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, size_t, size_t>())
@@ -771,5 +793,78 @@ PYBIND11_MODULE(pytroy, m) {
         })
         ;
 
+    */
     
+    py::class_<MatmulHelper>(m, "MatmulHelper")
+        .def(py::init<size_t, size_t, size_t, size_t>())
+        .def("encode_weights", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> weights){
+            return self.encodeWeights(encoder, getVectorFromBuffer(weights));
+        })
+        .def("encode_inputs", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> inputs){
+            return self.encodeInputs(encoder, getVectorFromBuffer(inputs));
+        })
+        .def("encrypt_inputs", [](MatmulHelper& self, const Encryptor& encryptor, BatchEncoder& encoder, py::array_t<uint64_t> inputs){
+            return self.encryptInputs(encryptor, encoder, getVectorFromBuffer(inputs));
+        })
+        .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Cipher2d& a, const Plain2d& weights){
+            return self.matmul(evaluator, a, weights);
+        })
+        .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Cipher2d& a, const Cipher2d& weights){
+            return self.matmulCipher(evaluator, a, weights);
+        })
+        .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Plain2d& a, const Cipher2d& weights){
+            return self.matmulReverse(evaluator, a, weights);
+        })
+        .def("encode_outputs", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> outputs){
+            return self.encodeOutputs(encoder, getVectorFromBuffer(outputs));
+        })
+        .def("decrypt_outputs", [](MatmulHelper& self, BatchEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
+            return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
+        })
+        .def("serialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const Cipher2d& x) {
+            ostringstream stream; self.serializeOutputs(evaluator, x, stream);
+            return py::bytes(stream.str());
+        })
+        .def("deserialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const py::bytes& str) {
+            istringstream stream(str);
+            return self.deserializeOutputs(evaluator, stream);
+        })
+        ;
+
+    py::class_<Conv2dHelper>(m, "Conv2dHelper")
+        .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, size_t, size_t>())
+        .def("encode_weights", [](Conv2dHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> weights){
+            return self.encodeWeights(encoder, getVectorFromBuffer(weights));
+        })
+        .def("encode_inputs", [](Conv2dHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> inputs){
+            return self.encodeInputs(encoder, getVectorFromBuffer(inputs));
+        })
+        .def("encrypt_inputs", [](Conv2dHelper& self, const Encryptor& encryptor, BatchEncoder& encoder, py::array_t<uint64_t> inputs){
+            return self.encryptInputs(encryptor, encoder, getVectorFromBuffer(inputs));
+        })
+        .def("conv2d", [](Conv2dHelper& self, const Evaluator& evaluator, const Cipher2d& a, const Plain2d& weights){
+            return self.conv2d(evaluator, a, weights);
+        })
+        .def("conv2d", [](Conv2dHelper& self, const Evaluator& evaluator, const Cipher2d& a, const Cipher2d& weights){
+            return self.conv2dCipher(evaluator, a, weights);
+        })
+        .def("conv2d", [](Conv2dHelper& self, const Evaluator& evaluator, const Plain2d& a, const Cipher2d& weights){
+            return self.conv2dReverse(evaluator, a, weights);
+        })
+        .def("encode_outputs", [](Conv2dHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> outputs){
+            return self.encodeOutputs(encoder, getVectorFromBuffer(outputs));
+        })
+        .def("decrypt_outputs", [](Conv2dHelper& self, BatchEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
+            return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
+        })
+        .def("serialize_outputs", [](Conv2dHelper& self, Evaluator& evaluator, const Cipher2d& x) {
+            ostringstream stream; self.serializeOutputs(evaluator, x, stream);
+            return py::bytes(stream.str());
+        })
+        .def("deserialize_outputs", [](Conv2dHelper& self, Evaluator& evaluator, const py::bytes& str) {
+            istringstream stream(str);
+            return self.deserializeOutputs(evaluator, stream);
+        })
+        ;
+
 }

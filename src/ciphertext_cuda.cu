@@ -166,6 +166,21 @@ namespace troy {
             auto& modulus = context.getContextData(parms_id_)->parms().coeffModulus();
             util::sampler::setupCurandStates(curandStates.get(), poly_modulus_degree_, seed);
             util::sampler::kSamplePolyUniform(curandStates.get(), modulus.size(), poly_modulus_degree_, modulus, data(1));
+
+            auto &context_data = *context.getContextData(parms_id_);
+            auto &parms = context_data.parms();
+            auto &coeff_modulus = parms.coeffModulus();
+            auto &plain_modulus = parms.plainModulus();
+            size_t coeff_modulus_size = coeff_modulus.size();
+            size_t coeff_count = parms.polyModulusDegree();
+            size_t coeff_power = util::getPowerOfTwo(coeff_count);
+            auto ntt_tables = context_data.smallNTTTables();
+            size_t encrypted_size = 2;
+            SchemeType type = parms.scheme();
+
+            if (type == SchemeType::bfv) {
+                kernel_util::kInverseNttNegacyclicHarvey(data(1), 1, coeff_modulus_size, coeff_power, ntt_tables);
+            }
         }
     }
 

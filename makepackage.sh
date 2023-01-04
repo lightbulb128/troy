@@ -38,3 +38,5 @@ sudo rm /usr/lib/libtroy.so
 sudo cp ./binder/libtroy.so   /usr/lib
 
 echo "Created soft link in /usr/lib"
+
+cp build/pytroy.cpython-38-x86_64-linux-gnu.so ~/private-training/tools/

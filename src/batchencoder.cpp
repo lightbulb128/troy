@@ -27,24 +27,24 @@ namespace troy
         {
             throw invalid_argument("unsupported scheme");
         }
-        if (!context_data.qualifiers().using_batching)
-        {
-            throw invalid_argument("encryption parameters are not valid for batching");
-        }
 
         // Set the slot count
         slots_ = context_data.parms().polyModulusDegree();
 
-        // Reserve space for all of the primitive roots
-        roots_of_unity_ = allocateUint(slots_);
 
-        // Fill the vector of roots of unity with all distinct odd powers of generator.
-        // These are all the primitive (2*slots_)-th roots of unity in integers modulo
-        // parms.plain_modulus().
-        populateRootsOfUnityVector(context_data);
+        if (context_data.qualifiers().using_batching)
+        {
+            // Reserve space for all of the primitive roots
+            roots_of_unity_ = allocateUint(slots_);
 
-        // Populate matrix representation index map
-        populateMatrixRepsIndexMap();
+            // Fill the vector of roots of unity with all distinct odd powers of generator.
+            // These are all the primitive (2*slots_)-th roots of unity in integers modulo
+            // parms.plain_modulus().
+            populateRootsOfUnityVector(context_data);
+
+            // Populate matrix representation index map
+            populateMatrixRepsIndexMap();
+        }
     }
 
     void BatchEncoder::populateRootsOfUnityVector(const SEALContext::ContextData &context_data)

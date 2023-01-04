@@ -62,9 +62,17 @@ namespace troy
 
         void encode(const std::vector<std::int64_t> &values, PlaintextCuda &destination) const;
 
+        void encodePolynomial(const std::vector<std::uint64_t>& values, PlaintextCuda& destination) const;
+
+        void encodePolynomial(const std::vector<std::int64_t>& values, PlaintextCuda& destination) const;
+
         void decode(const PlaintextCuda &plain, std::vector<std::uint64_t> &destination) const;
 
         void decode(const PlaintextCuda &plain, std::vector<std::int64_t> &destination) const;
+
+        void decodePolynomial(const PlaintextCuda& plain, std::vector<std::uint64_t>& destination) const; 
+
+        void decodePolynomial(const PlaintextCuda& plain, std::vector<std::int64_t>& destination) const; 
 
         /**
         Returns the number of slots.

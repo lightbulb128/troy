@@ -256,17 +256,18 @@ class TimeTestCKKS(TimeTest):
         self.testRotateVector()
         self.testMemoryPool()
 
-class TimeTestBFVBGV:
+class TimeTestBFVBGV(TimeTest):
 
 
     def __init__(self, bgv, polyModulusDegree, plainModulusBitSize, qs, dataBound = 1<<6):
         super().__init__()
         pytroy.initialize_kernel()
-        slotCount = polyModulusDegree / 2
+        self.slotCount = polyModulusDegree
         self.dataBound = dataBound
         parms = pytroy.EncryptionParameters(pytroy.SchemeType.bgv if bgv else pytroy.SchemeType.bfv)
         parms.set_poly_modulus_degree(polyModulusDegree)
-        parms.set_plain_modulus(pytroy.PlainModulus.batching(polyModulusDegree, plainModulusBitSize))
+        # parms.set_plain_modulus(pytroy.PlainModulus.batching(polyModulusDegree, plainModulusBitSize))
+        parms.set_plain_modulus(1 << plainModulusBitSize)
         parms.set_coeff_modulus(pytroy.CoeffModulus.create(polyModulusDegree, qs))
         self.parms = parms
         context = pytroy.SEALContext(parms)
@@ -274,12 +275,12 @@ class TimeTestBFVBGV:
         keygen = pytroy.KeyGenerator(context)
         self.pk = pytroy.PublicKey()
         self.rlk = pytroy.RelinKeys()
-        self.gk = pytroy.GaloisKeys()
+        # self.gk = pytroy.GaloisKeys()
         keygen.create_public_key(self.pk)
         keygen.create_relin_keys(self.rlk)
-        keygen.create_galois_keys(self.gk)
+        # keygen.create_galois_keys(self.gk)
         self.keygen = keygen
-        encoder = pytroy.CKKSEncoder(context)
+        encoder = pytroy.BatchEncoder(context)
         encryptor = pytroy.Encryptor(context, self.pk)
         decryptor = pytroy.Decryptor(context, keygen.secret_key())
         evaluator = pytroy.Evaluator(context)
@@ -297,9 +298,8 @@ class TimeTestBFVBGV:
 
     def randomPlaintext(self):
         p = self.randomVector(self.slotCount, self.dataBound)
-        ret = pytroy.Plaintext()
-        self.encoder.encode(p, self.delta, ret)
-        return p
+        ret = self.encoder.encode_polynomial(p)
+        return ret
 
     def randomCiphertext(self):
         r = self.randomPlaintext()
@@ -358,12 +358,12 @@ class TimeTestBFVBGV:
         self.testMultiplyRescale()
         self.testMultiplyPlain()
         self.testSquare()
-        self.testRotateVector()
+        # self.testRotateVector()
         self.testMemoryPool()
     
 
 
 if __name__ == "__main__":
 
-    test = TimeTestCKKS(16384, [40, 40, 40, 40, 40, 40])
+    test = TimeTestBFVBGV(False, 8192, 41, (60, 50, 60))
     test.testAll()
