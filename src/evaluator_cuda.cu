@@ -316,21 +316,23 @@ namespace troy {
         auto encrypted2_q = encrypted2_q_.ensure(encrypted2_size * coeff_count * base_q_size);
         auto encrypted2_Bsk = encrypted2_Bsk_.ensure(encrypted2_size * coeff_count * base_Bsk_size);
 
-        auto temp = temp_.ensure(coeff_count * base_Bsk_m_tilde_size);
+        auto temp = temp_.ensure(encrypted1_size * coeff_count * base_Bsk_m_tilde_size);
+        kernel_util::kSetPolyArray(encrypted1.data(), encrypted1_size, base_q_size, coeff_count, encrypted1_q.get());
+        kernel_util::kNttNegacyclicHarveyLazy(encrypted1_q.get(), encrypted1_size, base_q_size, coeff_power, base_q_ntt_tables);
         for (size_t i = 0; i < encrypted1_size; i++) {
-            kernel_util::kSetPolyArray(encrypted1.data(i), 1, base_q_size, coeff_count, encrypted1_q.get() + i * coeff_count * base_q_size);
-            kernel_util::kNttNegacyclicHarveyLazy(encrypted1_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
-            rns_tool->fastbconvmTilde(encrypted1.data(i), temp.get());
-            rns_tool->smMrq(temp.get(), encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size);
-            kernel_util::kNttNegacyclicHarveyLazy(encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+            rns_tool->fastbconvmTilde(encrypted1.data(i), temp.get() + i * coeff_count * base_Bsk_m_tilde_size);
+            rns_tool->smMrq(temp.get() + i * coeff_count * base_Bsk_m_tilde_size, encrypted1_Bsk.get() + i * coeff_count * base_Bsk_size);
         }
+        kernel_util::kNttNegacyclicHarveyLazy(encrypted1_Bsk.get(), encrypted1_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+
+        temp = temp_.ensure(encrypted2_size * coeff_count * base_Bsk_m_tilde_size);
+        kernel_util::kSetPolyArray(encrypted2.data(), encrypted2_size, base_q_size, coeff_count, encrypted2_q.get());
+        kernel_util::kNttNegacyclicHarveyLazy(encrypted2_q.get(), encrypted2_size, base_q_size, coeff_power, base_q_ntt_tables);
         for (size_t i = 0; i < encrypted2_size; i++) {
-            kernel_util::kSetPolyArray(encrypted2.data(i), 1, base_q_size, coeff_count, encrypted2_q.get() + i * coeff_count * base_q_size);
-            kernel_util::kNttNegacyclicHarveyLazy(encrypted2_q.get() + i * coeff_count * base_q_size, 1, base_q_size, coeff_power, base_q_ntt_tables);
-            rns_tool->fastbconvmTilde(encrypted2.data(i), temp.get());
-            rns_tool->smMrq(temp.get(), encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size);
-            kernel_util::kNttNegacyclicHarveyLazy(encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size, 1, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
+            rns_tool->fastbconvmTilde(encrypted2.data(i), temp.get() + i * coeff_count * base_Bsk_m_tilde_size);
+            rns_tool->smMrq(temp.get() + i * coeff_count * base_Bsk_m_tilde_size, encrypted2_Bsk.get() + i * coeff_count * base_Bsk_size);
         }
+        kernel_util::kNttNegacyclicHarveyLazy(encrypted2_Bsk.get(), encrypted2_size, base_Bsk_size, coeff_power, base_Bsk_ntt_tables);
 
         auto temp_dest_q = temp_dest_q_.ensure(dest_size * coeff_count * base_q_size);
         auto temp_dest_Bsk = temp_dest_Bsk_.ensure(dest_size * coeff_count * base_Bsk_size);

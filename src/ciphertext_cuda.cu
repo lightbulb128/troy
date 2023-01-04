@@ -175,7 +175,6 @@ namespace troy {
             size_t coeff_count = parms.polyModulusDegree();
             size_t coeff_power = util::getPowerOfTwo(coeff_count);
             auto ntt_tables = context_data.smallNTTTables();
-            size_t encrypted_size = 2;
             SchemeType type = parms.scheme();
 
             if (type == SchemeType::bfv) {
