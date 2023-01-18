@@ -1,8 +1,8 @@
-#include "../../app/LinearHelper.cuh"
+#include "../../app/LinearHelperSEAL.h"
 #include "sys/time.h"
 #include <iomanip>
 
-using namespace troyn;
+using namespace seal;
 using namespace std;
 
 class Timer {
@@ -59,7 +59,7 @@ class LinearTest {
     GaloisKeys gk;
     KeyGenerator* keygen;
 
-    vector<ParmsID> parmIDs;
+    vector<parms_id_type> parmIDs;
 
     BatchEncoder* encoder;
     size_t slotCount;
@@ -134,36 +134,34 @@ public:
     }
 
     LinearTest(size_t polyModulusDegree, vector<int> qs, int dataBound, uint64_t plainModulus, uint64_t scale) {
-        KernelProvider::initialize();
         slotCount = polyModulusDegree;
         this->dataBound = dataBound;
         this->delta = scale;
-        EncryptionParameters parms(SchemeType::bfv);
-        parms.setPolyModulusDegree(polyModulusDegree);
-        parms.setPlainModulus(plainModulus);
+        EncryptionParameters parms(scheme_type::bfv);
+        parms.set_poly_modulus_degree(polyModulusDegree);
+        parms.set_plain_modulus(plainModulus);
         modulus = plainModulus;
-        parms.setCoeffModulus(CoeffModulus::Create(polyModulusDegree, qs));
+        parms.set_coeff_modulus(CoeffModulus::Create(polyModulusDegree, qs));
         context = new SEALContext(parms);
         keygen = new KeyGenerator(*context);
-        keygen->createPublicKey(pk);
-        keygen->createRelinKeys(rlk);
-        keygen->createGaloisKeys(gk);
-        encoder = new BatchEncoder(*context);
+        keygen->create_public_key(pk);
+        keygen->create_relin_keys(rlk);
+        // encoder = new BatchEncoder(*context);
         encryptor = new Encryptor(*context, pk);
-        encryptor->setSecretKey(keygen->secretKey());
-        decryptor = new Decryptor(*context, keygen->secretKey());
+        encryptor->set_secret_key(keygen->secret_key());
+        decryptor = new Decryptor(*context, keygen->secret_key());
         evaluator = new Evaluator(*context);
 
         parmIDs.clear();
-        std::shared_ptr<const SEALContext::ContextDataCuda> cd = context->firstContextData();
+        auto cd = context->first_context_data();
         while (cd) {
-            parmIDs.push_back(cd->parmsID());
-            cd = cd->nextContextData();
+            parmIDs.push_back(cd->parms_id());
+            cd = cd->next_context_data();
         }
     }
 
     vector<uint64_t> getUint64(const vector<double>& r) {
-        uint64_t modulus = context->firstContextData()->parms().plainModulus().value();
+        uint64_t modulus = context->first_context_data()->parms().plain_modulus().value();
         vector<uint64_t> x(r.size());
         int64_t half = modulus >> 1;
         for (size_t i = 0; i < r.size(); i++) {
@@ -175,7 +173,7 @@ public:
     }
 
     vector<double> getDouble(const vector<uint64_t>& r, double m = 0) {
-        uint64_t modulus = context->firstContextData()->parms().plainModulus().value();
+        uint64_t modulus = context->first_context_data()->parms().plain_modulus().value();
         vector<double> x(r.size());
         int64_t half = modulus >> 1;
         if (m==0) m = delta;
@@ -200,18 +198,18 @@ public:
             scaledX1[i] = (scaledX1[i] + modulus - scaledX2[i]) % modulus;
         }
 
-        auto lastParmsID = context->lastParmsID();
+        auto lastParmsID = context->last_parms_id();
 
         // initialize helper
-        LinearHelper::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount);
+        LinearHelperSEAL::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount);
         printf("Matmul helper created\n");
-        auto encodedWeights = helper.encodeWeights(*encoder, getUint64(weights));
+        auto encodedWeights = helper.encodeWeights(getUint64(weights));
         printf("Weight encoded\n");
         
 
         // interaction
-        auto x1Enc = helper.encryptInputs(*encryptor, *encoder, scaledX1);
-        auto x2Enc = helper.encryptInputs(*encryptor, *encoder, scaledX2);
+        auto x1Enc = helper.encryptInputs(*encryptor, scaledX1);
+        auto x2Enc = helper.encryptInputs(*encryptor, scaledX2);
         // { // serialize
         //     ostringstream sout; xEnc.save(sout);
         //     auto p = sout.str(); std::cout << "xEnc length = " << p.size() << std::endl;
@@ -233,7 +231,7 @@ public:
         printf("Matmul done\n");
 
         // dec
-        auto yDec = getDouble(helper.decryptOutputs(*encoder, *decryptor, yEnc1), delta*delta);
+        auto yDec = getDouble(helper.decryptOutputs(*decryptor, yEnc1), delta*delta);
         printf("Decrypted\n");
         
         // plaintext computation
@@ -259,84 +257,39 @@ public:
         
     }
 
-
-
-    void testMatmulInts(size_t batchSize, size_t inputDims, size_t outputDims) {
-        
-        // generate data
-        auto w = std::vector<uint64_t>{50, 60, 70, 80};
-        auto x = std::vector<uint64_t>{10, 20, 30, 40};
-        auto lastParmsID = context->lastParmsID();
-
-        // initialize helper
-        LinearHelper::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount);
-        
-
-        // interaction
-        auto xEnc = helper.encryptInputs(*encryptor, *encoder, x);
-        auto wEncoded = helper.encodeWeights(*encoder, w);
-        // { // serialize
-        //     ostringstream sout; xEnc.save(sout);
-        //     auto p = sout.str(); std::cout << "xEnc length = " << p.size() << std::endl;
-        //     istringstream sin(p); xEnc = LinearHelper::Cipher2d();
-        //     xEnc.load(sin, *context);
-        // }
-        printf("x encoded\n");
-        auto yEnc = helper.matmul(*evaluator, xEnc, wEncoded);  
-        // yEnc.modSwitchToNext(*evaluator); 
-        printf("Matmul done\n");
-
-        // dec
-        auto yDec = helper.decryptOutputs(*encoder, *decryptor, yEnc);
-        printf("Decrypted\n");
-        
-        // plaintext computation
-        vector<uint64_t> y(batchSize * outputDims, 0);
-        for (size_t i = 0; i < batchSize; i++) {
-            for (size_t j = 0; j < inputDims; j++) {
-                for (size_t k = 0; k < outputDims; k++) {
-                    y[i * outputDims + k] += x[i * inputDims + j] * w[j * outputDims + k];
-                }
-            }
-        }
-
-        printVector(yDec);
-        printVector(y);
-        
-    }
-
     void testConv2d(size_t batchSize, size_t inputChannels, size_t outputChannels, size_t imageHeight, size_t imageWidth, size_t kernelHeight, size_t kernelWidth) {
         
         // generate data
         auto weights = randomRealVector(inputChannels * outputChannels * kernelHeight * kernelWidth);
         auto x = randomRealVector(batchSize * inputChannels * imageHeight * imageWidth);
-        auto lastParmsID = context->lastParmsID();
+        auto lastParmsID = context->last_parms_id();
 
         // initialize helper
-        LinearHelper::Conv2dHelper helper(batchSize, imageHeight, imageWidth, kernelHeight, kernelWidth, inputChannels, outputChannels, slotCount);
-        auto encodedWeights = helper.encodeWeights(*encoder, getUint64(weights));
+        LinearHelperSEAL::Conv2dHelper helper(batchSize, imageHeight, imageWidth, kernelHeight, kernelWidth, inputChannels, outputChannels, slotCount);
+        auto w_int = getUint64(weights);
+        auto encodedWeights = helper.encodeWeights(w_int);
 
         auto tim = Timer();
         tim.registerTimer();
         tim.tick();
         // interaction
-        auto xEnc = helper.encryptInputs(*encryptor, *encoder, getUint64(x));
+        auto xEnc = helper.encryptInputs(*encryptor, getUint64(x));
         { // serialize
             ostringstream sout; xEnc.save(sout);
             auto p = sout.str(); std::cout << "xEnc length = " << p.size() << std::endl;
-            istringstream sin(p); xEnc = LinearHelper::Cipher2d();
+            istringstream sin(p); xEnc = LinearHelperSEAL::Cipher2d();
             xEnc.load(sin, *context);
         }
         auto yEnc = helper.conv2d(*evaluator, xEnc, encodedWeights);
         { // serialize
-            ostringstream sout; helper.serializeOutputs(*evaluator, yEnc, sout);
+            ostringstream sout; yEnc.save(sout);
             auto p = sout.str(); std::cout << "yEnc length = " << p.size() << std::endl;
-            istringstream sin(p); 
-            yEnc = helper.deserializeOutputs(*evaluator, sin);
+            istringstream sin(p); xEnc = LinearHelperSEAL::Cipher2d();
+            yEnc.load(sin, *context);
         }
 
         // dec
-        auto yDec = getDouble(helper.decryptOutputs(*encoder, *decryptor, yEnc), delta*delta);
+        auto yDec = getDouble(helper.decryptOutputs(*decryptor, yEnc), delta*delta);
         tim.tock();
 
         printTimer(tim.gather());
@@ -391,5 +344,5 @@ int main() {
     LinearTest test(4096, {60, 49}, 16, 1ul<<41, 1ul<<12);
     printf("Setup\n");
     // test.testMatmulInts(2, 2, 2);
-    test.testConv2d(1, 64, 256, 56, 56, 3, 3);
+    test.testConv2d(1, 64, 256, 56, 56, 3,3);
 }

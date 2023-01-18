@@ -44,5 +44,9 @@ add_executable(linear)
 target_sources(linear PRIVATE app/linear.cu)
 target_link_libraries(linear troy)
 
+add_executable(linear_seal)
+target_sources(linear_seal PRIVATE app/linear_seal.cpp)
+target_link_libraries(linear_seal SEAL::seal)
+
 include(GoogleTest)
 gtest_discover_tests(troytest)

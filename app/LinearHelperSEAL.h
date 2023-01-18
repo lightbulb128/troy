@@ -1,10 +1,11 @@
 #pragma once
 
-#include "../src/troy_cuda.cuh"
+#include <cassert>
+#include <seal/seal.h>
 #include <iomanip>
 #include <sys/time.h>
 
-namespace LinearHelper {
+namespace LinearHelperSEAL {
 
     template <typename T>
     inline void savet(std::ostream& stream, const T* obj) {
@@ -16,12 +17,24 @@ namespace LinearHelper {
         stream.read(reinterpret_cast<char*>(obj), sizeof(T));
     }
 
+    void encodePolynomial(const std::vector<uint64_t>& vec, seal::Plaintext& pt) {
+        size_t len = vec.size();
+        pt.resize(len);
+        for (size_t i = 0; i < len; i++) pt.data()[i] = vec.data()[i] % (1ul<<41);
+        std::fill_n(pt.data() + len, pt.coeff_count() - len, 0);
+    }
+    void decodePolynomial(const seal::Plaintext& pt, std::vector<uint64_t>& vec) {
+        vec.resize(pt.coeff_count());
+        size_t len = vec.size();
+        for (size_t i = 0; i < len; i++) vec.data()[i] = pt.data()[i];
+    }
+
     class Cipher2d;
 
     class Plain2d {
         
-        using Plaintext = troyn::Plaintext;
-        using Ciphertext = troyn::Ciphertext;
+        using Plaintext = seal::Plaintext;
+        using Ciphertext = seal::Ciphertext;
     
     public:
         
@@ -35,14 +48,14 @@ namespace LinearHelper {
         Plain2d() {}
 
         
-        Cipher2d encrypt(const troyn::Encryptor& encryptor) const;
+        Cipher2d encrypt(const seal::Encryptor& encryptor) const;
 
     };
 
     class Cipher2d {
 
-        using Plaintext = troyn::Plaintext;
-        using Ciphertext = troyn::Ciphertext;
+        using Plaintext = seal::Plaintext;
+        using Ciphertext = seal::Ciphertext;
 
     public:
 
@@ -73,7 +86,7 @@ namespace LinearHelper {
             }
         }
 
-        void load(std::istream& stream) {
+        void load(std::istream& stream, const seal::SEALContext& context) {
             size_t n, m;
             loadt(stream, &n);
             loadt(stream, &m);
@@ -81,38 +94,24 @@ namespace LinearHelper {
             for (size_t i = 0; i < n; i++) {
                 std::vector<Ciphertext> k(m);
                 for (size_t j = 0; j < m; j++) {
-                    k[j].load(stream);
+                    k[j].load(context, stream);
                 }
                 data.push_back(std::move(k));
             }
         }
 
-        void load(std::istream& stream, const troyn::SEALContext& context) {
-            size_t n, m;
-            loadt(stream, &n);
-            loadt(stream, &m);
-            data.clear(); data.reserve(n);
-            for (size_t i = 0; i < n; i++) {
-                std::vector<Ciphertext> k(m);
-                for (size_t j = 0; j < m; j++) {
-                    k[j].load(stream, context);
-                }
-                data.push_back(std::move(k));
-            }
-        }
-
-        void modSwitchToNext(const troyn::Evaluator& evaluator) {
+        void modSwitchToNext(seal::Evaluator& evaluator) {
             size_t n = data.size();
             for (size_t i = 0; i < n; i++) {
                 size_t m = data[i].size();
                 for (size_t j = 0; j < m; j++) {
-                    evaluator.modSwitchToNextInplace(data[i][j]);
+                    evaluator.mod_switch_to_next_inplace(data[i][j]);
                 }
             }
         }
 
         void addInplace(
-            const troyn::Evaluator& evaluator,
+            seal::Evaluator& evaluator,
             const Cipher2d& x
         ) {
             if (data.size() != x.data.size()) {
@@ -125,13 +124,13 @@ namespace LinearHelper {
                 }
                 size_t m = data[i].size();
                 for (size_t j = 0; j < m; j++) {
-                    evaluator.addInplace(data[i][j], x[i][j]);
+                    evaluator.add_inplace(data[i][j], x[i][j]);
                 }
             }
         }
 
         void addPlainInplace(
-            const troyn::Evaluator& evaluator,
+            seal::Evaluator& evaluator,
             const Plain2d& x
         ) {
             if (data.size() != x.data.size()) {
@@ -144,13 +143,13 @@ namespace LinearHelper {
                 }
                 size_t m = data[i].size();
                 for (size_t j = 0; j < m; j++) {
-                    evaluator.addPlainInplace(data[i][j], x[i][j]);
+                    evaluator.add_plain_inplace(data[i][j], x[i][j]);
                 }
             }
         }
 
         Cipher2d addPlain(
-            const troyn::Evaluator& evaluator,
+            seal::Evaluator& evaluator,
             const Plain2d& x
         ) const {
             if (data.size() != x.data.size()) {
@@ -165,7 +164,7 @@ namespace LinearHelper {
                 size_t m = data[i].size();
                 std::vector<Ciphertext> row; row.resize(m);
                 for (size_t j = 0; j < m; j++) {
-                    evaluator.addPlain(data[i][j], x[i][j], row[j]);
+                    evaluator.add_plain(data[i][j], x[i][j], row[j]);
                 }
                 ret.data.push_back(std::move(row));
             }
@@ -174,14 +173,15 @@ namespace LinearHelper {
 
     };
 
-    Cipher2d Plain2d::encrypt(const troyn::Encryptor& encryptor) const {
+    Cipher2d Plain2d::encrypt(const seal::Encryptor& encryptor) const {
         Cipher2d ret; ret.data.reserve(data.size());
         size_t n = data.size();
         for (size_t i = 0; i < n; i++) {
             size_t m = data[i].size();
             std::vector<Ciphertext> row; row.reserve(m);
             for (size_t j = 0; j < m; j++) {
-                row.push_back(encryptor.encryptSymmetric(data[i][j]));
+                Ciphertext c; encryptor.encrypt_symmetric(data[i][j], c);
+                row.push_back(c);
             }
             ret.data.push_back(std::move(row));
         }
@@ -196,8 +196,8 @@ namespace LinearHelper {
 
     class MatmulHelper {
 
-        using Plaintext = troyn::Plaintext;
-        using Ciphertext = troyn::Ciphertext;
+        using Plaintext = seal::Plaintext;
+        using Ciphertext = seal::Ciphertext;
 
         size_t batchSize, inputDims, outputDims;
         size_t slotCount;
@@ -217,7 +217,6 @@ namespace LinearHelper {
         }
 
         Plaintext encodeWeightSmall(
-            troyn::BatchEncoder& encoder,
             const std::vector<uint64_t>& weights,
             size_t li, size_t ui, size_t lj, size_t uj
         ) {
@@ -231,7 +230,7 @@ namespace LinearHelper {
                 }
             }
             Plaintext ret;
-            encoder.encodePolynomial(vec, ret);
+            encodePolynomial(vec, ret);
             return ret;
         }
 
@@ -247,7 +246,6 @@ namespace LinearHelper {
         }
 
         Plain2d encodeWeights(
-            troyn::BatchEncoder& encoder,
             const std::vector<uint64_t>& weights
         ) {
             if (weights.size() != inputDims * outputDims) {
@@ -264,7 +262,7 @@ namespace LinearHelper {
                 for (size_t lj = 0; lj < width; lj += w) {
                     size_t uj = (lj + w > width) ? width : (lj + w);
                     encodedRow.push_back(
-                        encodeWeightSmall(encoder, weights, li, ui, lj, uj)
+                        encodeWeightSmall(weights, li, ui, lj, uj)
                     );
                 }
                 encodedWeights.data.push_back(std::move(encodedRow));
@@ -273,7 +271,6 @@ namespace LinearHelper {
         }
 
         Plain2d encodeInputs(
-            troyn::BatchEncoder& encoder,
             const std::vector<uint64_t>& inputs
         ) {
             if (inputs.size() != inputDims * batchSize) {
@@ -291,7 +288,7 @@ namespace LinearHelper {
                     for (size_t j = lj; j < uj; j++)
                         vec.push_back(inputs[i * inputDims + j]);
                     Plaintext encoded;
-                    encoder.encodePolynomial(vec, encoded);
+                    encodePolynomial(vec, encoded);
                     encodedRow.push_back(std::move(encoded));
                 }
                 ret.data.push_back(std::move(encodedRow));
@@ -300,15 +297,14 @@ namespace LinearHelper {
         }
 
         Cipher2d encryptInputs(
-            const troyn::Encryptor& encryptor,
-            troyn::BatchEncoder& encoder, 
+            const seal::Encryptor& encryptor,
             const std::vector<uint64_t>& inputs
         ) {
-            Plain2d plain = encodeInputs(encoder, inputs);
+            Plain2d plain = encodeInputs(inputs);
             return plain.encrypt(encryptor);
         }
 
-        Cipher2d matmul(const troyn::Evaluator& evaluator, const Cipher2d& a, const Plain2d& encodedWeights) {
+        Cipher2d matmul(seal::Evaluator& evaluator, const Cipher2d& a, const Plain2d& encodedWeights) {
             size_t width = outputDims;
             size_t w = blockWidth;
             size_t outputVectorCount = ceilDiv(width, w);
@@ -321,10 +317,10 @@ namespace LinearHelper {
                 for (size_t i = 0; i < encodedWeights.data.size(); i++) {
                     for (size_t j = 0; j < encodedWeights[i].size(); j++) {
                         Ciphertext prod;
-                        evaluator.multiplyPlain(a[b][i], encodedWeights[i][j], prod);
+                        evaluator.multiply_plain(a[b][i], encodedWeights[i][j], prod);
                         if (i==0) outVecs[j] = std::move(prod);
                         else {
-                            evaluator.addInplace(outVecs[j], prod);
+                            evaluator.add_inplace(outVecs[j], prod);
                         }
                     }
                 }
@@ -333,7 +329,7 @@ namespace LinearHelper {
             return ret;
         }
 
-        Cipher2d matmulCipher(const troyn::Evaluator& evaluator, const Cipher2d& a, const Cipher2d& encodedWeights) {
+        Cipher2d matmulCipher(seal::Evaluator& evaluator, const Cipher2d& a, const Cipher2d& encodedWeights) {
             size_t width = outputDims;
             size_t w = blockWidth;
             size_t outputVectorCount = ceilDiv(width, w);
@@ -349,7 +345,7 @@ namespace LinearHelper {
                         evaluator.multiply(a[b][i], encodedWeights[i][j], prod);
                         if (i==0) outVecs[j] = std::move(prod);
                         else {
-                            evaluator.addInplace(outVecs[j], prod);
+                            evaluator.add_inplace(outVecs[j], prod);
                         }
                     }
                 }
@@ -358,7 +354,7 @@ namespace LinearHelper {
             return ret;
         }
 
-        Cipher2d matmulReverse(const troyn::Evaluator& evaluator, const Plain2d& a, const Cipher2d& encodedWeights) {
+        Cipher2d matmulReverse(seal::Evaluator& evaluator, const Plain2d& a, const Cipher2d& encodedWeights) {
             size_t width = outputDims;
             size_t w = blockWidth;
             size_t outputVectorCount = ceilDiv(width, w);
@@ -371,10 +367,10 @@ namespace LinearHelper {
                 for (size_t i = 0; i < encodedWeights.data.size(); i++) {
                     for (size_t j = 0; j < encodedWeights[i].size(); j++) {
                         Ciphertext prod;
-                        evaluator.multiplyPlain(encodedWeights[i][j], a[b][i], prod);
+                        evaluator.multiply_plain(encodedWeights[i][j], a[b][i], prod);
                         if (i==0) outVecs[j] = std::move(prod);
                         else {
-                            evaluator.addInplace(outVecs[j], prod);
+                            evaluator.add_inplace(outVecs[j], prod);
                         }
                     }
                 }
@@ -384,7 +380,6 @@ namespace LinearHelper {
         }
 
         Plain2d encodeOutputs(
-            troyn::BatchEncoder& encoder, 
             const std::vector<uint64_t>& outputs
         ) {
             size_t interval = blockHeight, vecsize = blockWidth;
@@ -403,7 +398,7 @@ namespace LinearHelper {
                         vec[(t-li) * interval + interval - 1] = outputs[i * outputDims + t];
                     }
                     Plaintext encoded;
-                    encoder.encodePolynomial(vec, encoded);
+                    encodePolynomial(vec, encoded);
                     encodedRow.push_back(std::move(encoded));
                 }
                 ret.data.push_back(std::move(encodedRow));
@@ -412,8 +407,7 @@ namespace LinearHelper {
         }
 
         std::vector<uint64_t> decryptOutputs(
-            troyn::BatchEncoder& encoder,
-            troyn::Decryptor& decryptor,
+            seal::Decryptor& decryptor,
             const Cipher2d& outputs
         ) {
             std::vector<uint64_t> dec(batchSize * outputDims);
@@ -425,7 +419,7 @@ namespace LinearHelper {
                 for (size_t li = 0; li < outputDims; li += vecsize) {
                     size_t ui = (li + vecsize > outputDims) ? outputDims : (li + vecsize);
                     decryptor.decrypt(outputs[i][cid], pt);
-                    encoder.decodePolynomial(pt, buffer);
+                    decodePolynomial(pt, buffer);
                     for (size_t j = li; j < ui; j++) {
                         dec[i * outputDims + j] = buffer[(j - li + 1) * interval - 1];
                     }
@@ -435,48 +429,12 @@ namespace LinearHelper {
             return dec;
         }
 
-        void serializeOutputs(troy::EvaluatorCuda &evaluator, const Cipher2d& x, std::ostream& stream) {
-            size_t interval = blockHeight;
-            size_t vecsize = blockWidth;
-            for (size_t i = 0; i < batchSize; i++) {
-                size_t cid = 0;
-                for (size_t li = 0; li < outputDims; li += vecsize) {
-                    size_t ui = li + vecsize;
-                    if (ui > outputDims) ui = outputDims;
-                    std::vector<size_t> required(ui - li);
-                    for (size_t j = li; j < ui; j++) required[j - li] = (j - li + 1) * interval - 1;
-                    x[i][cid].saveTerms(stream, evaluator, required);
-                    cid += 1;
-                }
-            }
-        }
-
-        Cipher2d deserializeOutputs(troy::EvaluatorCuda &evaluator, std::istream& stream) {
-            size_t interval = blockHeight;
-            size_t vecsize = blockWidth;
-            Cipher2d ret; ret.data.reserve(batchSize);
-            for (size_t i = 0; i < batchSize; i++) {
-                std::vector<Ciphertext> row; row.reserve(ceilDiv(outputDims, vecsize));
-                for (size_t li = 0; li < outputDims; li += vecsize) {
-                    size_t ui = li + vecsize;
-                    if (ui > outputDims) ui = outputDims;
-                    std::vector<size_t> required(ui - li);
-                    for (size_t j = li; j < ui; j++) required[j - li] = (j - li + 1) * interval - 1;
-                    Ciphertext c;
-                    c.loadTerms(stream, evaluator, required);
-                    row.push_back(c);
-                }
-                ret.data.push_back(row);
-            }
-            return ret;
-        }
-
     };
 
     class Conv2dHelper {
 
-        using Plaintext = troyn::Plaintext;
-        using Ciphertext = troyn::Ciphertext;
+        using Plaintext = seal::Plaintext;
+        using Ciphertext = seal::Ciphertext;
 
         size_t batchSize;
         size_t blockHeight, blockWidth, kernelHeight, kernelWidth;
@@ -486,8 +444,6 @@ namespace LinearHelper {
         bool blocked;
 
     public:
-
-
 
         // class Timer {
         // public:
@@ -541,7 +497,6 @@ namespace LinearHelper {
         //     }
         // }
 
-
         Conv2dHelper(
             size_t batchSize, 
             size_t imageHeight, size_t imageWidth, 
@@ -569,7 +524,6 @@ namespace LinearHelper {
         }
 
         Plain2d encodeWeights(
-            troyn::BatchEncoder& encoder, 
             std::vector<uint64_t> weights
         ) {
             if (weights.size() != inputChannels * outputChannels * kernelHeight * kernelWidth) {
@@ -597,7 +551,8 @@ namespace LinearHelper {
                             }
                         }
                     }
-                    Plaintext pt; encoder.encodePolynomial(spread, pt);
+                    
+                    Plaintext pt; encodePolynomial(spread, pt);
                     currentChannel.push_back(std::move(pt));
                 }
                 encodedWeights.data.push_back(std::move(currentChannel));
@@ -617,7 +572,6 @@ namespace LinearHelper {
         }
 
         Plain2d encodeInputs(
-            troyn::BatchEncoder& encoder, 
             const std::vector<uint64_t>& inputs
         ) {
             if (inputs.size() != batchSize * inputChannels * imageHeight * imageWidth) {
@@ -679,7 +633,7 @@ namespace LinearHelper {
                             }
                         }
                     }
-                    Plaintext pt; encoder.encodePolynomial(plain, pt);
+                    Plaintext pt; encodePolynomial(plain, pt);
                     group.push_back(std::move(pt));
                 }
                 ret.data.push_back(std::move(group));
@@ -688,16 +642,15 @@ namespace LinearHelper {
         }
 
         Cipher2d encryptInputs(
-            const troyn::Encryptor& encryptor,
-            troyn::BatchEncoder& encoder, 
+            const seal::Encryptor& encryptor,
             const std::vector<uint64_t>& inputs
         ) {
-            Plain2d plain = encodeInputs(encoder, inputs);
+            Plain2d plain = encodeInputs(inputs);
             return plain.encrypt(encryptor);
         }
 
-        Cipher2d conv2d(const troyn::Evaluator& evaluator, const Cipher2d& a, const Plain2d& encodedWeights) {
-
+        Cipher2d conv2d(seal::Evaluator& evaluator, const Cipher2d& a, const Plain2d& encodedWeights) {
+           
             // Timer tim; auto t1 = tim.registerTimer("muladds");
             // size_t muladds = 0;
 
@@ -710,11 +663,11 @@ namespace LinearHelper {
                     for (size_t i = 0; i < a[b].size(); i++) {
                         Ciphertext prod;
                         // tim.tick(t1);
-                        evaluator.multiplyPlain(a[b][i], encodedWeights[oc][i], prod);
+                        evaluator.multiply_plain(a[b][i], encodedWeights[oc][i], prod);
                         // muladds ++;
                         // tim.tock(t1);
                         if (i==0) cipher = std::move(prod);
-                        else evaluator.addInplace(cipher, prod);
+                        else evaluator.add_inplace(cipher, prod);
                     }
                     group.push_back(std::move(cipher));
                 }
@@ -724,7 +677,7 @@ namespace LinearHelper {
             return ret;
         }
 
-        Cipher2d conv2dCipher(const troyn::Evaluator& evaluator, const Cipher2d& a, const Cipher2d& encodedWeights) {
+        Cipher2d conv2dCipher(seal::Evaluator& evaluator, const Cipher2d& a, const Cipher2d& encodedWeights) {
             size_t totalBatchSize = getTotalBatchSize();
             Cipher2d ret; ret.data.reserve(totalBatchSize);
             for (size_t b = 0; b < totalBatchSize; b++) {
@@ -735,7 +688,7 @@ namespace LinearHelper {
                         Ciphertext prod;
                         evaluator.multiply(a[b][i], encodedWeights[oc][i], prod);
                         if (i==0) cipher = std::move(prod);
-                        else evaluator.addInplace(cipher, prod);
+                        else evaluator.add_inplace(cipher, prod);
                     }
                     group.push_back(std::move(cipher));
                 }
@@ -744,7 +697,7 @@ namespace LinearHelper {
             return ret;
         }
 
-        Cipher2d conv2dReverse(const troyn::Evaluator& evaluator, const Plain2d& a, const Cipher2d& encodedWeights) {
+        Cipher2d conv2dReverse(seal::Evaluator& evaluator, const Plain2d& a, const Cipher2d& encodedWeights) {
             size_t totalBatchSize = getTotalBatchSize();
             Cipher2d ret; ret.data.reserve(totalBatchSize);
             for (size_t b = 0; b < totalBatchSize; b++) {
@@ -753,9 +706,9 @@ namespace LinearHelper {
                     Ciphertext cipher;
                     for (size_t i = 0; i < a[b].size(); i++) {
                         Ciphertext prod;
-                        evaluator.multiplyPlain(encodedWeights[oc][i], a[b][i], prod);
+                        evaluator.multiply_plain(encodedWeights[oc][i], a[b][i], prod);
                         if (i==0) cipher = std::move(prod);
-                        else evaluator.addInplace(cipher, prod);
+                        else evaluator.add_inplace(cipher, prod);
                     }
                     group.push_back(std::move(cipher));
                 }
@@ -765,7 +718,6 @@ namespace LinearHelper {
         }
 
         Plain2d encodeOutputs(
-            troyn::BatchEncoder& encoder,
             const std::vector<uint64_t>& outputs
         ) {
             size_t interval = blockWidth * blockHeight;
@@ -797,7 +749,7 @@ namespace LinearHelper {
                             if (si * yh + i < oyh && sj * yw + j < oyw)  mask[maskIndex] = outputs[originalIndex];
                         }
                     }
-                    Plaintext encoded; encoder.encodePolynomial(mask, encoded);
+                    Plaintext encoded; encodePolynomial(mask, encoded);
                     group.push_back(std::move(encoded));
                 }
                 ret.data.push_back(std::move(group));
@@ -806,7 +758,7 @@ namespace LinearHelper {
         }
 
         void addPlainInplace(
-            const troyn::Evaluator& evaluator, 
+            seal::Evaluator& evaluator, 
             Cipher2d& y, const Plain2d& x
         ) {
             if (y.data.size() != x.data.size()) {
@@ -819,13 +771,13 @@ namespace LinearHelper {
                 }
                 size_t m = y[i].size();
                 for (size_t j = 0; j < m; j++) {
-                    evaluator.addPlainInplace(y[i][j], x[i][j]);
+                    evaluator.add_plain_inplace(y[i][j], x[i][j]);
                 }
             }
         }
 
         void addInplace(
-            const troyn::Evaluator& evaluator, 
+            seal::Evaluator& evaluator, 
             Cipher2d& y, const Cipher2d& x
         ) {
             if (y.data.size() != x.data.size()) {
@@ -838,15 +790,14 @@ namespace LinearHelper {
                 }
                 size_t m = y[i].size();
                 for (size_t j = 0; j < m; j++) {
-                    evaluator.addInplace(y[i][j], x[i][j]);
+                    evaluator.add_inplace(y[i][j], x[i][j]);
                 }
             }
         }
 
 
         std::vector<uint64_t> decryptOutputs(
-            troyn::BatchEncoder& encoder,
-            troyn::Decryptor& decryptor,
+            seal::Decryptor& decryptor,
             const Cipher2d& outputs
         ) {
             size_t interval = blockWidth * blockHeight;
@@ -870,7 +821,7 @@ namespace LinearHelper {
                 std::vector<Plaintext> group; group.reserve(outputChannels);
                 for (size_t c = 0; c < outputChannels; c++) {
                     decryptor.decrypt(outputs[b][c], encoded);
-                    encoder.decodePolynomial(encoded, buffer);
+                    decodePolynomial(encoded, buffer);
                     for (size_t i = 0; i < yh; i++) {
                         for (size_t j = 0; j < yw; j++) {
                             size_t maskIndex = (channelSlots - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
@@ -881,36 +832,6 @@ namespace LinearHelper {
                         }
                     }
                 }
-            }
-            return ret;
-        }
-
-        void serializeOutputs(troy::EvaluatorCuda &evaluator, const Cipher2d& x, std::ostream& stream) {
-            auto totalBatchSize = getTotalBatchSize();
-            size_t interval = blockWidth * blockHeight;
-            size_t channelSlots = (slotCount) / interval;
-            std::vector<size_t> required(interval);
-            size_t st = (channelSlots - 1) * interval;
-            for (size_t i = st; i < st + interval; i++) required[i-st] = i;
-            for (size_t b = 0; b < totalBatchSize; b++) {
-                for (size_t oc = 0; oc < outputChannels; oc++) 
-                    x[b][oc].saveTerms(stream, evaluator, required);
-            }
-        }
-
-        Cipher2d deserializeOutputs(troy::EvaluatorCuda &evaluator, std::istream& stream) {
-            auto totalBatchSize = getTotalBatchSize();
-            size_t interval = blockWidth * blockHeight;
-            size_t channelSlots = (slotCount) / interval;
-            std::vector<size_t> required(interval);
-            size_t st = (channelSlots - 1) * interval;
-            for (size_t i = st; i < st + interval; i++) required[i-st] = i;
-            Cipher2d ret; ret.data.reserve(totalBatchSize);
-            for (size_t b = 0; b < totalBatchSize; b++) {
-                std::vector<Ciphertext> row(outputChannels);
-                for (size_t oc = 0; oc < outputChannels; oc++) 
-                    row[oc].loadTerms(stream, evaluator, required);
-                ret.data.push_back(std::move(row));
             }
             return ret;
         }

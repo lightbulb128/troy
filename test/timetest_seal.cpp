@@ -156,11 +156,11 @@ namespace troytest {
         void testMultiplyPlain(int repeatCount = 1000) {
             auto c1 = randomCiphertext();
             auto p2 = randomPlaintext();
-            Ciphertext c3;
             auto t1 = tim.registerTimer("MultiplyPlain-assign");
             auto t2 = tim.registerTimer("MultiplyPlain-inplace");
             for (int t = 0; t < repeatCount; t++) {
                 tim.tick(t1);
+                Ciphertext c3;
                 evaluator->multiply_plain(c1, p2, c3);
                 tim.tock(t1);
                 tim.tick(t2);
@@ -451,7 +451,7 @@ int main() {
     test.testAll();
 
     std::cout << "----- BFV -----\n";
-    troytest::TimeTestBFVBGV test2(false, 8192, 20, {40, 40, 40});
+    troytest::TimeTestBFVBGV test2(false, 8192, 59, {60, 60, 60});
     test2.testAll();
 
     std::cout << "----- BGV -----\n";

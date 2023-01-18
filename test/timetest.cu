@@ -471,7 +471,7 @@ int main() {
     test.testAll();
 
     std::cout << "----- BFV -----\n";
-    troytest::TimeTestBFVBGV test2(false, 8192, 20, {40, 40, 40});
+    troytest::TimeTestBFVBGV test2(false, 8192, 59, {60, 60, 60});
     test2.testAll();
 
     std::cout << "----- BGV -----\n";
