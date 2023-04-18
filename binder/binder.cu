@@ -826,8 +826,16 @@ PYBIND11_MODULE(pytroy, m) {
             return py::bytes(stream.str());
         })
         .def("deserialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const py::bytes& str) {
-            istringstream stream(str);
+            istringstream stream(std::move(str));
             return self.deserializeOutputs(evaluator, stream);
+        })
+        .def("serialize_encoded_weights", [](MatmulHelper& self, const Plain2d& x) {
+            ostringstream stream; self.serializeEncodedWeights(x, stream);
+            return py::bytes(stream.str());
+        })
+        .def("deserialize_encoded_weights", [](MatmulHelper& self, const py::bytes& str) {
+            istringstream stream(std::move(str));
+            return self.deserializeEncodedWeights(stream);
         })
         ;
 

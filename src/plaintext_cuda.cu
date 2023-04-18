@@ -22,6 +22,7 @@ namespace troy {
         loadt(stream, &dataSize);
         util::HostArray<pt_coeff_type> host(dataSize);
         stream.read(reinterpret_cast<char*>(host.get()), dataSize * sizeof(pt_coeff_type));
+        data_.ensure(dataSize);
         KernelProvider::copy(data_.get(), host.get(), dataSize);
     }
 

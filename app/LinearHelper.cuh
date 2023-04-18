@@ -201,19 +201,29 @@ namespace LinearHelper {
 
         size_t batchSize, inputDims, outputDims;
         size_t slotCount;
-        size_t blockHeight, blockWidth;
+        size_t batchBlock, inputBlock, outputBlock;
 
         void determineBlock() {
-            size_t height = inputDims, width = outputDims;
-            size_t slots = slotCount;
-            blockHeight = 0; blockWidth = 0;
-            size_t bt = height + width + 1;
-            for (size_t i = 1; i < height + 1; i++) {
-                size_t w = std::min(slots / i, width);
-                if (w == 0) continue;
-                size_t t = ceilDiv(height, i) + ceilDiv(width, w);
-                if (t < bt) {blockHeight = i; blockWidth = w; bt = t;}
+            size_t bBest = 0, iBest = 0, oBest = 0;
+            size_t cBest = 2147483647;
+            for (size_t b = batchSize; b >= 1; b--) {
+                size_t bc = ceilDiv(batchSize, b);
+                if (b >= slotCount) continue;
+                if (bc * 2 > cBest) continue;
+                for (size_t i = 1; i < slotCount / b; i++) {
+                    size_t o = slotCount / b / i;
+                    if (o > outputDims) o = outputDims;
+                    if (i > inputDims) continue;
+                    if (o < 1) continue;
+                    size_t c = bc * (ceilDiv(inputDims, i) + ceilDiv(outputDims, o));
+                    if (c >= cBest) continue;
+                    bBest = b; iBest = i; oBest = o; cBest = c;
+                }
             }
+            batchBlock = bBest;
+            inputBlock = iBest;
+            outputBlock = oBest;
+            // printf("batchBlock=%zu inputBlock=%zu outputBlock=%zu\n", batchBlock, inputBlock, outputBlock);
         }
 
         Plaintext encodeWeightSmall(
@@ -225,7 +235,7 @@ namespace LinearHelper {
             std::vector<uint64_t> vec(slots, 0);
             for (size_t j = lj; j < uj; j++) {
                 for (size_t i = li; i < ui; i++) {
-                    size_t r = (j-lj) * blockHeight + blockHeight - (i-li) - 1;
+                    size_t r = (j-lj) * inputBlock + inputBlock - (i-li) - 1;
                     assert(r < slots);
                     vec[r] = weights[i * outputDims + j];
                 }
@@ -254,7 +264,7 @@ namespace LinearHelper {
                 throw std::invalid_argument("Weight size incorrect.");
             }
             size_t height = inputDims, width = outputDims;
-            size_t h = blockHeight, w = blockWidth;
+            size_t h = inputBlock, w = outputBlock;
             Plain2d encodedWeights;
             encodedWeights.data.clear();
             encodedWeights.data.reserve(ceilDiv(height, h));
@@ -279,17 +289,19 @@ namespace LinearHelper {
             if (inputs.size() != inputDims * batchSize) {
                 throw std::invalid_argument("Input size incorrect.");
             }
-            size_t vecsize = blockHeight;
+            size_t vecsize = inputBlock;
             Plain2d ret;
             ret.data.reserve(batchSize);
-            for (size_t i = 0; i < batchSize; i++) {
+            for (size_t li = 0; li < batchSize; li += batchBlock) {
+                size_t ui = (li + batchBlock > batchSize) ? batchSize : li + batchBlock;
                 std::vector<Plaintext> encodedRow;
                 encodedRow.reserve(ceilDiv(inputDims, vecsize));
                 for (size_t lj = 0; lj < inputDims; lj += vecsize) {
                     size_t uj = (lj + vecsize > inputDims) ? inputDims : lj + vecsize;
-                    std::vector<uint64_t> vec; vec.reserve(uj - lj);
-                    for (size_t j = lj; j < uj; j++)
-                        vec.push_back(inputs[i * inputDims + j]);
+                    std::vector<uint64_t> vec(slotCount, 0);
+                    for (size_t i = li; i < ui; i++)
+                        for (size_t j = lj; j < uj; j++)
+                            vec[(i - li) * inputBlock * outputBlock + (j - lj)] = inputs[i * inputDims + j];
                     Plaintext encoded;
                     encoder.encodePolynomial(vec, encoded);
                     encodedRow.push_back(std::move(encoded));
@@ -308,20 +320,21 @@ namespace LinearHelper {
             return plain.encrypt(encryptor);
         }
 
-        Cipher2d matmul(const troyn::Evaluator& evaluator, const Cipher2d& a, const Plain2d& encodedWeights) {
-            size_t width = outputDims;
-            size_t w = blockWidth;
-            size_t outputVectorCount = ceilDiv(width, w);
-            Cipher2d ret; ret.data.reserve(batchSize);
-            if (a.data.size() != batchSize) {
+        Cipher2d matmul(const troyn::Evaluator& evaluator, const Cipher2d& a, const Plain2d& w) {
+            Cipher2d ret; ret.data.reserve(ceilDiv(batchSize, batchBlock));
+            size_t outputVectorCount = ceilDiv(outputDims, outputBlock);
+            if (a.data.size() != ceilDiv(batchSize, batchBlock)) {
                 throw std::invalid_argument("Input batchsize incorrect.");
             }
-            for (size_t b = 0; b < batchSize; b++) {
+            if (w.data.size() != ceilDiv(inputDims, inputBlock)) {
+                throw std::invalid_argument("Weight input dimension incorrect.");
+            }
+            for (size_t b = 0; b < ceilDiv(batchSize, batchBlock); b++) {
                 std::vector<Ciphertext> outVecs(outputVectorCount);
-                for (size_t i = 0; i < encodedWeights.data.size(); i++) {
-                    for (size_t j = 0; j < encodedWeights[i].size(); j++) {
+                for (size_t i = 0; i < w.data.size(); i++) {
+                    for (size_t j = 0; j < w[i].size(); j++) {
                         Ciphertext prod;
-                        evaluator.multiplyPlain(a[b][i], encodedWeights[i][j], prod);
+                        evaluator.multiplyPlain(a[b][i], w[i][j], prod);
                         if (i==0) outVecs[j] = std::move(prod);
                         else {
                             evaluator.addInplace(outVecs[j], prod);
@@ -333,20 +346,21 @@ namespace LinearHelper {
             return ret;
         }
 
-        Cipher2d matmulCipher(const troyn::Evaluator& evaluator, const Cipher2d& a, const Cipher2d& encodedWeights) {
-            size_t width = outputDims;
-            size_t w = blockWidth;
-            size_t outputVectorCount = ceilDiv(width, w);
-            Cipher2d ret; ret.data.reserve(batchSize);
-            if (a.data.size() != batchSize) {
+        Cipher2d matmulCipher(const troyn::Evaluator& evaluator, const Cipher2d& a, const Cipher2d& w) {
+            Cipher2d ret; ret.data.reserve(ceilDiv(batchSize, batchBlock));
+            size_t outputVectorCount = ceilDiv(outputDims, outputBlock);
+            if (a.data.size() != ceilDiv(batchSize, batchBlock)) {
                 throw std::invalid_argument("Input batchsize incorrect.");
             }
-            for (size_t b = 0; b < batchSize; b++) {
+            if (w.data.size() != ceilDiv(inputDims, inputBlock)) {
+                throw std::invalid_argument("Weight input dimension incorrect.");
+            }
+            for (size_t b = 0; b < ceilDiv(batchSize, batchBlock); b++) {
                 std::vector<Ciphertext> outVecs(outputVectorCount);
-                for (size_t i = 0; i < encodedWeights.data.size(); i++) {
-                    for (size_t j = 0; j < encodedWeights[i].size(); j++) {
+                for (size_t i = 0; i < w.data.size(); i++) {
+                    for (size_t j = 0; j < w[i].size(); j++) {
                         Ciphertext prod;
-                        evaluator.multiply(a[b][i], encodedWeights[i][j], prod);
+                        evaluator.multiply(a[b][i], w[i][j], prod);
                         if (i==0) outVecs[j] = std::move(prod);
                         else {
                             evaluator.addInplace(outVecs[j], prod);
@@ -358,20 +372,21 @@ namespace LinearHelper {
             return ret;
         }
 
-        Cipher2d matmulReverse(const troyn::Evaluator& evaluator, const Plain2d& a, const Cipher2d& encodedWeights) {
-            size_t width = outputDims;
-            size_t w = blockWidth;
-            size_t outputVectorCount = ceilDiv(width, w);
-            Cipher2d ret; ret.data.reserve(batchSize);
-            if (a.data.size() != batchSize) {
+        Cipher2d matmulReverse(const troyn::Evaluator& evaluator, const Plain2d& a, const Cipher2d& w) {
+            Cipher2d ret; ret.data.reserve(ceilDiv(batchSize, batchBlock));
+            size_t outputVectorCount = ceilDiv(outputDims, outputBlock);
+            if (a.data.size() != ceilDiv(batchSize, batchBlock)) {
                 throw std::invalid_argument("Input batchsize incorrect.");
             }
-            for (size_t b = 0; b < batchSize; b++) {
+            if (w.data.size() != ceilDiv(inputDims, inputBlock)) {
+                throw std::invalid_argument("Weight input dimension incorrect.");
+            }
+            for (size_t b = 0; b < ceilDiv(batchSize, batchBlock); b++) {
                 std::vector<Ciphertext> outVecs(outputVectorCount);
-                for (size_t i = 0; i < encodedWeights.data.size(); i++) {
-                    for (size_t j = 0; j < encodedWeights[i].size(); j++) {
+                for (size_t i = 0; i < w.data.size(); i++) {
+                    for (size_t j = 0; j < w[i].size(); j++) {
                         Ciphertext prod;
-                        evaluator.multiplyPlain(encodedWeights[i][j], a[b][i], prod);
+                        evaluator.multiplyPlain(w[i][j], a[b][i], prod);
                         if (i==0) outVecs[j] = std::move(prod);
                         else {
                             evaluator.addInplace(outVecs[j], prod);
@@ -387,24 +402,22 @@ namespace LinearHelper {
             troyn::BatchEncoder& encoder, 
             const std::vector<uint64_t>& outputs
         ) {
-            size_t interval = blockHeight, vecsize = blockWidth;
-            if (outputs.size() != batchSize * outputDims) {
-                throw std::invalid_argument("Output size incorrect.");
-            }
-            size_t slots = slotCount;
+            std::vector<uint64_t> dec(batchSize * outputDims);
+            size_t vecsize = outputBlock;
+            Plaintext pt;
             Plain2d ret; ret.data.reserve(batchSize);
-            for (size_t i = 0; i < batchSize; i++) {
+            for (size_t li = 0; li < batchSize; li += batchBlock) {
+                size_t ui = (li + batchBlock > batchSize) ? batchSize : (li + batchBlock);
                 std::vector<Plaintext> encodedRow;
                 encodedRow.reserve(ceilDiv(outputDims, vecsize));
-                for (size_t li = 0; li < outputDims; li += vecsize) {
-                    size_t ui = (li + vecsize > outputDims) ? outputDims : (li + vecsize);
-                    std::vector<uint64_t> vec(slots);
-                    for (size_t t = li; t < ui; t++) {
-                        vec[(t-li) * interval + interval - 1] = outputs[i * outputDims + t];
-                    }
-                    Plaintext encoded;
-                    encoder.encodePolynomial(vec, encoded);
-                    encodedRow.push_back(std::move(encoded));
+                for (size_t lj = 0; lj < outputDims; lj += vecsize) {
+                    size_t uj = (lj + vecsize > outputDims) ? outputDims : (lj + vecsize);
+                    std::vector<uint64_t> buffer(slotCount, 0);
+                    for (size_t i = li; i < ui; i++)
+                        for (size_t j = lj; j < uj; j++) 
+                            buffer[(i - li) * inputBlock * outputBlock + (j - lj) * inputBlock + inputBlock - 1] = outputs[i * outputDims + j];
+                    encoder.encodePolynomial(buffer, pt);
+                    encodedRow.push_back(std::move(pt));
                 }
                 ret.data.push_back(std::move(encodedRow));
             }
@@ -417,56 +430,99 @@ namespace LinearHelper {
             const Cipher2d& outputs
         ) {
             std::vector<uint64_t> dec(batchSize * outputDims);
-            size_t interval = blockHeight, vecsize = blockWidth;
-            std::vector<uint64_t> buffer;
+            size_t vecsize = outputBlock;
+            std::vector<uint64_t> buffer(slotCount);
             Plaintext pt;
-            for (size_t i = 0; i < batchSize; i++) {
-                size_t cid = 0;
-                for (size_t li = 0; li < outputDims; li += vecsize) {
-                    size_t ui = (li + vecsize > outputDims) ? outputDims : (li + vecsize);
-                    decryptor.decrypt(outputs[i][cid], pt);
+            size_t di = 0;
+            for (size_t li = 0; li < batchSize; li += batchBlock) {
+                size_t ui = (li + batchBlock > batchSize) ? batchSize : (li + batchBlock);
+                size_t dj = 0;
+                for (size_t lj = 0; lj < outputDims; lj += vecsize) {
+                    size_t uj = (lj + vecsize > outputDims) ? outputDims : (lj + vecsize);
+                    decryptor.decrypt(outputs[di][dj], pt);
                     encoder.decodePolynomial(pt, buffer);
-                    for (size_t j = li; j < ui; j++) {
-                        dec[i * outputDims + j] = buffer[(j - li + 1) * interval - 1];
-                    }
-                    cid += 1;
+                    for (size_t i = li; i < ui; i++)
+                        for (size_t j = lj; j < uj; j++) 
+                            dec[i * outputDims + j] = buffer[(i - li) * inputBlock * outputBlock + (j - lj) * inputBlock + inputBlock - 1];
+                    dj += 1;
                 }
+                di += 1;
             }
             return dec;
         }
 
-        void serializeOutputs(troy::EvaluatorCuda &evaluator, const Cipher2d& x, std::ostream& stream) {
-            size_t interval = blockHeight;
-            size_t vecsize = blockWidth;
-            for (size_t i = 0; i < batchSize; i++) {
-                size_t cid = 0;
-                for (size_t li = 0; li < outputDims; li += vecsize) {
-                    size_t ui = li + vecsize;
-                    if (ui > outputDims) ui = outputDims;
-                    std::vector<size_t> required(ui - li);
-                    for (size_t j = li; j < ui; j++) required[j - li] = (j - li + 1) * interval - 1;
-                    x[i][cid].saveTerms(stream, evaluator, required);
-                    cid += 1;
+        void serializeEncodedWeights(const Plain2d& w, std::ostream& stream) {
+            size_t rows = w.data.size();
+            size_t cols = w[0].size();
+            if (rows == 0) throw std::invalid_argument("No rows in weight matrix.");
+            if (cols == 0) throw std::invalid_argument("No columns in weight matrix.");
+            for (size_t i=0; i<rows; i++) {
+                if (w[i].size() != cols) throw std::invalid_argument("Weight matrix is not rectangular.");
+            }
+            savet(stream, &rows);
+            savet(stream, &cols);
+            for (size_t i = 0; i < rows; i++) {
+                for (size_t j = 0; j < cols; j++) {
+                    w[i][j].save(stream);
                 }
             }
         }
 
+        Plain2d deserializeEncodedWeights(std::istream& stream) {
+            size_t rows, cols;
+            loadt(stream, &rows);
+            loadt(stream, &cols);
+            Plain2d ret; ret.data.reserve(rows);
+            for (size_t i = 0; i < rows; i++) {
+                std::vector<Plaintext> row; row.reserve(cols);
+                for (size_t j = 0; j < cols; j++) {
+                    Plaintext pt;
+                    pt.load(stream);
+                    row.push_back(std::move(pt));
+                }
+                ret.data.push_back(std::move(row));
+            }
+            return ret;
+        }
+
+        void serializeOutputs(troy::EvaluatorCuda &evaluator, const Cipher2d& x, std::ostream& stream) {
+            size_t vecsize = outputBlock;
+            Plaintext pt;
+            size_t di = 0;
+            for (size_t li = 0; li < batchSize; li += batchBlock) {
+                size_t ui = (li + batchBlock > batchSize) ? batchSize : (li + batchBlock);
+                size_t dj = 0;
+                for (size_t lj = 0; lj < outputDims; lj += vecsize) {
+                    size_t uj = (lj + vecsize > outputDims) ? outputDims : (lj + vecsize);
+                    std::vector<size_t> required((ui - li) * (uj - lj)); size_t rid = 0;
+                    for (size_t i = li; i < ui; i++)
+                        for (size_t j = lj; j < uj; j++) 
+                            required[rid++] = (i - li) * inputBlock * outputBlock + (j - lj) * inputBlock + inputBlock - 1;
+                    x[di][dj].saveTerms(stream, evaluator, required);
+                    dj += 1;
+                }
+                di += 1;
+            }
+        }
+
         Cipher2d deserializeOutputs(troy::EvaluatorCuda &evaluator, std::istream& stream) {
-            size_t interval = blockHeight;
-            size_t vecsize = blockWidth;
-            Cipher2d ret; ret.data.reserve(batchSize);
-            for (size_t i = 0; i < batchSize; i++) {
+            size_t vecsize = outputBlock;
+            Plaintext pt;
+            Cipher2d ret; ret.data.reserve(ceilDiv(batchSize, batchBlock));
+            for (size_t li = 0; li < batchSize; li += batchBlock) {
+                size_t ui = (li + batchBlock > batchSize) ? batchSize : (li + batchBlock);
                 std::vector<Ciphertext> row; row.reserve(ceilDiv(outputDims, vecsize));
-                for (size_t li = 0; li < outputDims; li += vecsize) {
-                    size_t ui = li + vecsize;
-                    if (ui > outputDims) ui = outputDims;
-                    std::vector<size_t> required(ui - li);
-                    for (size_t j = li; j < ui; j++) required[j - li] = (j - li + 1) * interval - 1;
+                for (size_t lj = 0; lj < outputDims; lj += vecsize) {
+                    size_t uj = (lj + vecsize > outputDims) ? outputDims : (lj + vecsize);
+                    std::vector<size_t> required((ui - li) * (uj - lj)); size_t rid = 0;
+                    for (size_t i = li; i < ui; i++)
+                        for (size_t j = lj; j < uj; j++) 
+                            required[rid++] = (i - li) * inputBlock * outputBlock + (j - lj) * inputBlock + inputBlock - 1;
                     Ciphertext c;
                     c.loadTerms(stream, evaluator, required);
-                    row.push_back(c);
+                    row.push_back(std::move(c));
                 }
-                ret.data.push_back(row);
+                ret.data.push_back(std::move(row));
             }
             return ret;
         }

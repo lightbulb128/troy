@@ -58,6 +58,7 @@ class LinearTest {
     PublicKey pk;
     GaloisKeys gk;
     KeyGenerator* keygen;
+    EncryptionParameters parms;
 
     vector<parms_id_type> parmIDs;
 
@@ -137,7 +138,7 @@ public:
         slotCount = polyModulusDegree;
         this->dataBound = dataBound;
         this->delta = scale;
-        EncryptionParameters parms(scheme_type::bfv);
+        parms = EncryptionParameters(scheme_type::bfv);
         parms.set_poly_modulus_degree(polyModulusDegree);
         parms.set_plain_modulus(plainModulus);
         modulus = plainModulus;
@@ -257,6 +258,76 @@ public:
         
     }
 
+
+
+    vector<uint64_t> randomVector(size_t count = 0, uint64_t data_bound = 0) {
+        if (count == 0) count = slotCount;
+        if (data_bound == 0) data_bound = dataBound;
+        vector<uint64_t> input(count, 0.0);
+        for (size_t i = 0; i < count; i++)
+        {
+            input[i] = ((((uint64_t)(rand())) << 32) + ((uint64_t)(rand()))) % data_bound;
+        }
+        return input;
+    }
+
+
+
+    void testMatmulInts(size_t batchSize, size_t inputDims, size_t outputDims) {
+        
+        auto mod = parms.plain_modulus().value();
+        auto w = randomVector(inputDims * outputDims, mod);
+        auto x = randomVector(inputDims * batchSize, mod);
+        auto s = randomVector(batchSize * outputDims, mod);
+        auto lastParmsID = context->last_parms_id();
+
+        // initialize helper
+        LinearHelperSEAL::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount);
+        // printf("Matmul helper created\n");
+
+        auto wEncoded = helper.encodeWeights(w);
+
+        // interaction
+        auto timer = Timer();
+        auto t = timer.registerTimer("Matmul"); timer.tick(t);
+        auto xEncoded = helper.encodeInputs(x);
+        auto xEnc = xEncoded.encrypt(*encryptor);
+        auto yEnc = helper.matmul(*evaluator, xEnc, wEncoded);  
+        yEnc.modSwitchToNext(*evaluator); 
+        // printf("Matmul done\n");
+
+        auto yDec = helper.decryptOutputs(*decryptor, yEnc);
+        timer.tock(t);
+        printTimer(timer.gather());
+
+        // printf("Decrypted\n");
+        
+        // plaintext computation
+        vector<uint64_t> y(batchSize * outputDims, 0);
+        for (size_t i = 0; i < batchSize; i++) {
+            for (size_t j = 0; j < inputDims; j++) {
+                for (size_t k = 0; k < outputDims; k++) {
+                    y[i * outputDims + k] += x[i * inputDims + j] * w[j * outputDims + k];
+                    y[i * outputDims + k] %= mod;
+                    
+                }
+            }
+        }
+
+        // printVector(y);
+        // printVector(yDec);
+
+        // comparison
+        uint64_t diff = 0;
+        for (size_t i = 0; i < batchSize * outputDims; i++) {
+            uint64_t d = std::abs<long long>(y[i] - yDec[i]);
+            if (d > diff) diff = d;
+        }
+        std::cout << "Difference = " << diff << std::endl;
+        
+    }
+
+
     void testConv2d(size_t batchSize, size_t inputChannels, size_t outputChannels, size_t imageHeight, size_t imageWidth, size_t kernelHeight, size_t kernelWidth) {
         
         // generate data
@@ -341,8 +412,9 @@ public:
 
 int main() {
     srand(0);
-    LinearTest test(4096, {60, 49}, 16, 1ul<<41, 1ul<<12);
+    LinearTest test(8192, {60, 60, 60}, 16, 1ul<<41, 1ul<<12);
     printf("Setup\n");
-    // test.testMatmulInts(2, 2, 2);
-    test.testConv2d(1, 64, 256, 56, 56, 3,3);
+    // test.testMatmulInts(4, 6, 8);
+    test.testMatmulInts(1, 2048, 1001);
+    // test.testConv2d(1, 64, 256, 56, 56, 3,3);
 }
