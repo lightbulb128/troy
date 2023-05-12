@@ -228,11 +228,11 @@ namespace LinearHelper {
 
         Plaintext encodeWeightSmall(
             troyn::BatchEncoder& encoder,
-            const std::vector<uint64_t>& weights,
+            const uint64_t* weights,
             size_t li, size_t ui, size_t lj, size_t uj
         ) {
             size_t slots = slotCount;
-            std::vector<uint64_t> vec(slots, 0);
+            std::vector<uint64_t> vec(inputBlock * outputBlock, 0);
             for (size_t j = lj; j < uj; j++) {
                 for (size_t i = li; i < ui; i++) {
                     size_t r = (j-lj) * inputBlock + inputBlock - (i-li) - 1;
@@ -258,11 +258,11 @@ namespace LinearHelper {
 
         Plain2d encodeWeights(
             troyn::BatchEncoder& encoder,
-            const std::vector<uint64_t>& weights
+            const uint64_t* weights
         ) {
-            if (weights.size() != inputDims * outputDims) {
-                throw std::invalid_argument("Weight size incorrect.");
-            }
+            // if (weights.size() != inputDims * outputDims) {
+            //     throw std::invalid_argument("Weight size incorrect.");
+            // }
             size_t height = inputDims, width = outputDims;
             size_t h = inputBlock, w = outputBlock;
             Plain2d encodedWeights;
@@ -284,11 +284,11 @@ namespace LinearHelper {
 
         Plain2d encodeInputs(
             troyn::BatchEncoder& encoder,
-            const std::vector<uint64_t>& inputs
+            const uint64_t* inputs
         ) {
-            if (inputs.size() != inputDims * batchSize) {
-                throw std::invalid_argument("Input size incorrect.");
-            }
+            // if (inputs.size() != inputDims * batchSize) {
+            //     throw std::invalid_argument("Input size incorrect.");
+            // }
             size_t vecsize = inputBlock;
             Plain2d ret;
             ret.data.reserve(batchSize);
@@ -314,7 +314,7 @@ namespace LinearHelper {
         Cipher2d encryptInputs(
             const troyn::Encryptor& encryptor,
             troyn::BatchEncoder& encoder, 
-            const std::vector<uint64_t>& inputs
+            const uint64_t* inputs
         ) {
             Plain2d plain = encodeInputs(encoder, inputs);
             return plain.encrypt(encryptor);
@@ -400,7 +400,7 @@ namespace LinearHelper {
 
         Plain2d encodeOutputs(
             troyn::BatchEncoder& encoder, 
-            const std::vector<uint64_t>& outputs
+            const uint64_t* outputs
         ) {
             std::vector<uint64_t> dec(batchSize * outputDims);
             size_t vecsize = outputBlock;

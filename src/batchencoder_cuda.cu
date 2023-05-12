@@ -133,14 +133,14 @@ namespace troy {
             throw invalid_argument("values_matrix size is too large");
         }
         // Set destination to full size
-        destination.resize(slots_);
+        destination.resize(values_matrix_size);
         destination.parmsID() = parmsIDZero;
         
-        HostArray<uint64_t> vs(slots_);
+        HostArray<uint64_t> vs(values_matrix_size);
         for (size_t i = 0; i < values_matrix_size; i++) vs[i] = values[i] % modulus;
-        for (size_t i = values_matrix_size; i < slots_; i++) vs[i] = 0;
+        // for (size_t i = values_matrix_size; i < slots_; i++) vs[i] = 0;
 
-        KernelProvider::copy(destination.data(), vs.get(), slots_);
+        KernelProvider::copy(destination.data(), vs.get(), values_matrix_size);
     }
 
 

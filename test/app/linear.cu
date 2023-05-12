@@ -294,12 +294,14 @@ public:
         LinearHelper::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount);
         // printf("Matmul helper created\n");
 
-        auto wEncoded = helper.encodeWeights(*encoder, w);
+        auto wEncoded = helper.encodeWeights(*encoder, w.data());
+        
+        std::cout << "weight plaintext coeffcount = " << wEncoded[0][0].coeffCount() << std::endl;
 
         // interaction
         auto timer = Timer();
         auto t = timer.registerTimer("Matmul"); timer.tick(t);
-        auto xEncoded = helper.encodeInputs(*encoder, x);
+        auto xEncoded = helper.encodeInputs(*encoder, x.data());
         auto xEnc = xEncoded.encrypt(*encryptor);
         auto yEnc = helper.matmul(*evaluator, xEnc, wEncoded);  
         yEnc.modSwitchToNext(*evaluator); 
@@ -423,6 +425,6 @@ int main() {
     LinearTest test(8192, {60, 60, 60}, 16, 1ul<<41, 1ul<<12);
     printf("Setup\n");
     // test.testMatmulInts(4, 6, 8);
-    test.testMatmulInts(1, 2048, 1001);
+    test.testMatmulInts(128, 2048, 1001);
     // test.testConv2d(1, 64, 256, 56, 56, 3, 3);
 }

@@ -69,6 +69,12 @@ std::vector<uint64_t> getVectorFromBuffer(py::array_t<uint64_t>& values) {
     return vec;
 }
 
+uint64_t* getPtrFromBuffer(py::array_t<uint64_t>& values) {
+    py::buffer_info buf = values.request();
+    uint64_t *ptr = (uint64_t *)buf.ptr;
+    return ptr;
+}
+
 std::vector<std::complex<double>> getVectorFromBuffer(py::array_t<std::complex<double>>& values) {
     py::buffer_info buf = values.request();
     std::complex<double> *ptr = (std::complex<double> *)buf.ptr;
@@ -798,13 +804,13 @@ PYBIND11_MODULE(pytroy, m) {
     py::class_<MatmulHelper>(m, "MatmulHelper")
         .def(py::init<size_t, size_t, size_t, size_t>())
         .def("encode_weights", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> weights){
-            return self.encodeWeights(encoder, getVectorFromBuffer(weights));
+            return self.encodeWeights(encoder, getPtrFromBuffer(weights));
         })
         .def("encode_inputs", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> inputs){
-            return self.encodeInputs(encoder, getVectorFromBuffer(inputs));
+            return self.encodeInputs(encoder, getPtrFromBuffer(inputs));
         })
         .def("encrypt_inputs", [](MatmulHelper& self, const Encryptor& encryptor, BatchEncoder& encoder, py::array_t<uint64_t> inputs){
-            return self.encryptInputs(encryptor, encoder, getVectorFromBuffer(inputs));
+            return self.encryptInputs(encryptor, encoder, getPtrFromBuffer(inputs));
         })
         .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Cipher2d& a, const Plain2d& weights){
             return self.matmul(evaluator, a, weights);
@@ -816,7 +822,7 @@ PYBIND11_MODULE(pytroy, m) {
             return self.matmulReverse(evaluator, a, weights);
         })
         .def("encode_outputs", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> outputs){
-            return self.encodeOutputs(encoder, getVectorFromBuffer(outputs));
+            return self.encodeOutputs(encoder, getPtrFromBuffer(outputs));
         })
         .def("decrypt_outputs", [](MatmulHelper& self, BatchEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
             return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
