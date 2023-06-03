@@ -417,6 +417,143 @@ public:
         
     }
 
+
+
+    void testConv2dInt(size_t batchSize, size_t inputChannels, size_t outputChannels, size_t imageHeight, size_t imageWidth, size_t kernelHeight, size_t kernelWidth) {
+        
+        // generate data
+        auto weights = randomVector(inputChannels * outputChannels * kernelHeight * kernelWidth);
+        auto x = randomVector(batchSize * inputChannels * imageHeight * imageWidth);
+        size_t yh = imageHeight - kernelHeight + 1, yw = imageWidth - kernelWidth + 1;
+        vector<uint64_t> s = randomVector(batchSize * outputChannels * yh * yw);
+
+        // weights = {
+        //     1, 2, 3, 4, 5, 6, 7, 8, 9, 
+        // };
+
+        // x = {
+        //      1, 2, 3, 0, 0,
+        //      6, 7, 8, 0, 0,
+        //     11,12,13, 0, 0,
+        //      0, 0, 0, 0, 0,
+        //      0, 0, 0, 0, 0,
+        //     11,12,13, 0, 0,
+        //      1, 2, 3, 0, 0,
+        //      6, 7, 8, 0, 0,
+        //      0, 0, 0, 0, 0,
+        //      0, 0, 0, 0, 0,
+        // };
+
+        auto lastParmsID = context->lastParmsID();
+        auto mod = parms.plainModulus().value();
+
+        // initialize helper
+        std::cout << "Creating helper" << std::endl;
+        LinearHelper::Conv2dHelper helper(batchSize, imageHeight, imageWidth, kernelHeight, kernelWidth, inputChannels, outputChannels, slotCount);
+        std::cout << "Helper created" << std::endl;
+        auto encodedWeights = helper.encodeWeights(*encoder, weights);
+        std::cout << "Weights encoded" << std::endl;
+
+        auto sEncoded = helper.encodeOutputs(*encoder, s);
+
+        // for (size_t i = 0; i < encodedWeights.data.size(); i++) {
+        //     for (size_t j = 0; j < encodedWeights.data[i].size(); j++) {
+        //         std::cout << "wEnc[" << i << "][" << j << "] = ";
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(encodedWeights.data[i][j], v); 
+        //         printVector(v, 50);
+        //     }
+        // }
+
+        auto tim = Timer();
+        tim.registerTimer();
+        tim.tick();
+        // interaction
+        auto xEnc = helper.encryptInputs(*encryptor, *encoder, x);
+
+        // for (size_t i = 0; i < xEnc.data.size(); i++) {
+        //     for (size_t j = 0; j < xEnc.data[i].size(); j++) {
+        //         std::cout << "xEnc[" << i << "][" << j << "] = ";
+        //         Plaintext p; decryptor->decrypt(xEnc.data[i][j], p);
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(p, v); 
+        //         printVector(v, 50);
+        //     }
+        // }
+
+        { // serialize
+            ostringstream sout; xEnc.save(sout);
+            auto p = sout.str(); std::cout << "xEnc length = " << p.size() << std::endl;
+            istringstream sin(p); xEnc = LinearHelper::Cipher2d();
+            xEnc.load(sin, *context);
+        }
+
+        auto yEnc = helper.conv2d(*evaluator, xEnc, encodedWeights);
+        printf("yEnc.size() = %lu, yEnc.data[0].size() = %lu\n", yEnc.data.size(), yEnc.data[0].size());
+        printf("sEnc.size() = %lu, sEnc.data[0].size() = %lu\n", sEncoded.data.size(), sEncoded.data[0].size());
+        yEnc.addPlainInplace(*evaluator, sEncoded);
+        
+        { // serialize
+            ostringstream sout; helper.serializeOutputs(*evaluator, yEnc, sout);
+            auto p = sout.str(); std::cout << "yEnc length = " << p.size() << std::endl;
+            istringstream sin(p); 
+            yEnc = helper.deserializeOutputs(*evaluator, sin);
+        }
+
+        // for (size_t i = 0; i < yEnc.data.size(); i++) {
+        //     for (size_t j = 0; j < yEnc.data[i].size(); j++) {
+        //         std::cout << "yEnc[" << i << "][" << j << "] = ";
+        //         Plaintext p; decryptor->decrypt(yEnc.data[i][j], p);
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(p, v); 
+        //         printVector(v, 50);
+        //     }
+        // }
+
+        // dec
+        auto yDec = helper.decryptOutputs(*encoder, *decryptor, yEnc);
+        // std::cout << "yDec = ";
+        // printVector(yDec, 50);
+        tim.tock();
+
+        printTimer(tim.gather());
+
+        printf("Plain...\n");
+        
+        // plaintext computation
+        vector<uint64_t> y(batchSize * outputChannels * yh * yw, 0);
+        for (size_t b = 0; b < batchSize; b++) {
+            for (size_t oc = 0; oc < outputChannels; oc++) {
+                for (size_t yi = 0; yi < yh; yi++) {
+                    for (size_t yj = 0; yj < yw; yj++) {
+                        uint64_t element = s[((b * outputChannels + oc) * yh + yi) * yw + yj];
+                        for (size_t ic = 0; ic < inputChannels; ic++) {
+                            for (size_t xi = yi; xi < yi + kernelHeight; xi++) {
+                                for (size_t xj = yj; xj < yj + kernelWidth; xj++) {
+                                    size_t xIndex = ((b * inputChannels + ic) * imageHeight + xi) * imageWidth + xj;
+                                    size_t wIndex = ((oc * inputChannels + ic) * kernelHeight + (xi - yi)) * kernelWidth + (xj - yj);
+                                    element += (x[xIndex] * weights[wIndex]) % mod;
+                                }
+                            }
+                        }
+                        y[((b * outputChannels + oc) * yh + yi) * yw + yj] = element;
+                    }
+                }
+            }
+        }
+
+        // printVector(y);
+        // printVector(yDec);
+        // std::cout << "y = ";
+        // printVector(y, 50);
+
+        // comparison
+        uint64_t diff = 0;
+        for (size_t i = 0; i < y.size(); i++) {
+            uint64_t d = std::abs<long long>(y[i] - yDec[i]);
+            if (d > diff) diff = d;
+        }
+        std::cout << "Difference = " << diff << std::endl;
+        
+    }
+
 };
 
 int main() {
@@ -425,6 +562,7 @@ int main() {
     LinearTest test(8192, {60, 60, 60}, 16, 1ul<<41, 1ul<<12);
     printf("Setup\n");
     // test.testMatmulInts(4, 6, 8);
-    test.testMatmulInts(128, 2048, 1001);
+    // test.testMatmulInts(128, 2048, 1001);
     // test.testConv2d(1, 64, 256, 56, 56, 3, 3);
+    test.testConv2dInt(4, 64, 256, 56, 56, 3, 3);
 }

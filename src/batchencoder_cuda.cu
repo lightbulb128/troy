@@ -265,8 +265,9 @@ namespace troy {
     }
 
     void BatchEncoderCuda::decodePolynomial(const PlaintextCuda& plain, std::vector<std::uint64_t>& destination) const {
-        destination.resize(slots_);
-        KernelProvider::retrieve(destination.data(), plain.data(), slots_);
+        size_t plain_coeff_count = min(plain.coeffCount(), slots_);
+        destination.resize(plain_coeff_count);
+        KernelProvider::retrieve(destination.data(), plain.data(), plain_coeff_count);
     }
 
     void BatchEncoderCuda::decodePolynomial(const PlaintextCuda& plain, std::vector<std::int64_t>& destination) const {

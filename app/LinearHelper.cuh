@@ -538,65 +538,10 @@ namespace LinearHelper {
         size_t blockHeight, blockWidth, kernelHeight, kernelWidth;
         size_t imageHeight, imageWidth;
         size_t inputChannels, outputChannels;
+        size_t blockBatch, blockInputChannels, blockOutputChannels;
         size_t slotCount;
-        bool blocked;
 
     public:
-
-
-
-        // class Timer {
-        // public:
-        //     std::vector<timeval> times;
-        //     std::vector<double> accumulated; // ms
-        //     std::vector<std::string> names;
-        //     Timer() {}
-        //     long registerTimer(std::string name = "") {
-        //         times.push_back(timeval()); 
-        //         accumulated.push_back(0);
-        //         int ret = times.size() - 1;
-        //         names.push_back(name);
-        //         return ret;
-        //     }
-        //     void tick(long i = 0) {
-        //         if (times.size() < 1) registerTimer();
-        //         assert(i < times.size());
-        //         gettimeofday(&times[i], 0);
-        //     }
-        //     double tock(long i = 0) {
-        //         assert(i < times.size());
-        //         timeval s; gettimeofday(&s, 0);
-        //         auto timeElapsed = (s.tv_sec - times[i].tv_sec) * 1000.0;
-        //         timeElapsed += (s.tv_usec - times[i].tv_usec) / 1000.0;
-        //         accumulated[i] += timeElapsed;
-        //         return accumulated[i];
-        //     }
-            
-        //     void clear() {
-        //         times.clear();
-        //         accumulated.clear();
-        //         names.clear();
-        //     }
-
-        //     std::map<std::string, double> gather(double divisor = 1) {
-        //         std::map<std::string, double> p;
-        //         for (long i=0; i<times.size(); i++) {
-        //             p[names[i]] = accumulated[i] / divisor;
-        //         }
-        //         clear();
-        //         return p;
-        //     }
-        // };
-
-        
-        // void printTimer(std::map<std::string, double> r) {
-        //     for (auto& p: r) {
-        //         std::cout << std::setw(25) << std::right << p.first << ":";
-        //         std::cout << std::setw(10) << std::right << std::fixed << std::setprecision(3)
-        //             << p.second << std::endl;
-        //     }
-        // }
-
 
         Conv2dHelper(
             size_t batchSize, 
@@ -614,14 +559,63 @@ namespace LinearHelper {
             outputChannels(outputChannels),
             slotCount(slotCount)
         {
-            size_t maxSize = std::sqrt(slotCount);
-            if (imageHeight > maxSize || imageWidth > maxSize) {
-                blockHeight = maxSize; blockWidth = maxSize;
-                blocked = true;
-            } else {
-                blockHeight = imageHeight; blockWidth = imageWidth;
-                blocked = false;
+            size_t best = 2147483647;
+            // find b, h, w, ci, co, such that minimizes (ceil(B/b)*ceil((H-kh+1)/(h-kh+1))*ceil((W-kh+1)/(h-kh+1))*(ceil(Ci/ci)+ceil(Co/co)))
+            size_t bestB, bestH, bestW, bestCi, bestCo;
+            for (size_t b = batchSize; b >= 1; b--) {
+                size_t upper = slotCount / b;
+                for (size_t h = std::min(imageHeight, upper); h >= kernelHeight; h--) {
+                    size_t upper = slotCount / b / h;
+                    for (size_t w = std::min(imageWidth, upper); w >= kernelWidth; w--) {
+                        size_t upper = slotCount / b / h / w;
+                        for (size_t co = std::min(outputChannels, upper); co >= 1; co--) {
+                            size_t ci = slotCount / b / h / w / co;
+                            ci = std::min(ci, inputChannels);
+                            if (ci == 0) continue;
+                            size_t current = (
+                                ceilDiv(batchSize, b) * 
+                                ceilDiv(imageHeight - kernelHeight + 1, h - kernelHeight + 1) * 
+                                ceilDiv(imageWidth - kernelWidth + 1, w - kernelWidth + 1) * 
+                                (ceilDiv(inputChannels, ci) + ceilDiv(outputChannels, co))
+                            );
+                            if (current < best) {
+                                best = current;
+                                bestB = b;
+                                bestH = h;
+                                bestW = w;
+                                bestCi = ci;
+                                bestCo = co;
+                            }
+                        }
+                    }
+                }
             }
+            blockBatch = bestB;
+            blockHeight = bestH;
+            blockWidth = bestW;
+            blockInputChannels = bestCi;
+            blockOutputChannels = bestCo;
+            // printf("Conv2dHelper: blockBatch = %zu, blockHeight = %zu, blockWidth = %zu, blockInputChannels = %zu, blockOutputChannels = %zu\n", blockBatch, blockHeight, blockWidth, blockInputChannels, blockOutputChannels);
+        }
+
+
+
+        void printVector(const std::vector<uint64_t>& r) {
+            std::cout << "[";
+            for (size_t i = 0; i < r.size(); i++) {
+                if (i!=0) std::cout << ", ";
+                std::cout << r[i];
+            }
+            std::cout << "]" << std::endl;
+        }
+
+        void printVector(const std::vector<uint64_t>& r, size_t terms) {
+            std::cout << "[";
+            for (size_t i = 0; i < std::min(r.size(), terms); i++) {
+                if (i!=0) std::cout << ", ";
+                std::cout << r[i];
+            }
+            std::cout << "]" << std::endl;
         }
 
         Plain2d encodeWeights(
@@ -632,24 +626,25 @@ namespace LinearHelper {
                 throw std::invalid_argument("Weights shape incorrect.");
             }
             size_t blockSize = blockHeight * blockWidth;
-            size_t channelSlots = (slotCount) / blockSize;
             Plain2d encodedWeights;
             encodedWeights.data.clear();
-            encodedWeights.data.reserve(outputChannels);
-            for (size_t oc = 0; oc < outputChannels; oc++) {
+            encodedWeights.data.reserve(ceilDiv(outputChannels, blockOutputChannels));
+            for (size_t loc = 0; loc < outputChannels; loc += blockOutputChannels) {
+                size_t uoc = std::min(loc + blockOutputChannels, outputChannels);
                 std::vector<Plaintext> currentChannel;
-                currentChannel.reserve(ceilDiv(inputChannels, channelSlots));
-                for (size_t lic = 0; lic < inputChannels; lic += channelSlots) {
-                    size_t uic = lic + channelSlots;
-                    if (uic > inputChannels) uic = inputChannels;
-                    std::vector<uint64_t> spread(channelSlots * blockHeight * blockWidth, 0);
-                    for (size_t j = lic; j < uic; j++) {
-                        for (size_t ki = 0; ki < kernelHeight; ki++) {
-                            for (size_t kj = 0; kj < kernelWidth; kj++) {
-                                // spread[channel_slots - 1 - (j - lic), :k_h, :k_w] = np.flip(weight[oc, j])
-                                size_t spreadIndex = (channelSlots - 1 - (j - lic)) * blockSize + ki * blockWidth + kj;
-                                size_t weightIndex = ((oc * inputChannels) + j) * (kernelHeight * kernelWidth) + (kernelHeight - ki - 1) * kernelWidth + (kernelWidth - kj - 1);
-                                spread[spreadIndex] = weights[weightIndex];
+                currentChannel.reserve(ceilDiv(inputChannels, blockInputChannels));
+                for (size_t lic = 0; lic < inputChannels; lic += blockInputChannels) {
+                    size_t uic = std::min(lic + blockInputChannels, inputChannels);
+                    std::vector<uint64_t> spread(blockInputChannels * blockOutputChannels * blockHeight * blockWidth, 0);
+                    for (size_t oc = loc; oc < uoc; oc++) {
+                        for (size_t ic = lic; ic < uic; ic++) {
+                            for (size_t ki = 0; ki < kernelHeight; ki++) {
+                                for (size_t kj = 0; kj < kernelWidth; kj++) {
+                                    // spread[channel_slots - 1 - (j - lic), :k_h, :k_w] = np.flip(weight[oc, j])
+                                    size_t spreadIndex = (oc - loc) * blockInputChannels * blockSize + (blockInputChannels - 1 - (ic - lic)) * blockSize + ki * blockWidth + kj;
+                                    size_t weightIndex = ((oc * inputChannels) + ic) * (kernelHeight * kernelWidth) + (kernelHeight - ki - 1) * kernelWidth + (kernelWidth - kj - 1);
+                                    spread[spreadIndex] = weights[weightIndex];
+                                }
                             }
                         }
                     }
@@ -662,14 +657,10 @@ namespace LinearHelper {
         }
 
         size_t getTotalBatchSize() {
-            if (!blocked) { // copy the elements
-                return batchSize;
-            } else { // split x into smaller blocks
-                size_t kh = kernelHeight - 1, kw = kernelWidth - 1;
-                size_t sh = ceilDiv(imageHeight - kh, blockHeight - kh);
-                size_t sw = ceilDiv(imageWidth - kw, blockWidth - kw);
-                return batchSize * sh * sw;
-            }
+            size_t kh = kernelHeight - 1, kw = kernelWidth - 1;
+            size_t sh = ceilDiv(imageHeight - kh, blockHeight - kh);
+            size_t sw = ceilDiv(imageWidth - kw, blockWidth - kw);
+            return ceilDiv(batchSize, blockBatch) * sh * sw;
         }
 
         Plain2d encodeInputs(
@@ -679,66 +670,47 @@ namespace LinearHelper {
             if (inputs.size() != batchSize * inputChannels * imageHeight * imageWidth) {
                 throw std::invalid_argument("Inputs shape incorrect.");
             }
-            size_t totalBatchSize = getTotalBatchSize();
-            std::vector<uint64_t> splitInputs;
-            if (!blocked) { // copy the elements
-                splitInputs = inputs;
-            } else { // split x into smaller blocks
-                size_t kh = kernelHeight - 1, kw = kernelWidth - 1;
-                size_t sh = ceilDiv(imageHeight - kh, blockHeight - kh);
-                size_t sw = ceilDiv(imageWidth - kw, blockWidth - kw);
-                assert(totalBatchSize == batchSize * sh * sw);
-                splitInputs.resize(batchSize * sh * sw * inputChannels * blockHeight * blockWidth, 0);
-                size_t blockSize = blockHeight * blockWidth;
-                size_t imageSize = imageHeight * imageWidth;
-                for (size_t b = 0; b < batchSize; b++) {
-                    for (size_t i = 0; i < sh; i++) {
-                        for (size_t j = 0; j < sw; j++) {
-                            size_t bid = b * sh * sw + i * sw + j;
-                            size_t si = i * (blockHeight - kh);
-                            size_t sj = j * (blockWidth - kw);
-                            size_t ui = (si + blockHeight >= imageHeight) 
-                                ? imageHeight : (si + blockHeight);
-                            size_t uj = (sj + blockWidth >= imageWidth)
-                                ? imageWidth : (sj + blockWidth);
-                            // split_x[b_id, :, :ui-si, :uj-sj] = x[b, :, si:ui, sj:uj]
-                            for (size_t tc = 0; tc < inputChannels; tc++) {
-                                for (size_t ti = 0; ti < ui-si; ti++) {
-                                    for (size_t tj = 0; tj < uj-sj; tj++) {
-                                        size_t splitIndex = bid * blockSize * inputChannels + tc * blockSize + ti * blockWidth + tj;
-                                        size_t originalIndex = b * imageSize * inputChannels + tc * imageSize + (si + ti) * imageWidth + (sj + tj);
-                                        splitInputs[splitIndex] = inputs[originalIndex];
+            size_t kh = kernelHeight - 1, kw = kernelWidth - 1;
+            size_t sh = ceilDiv(imageHeight - kh, blockHeight - kh);
+            size_t sw = ceilDiv(imageWidth - kw, blockWidth - kw);
+            size_t imageSize = imageHeight * imageWidth;
+            size_t blockSize = blockHeight * blockWidth;
+            size_t totalBatchSize = ceilDiv(batchSize, blockBatch) * sh * sw;
+            Plain2d ret; ret.data.reserve(totalBatchSize);
+            for (size_t lb = 0; lb < batchSize; lb += blockBatch) {
+                size_t ub = std::min(lb + blockBatch, batchSize);
+                for (size_t ih = 0; ih < sh; ih++) {
+                    for (size_t iw = 0; iw < sw; iw++) {
+                        size_t si = ih * (blockHeight - kh);
+                        size_t sj = iw * (blockWidth - kw);
+                        size_t ui = std::min(si + blockHeight, imageHeight);
+                        size_t uj = std::min(sj + blockWidth, imageWidth);
+                        std::vector<Plaintext> group; group.reserve(ceilDiv(inputChannels, blockInputChannels));
+                        for (size_t lci = 0; lci < inputChannels; lci += blockInputChannels) {
+                            size_t uci = std::min(lci + blockInputChannels, inputChannels);
+                            std::vector<uint64_t> vec(slotCount, 0);
+                            for (size_t b = 0; b < ub-lb; b++) {
+                                for (size_t tci = 0; tci < uci-lci; tci++) {
+                                    for (size_t ti = si; ti < ui; ti++) {
+                                        for (size_t tj = sj; tj < uj; tj++) {
+                                            size_t inputIndex = (lb + b) * inputChannels * imageSize + (lci + tci) * imageSize + ti * imageWidth + tj;
+                                            size_t vecIndex = b * blockInputChannels * blockOutputChannels * blockSize 
+                                                + tci * blockSize + (ti - si) * blockWidth + (tj - sj);
+                                            // printf("inputIndex: %lu, vecIndex: %lu, b=%lu, tci=%lu,ti-si=%lu, tj-sj=%ld\n", inputIndex, vecIndex, b, tci, ti-si, tj-sj);
+                                            vec[vecIndex] = inputs[inputIndex];
+                                            // printf("ok inputIndex: %lu, vecIndex: %lu\n", inputIndex, vecIndex);
+                                        }
                                     }
                                 }
                             }
+                            // printf("encode lb=%lu, ub=%lu, ih=%lu, iw=%lu, lci=%lu, uci=%lu, vecsize=%lu\n", lb, ub, ih, iw, lci, uci, vec.size());
+                            Plaintext pt; encoder.encodePolynomial(vec, pt);
+                            // printf("encode ok\n");
+                            group.push_back(std::move(pt));
                         }
+                        ret.data.push_back(std::move(group));
                     }
                 }
-            }
-            // encode inputs
-            size_t interval = blockWidth * blockHeight;
-            size_t slots = slotCount;
-            size_t channelSlots = slots / interval;
-            Plain2d ret; ret.data.reserve(totalBatchSize);
-            for (size_t b = 0; b < totalBatchSize; b++) {
-                std::vector<Plaintext> group; group.reserve(ceilDiv(inputChannels, channelSlots));
-                for (size_t c = 0; c < inputChannels; c += channelSlots) {
-                    size_t upper = c + channelSlots;
-                    if (upper > inputChannels) upper = inputChannels;
-                    std::vector<uint64_t> plain(slots, 0);
-                    for (size_t k = 0; k < upper-c; k++) {
-                        // plain[k*interval:k*interval+h*w] = sample[c+k].flatten()
-                        for (size_t i = 0; i < blockHeight; i++) {
-                            for (size_t j = 0; j < blockWidth; j++) {
-                                plain[k * interval + i * blockWidth + j] = 
-                                    splitInputs[b * inputChannels * interval + (c + k) * interval + i * blockWidth + j];
-                            }
-                        }
-                    }
-                    Plaintext pt; encoder.encodePolynomial(plain, pt);
-                    group.push_back(std::move(pt));
-                }
-                ret.data.push_back(std::move(group));
             }
             return ret;
         }
@@ -760,8 +732,9 @@ namespace LinearHelper {
             size_t totalBatchSize = getTotalBatchSize();
             Cipher2d ret; ret.data.reserve(totalBatchSize);
             for (size_t b = 0; b < totalBatchSize; b++) {
-                std::vector<Ciphertext> group; group.reserve(outputChannels);
-                for (size_t oc = 0; oc < outputChannels; oc++) {
+                size_t groupLen = ceilDiv(outputChannels, blockOutputChannels);
+                std::vector<Ciphertext> group; group.reserve(groupLen);
+                for (size_t oc = 0; oc < groupLen; oc++) {
                     Ciphertext cipher;
                     for (size_t i = 0; i < a[b].size(); i++) {
                         Ciphertext prod;
@@ -784,8 +757,9 @@ namespace LinearHelper {
             size_t totalBatchSize = getTotalBatchSize();
             Cipher2d ret; ret.data.reserve(totalBatchSize);
             for (size_t b = 0; b < totalBatchSize; b++) {
-                std::vector<Ciphertext> group; group.reserve(outputChannels);
-                for (size_t oc = 0; oc < outputChannels; oc++) {
+                size_t groupLen = ceilDiv(outputChannels, blockOutputChannels);
+                std::vector<Ciphertext> group; group.reserve(groupLen);
+                for (size_t oc = 0; oc < groupLen; oc++) {
                     Ciphertext cipher;
                     for (size_t i = 0; i < a[b].size(); i++) {
                         Ciphertext prod;
@@ -804,8 +778,9 @@ namespace LinearHelper {
             size_t totalBatchSize = getTotalBatchSize();
             Cipher2d ret; ret.data.reserve(totalBatchSize);
             for (size_t b = 0; b < totalBatchSize; b++) {
-                std::vector<Ciphertext> group; group.reserve(outputChannels);
-                for (size_t oc = 0; oc < outputChannels; oc++) {
+                size_t groupLen = ceilDiv(outputChannels, blockOutputChannels);
+                std::vector<Ciphertext> group; group.reserve(groupLen);
+                for (size_t oc = 0; oc < groupLen; oc++) {
                     Ciphertext cipher;
                     for (size_t i = 0; i < a[b].size(); i++) {
                         Ciphertext prod;
@@ -825,8 +800,7 @@ namespace LinearHelper {
             const std::vector<uint64_t>& outputs
         ) {
             size_t interval = blockWidth * blockHeight;
-            size_t channelSlots = (slotCount) / interval;
-            std::vector<uint64_t> mask(channelSlots * interval, 0);
+            std::vector<uint64_t> mask(slotCount, 0);
             auto totalBatchSize = getTotalBatchSize();
             size_t yh = blockHeight - kernelHeight + 1;
             size_t yw = blockWidth  - kernelWidth  + 1;
@@ -839,18 +813,26 @@ namespace LinearHelper {
             size_t kh = kernelHeight - 1, kw = kernelWidth - 1;
             size_t sh = ceilDiv(imageHeight - kh, blockHeight - kh);
             size_t sw = ceilDiv(imageWidth - kw, blockWidth - kw);
-            assert(totalBatchSize == batchSize * sh * sw);
-            for (size_t b = 0; b < totalBatchSize; b++) {
-                size_t ob = b / (sh * sw);
-                size_t si = (b % (sh * sw)) / sw;
-                size_t sj = b % sw;
-                std::vector<Plaintext> group; group.reserve(outputChannels);
-                for (size_t c = 0; c < outputChannels; c++) {
-                    for (size_t i = 0; i < yh; i++) {
-                        for (size_t j = 0; j < yw; j++) {
-                            size_t maskIndex = (channelSlots - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
-                            size_t originalIndex = ob * outputChannels * oyh * oyw + c * oyh * oyw + (si * yh + i) * oyw + (sj * yw + j);
-                            if (si * yh + i < oyh && sj * yw + j < oyw)  mask[maskIndex] = outputs[originalIndex];
+            assert(totalBatchSize == ceilDiv(batchSize, blockBatch) * sh * sw);
+            Plaintext encoded;
+            std::vector<uint64_t> buffer;
+            for (size_t eb = 0; eb < totalBatchSize; eb++) {
+                size_t ob = eb / (sh * sw);
+                size_t si = (eb % (sh * sw)) / sw;
+                size_t sj = eb % sw;
+                size_t lb = ob * blockBatch, ub = std::min(lb + blockBatch, batchSize);
+                std::vector<Plaintext> group; group.reserve(ceilDiv(outputChannels, blockOutputChannels));
+                for (size_t lc = 0; lc < outputChannels; lc += blockOutputChannels) {
+                    size_t uc = std::min(lc + blockOutputChannels, outputChannels);
+                    for (size_t b = lb; b < ub; b++) {
+                        for (size_t c = lc; c < uc; c++) {
+                            for (size_t i = 0; i < yh; i++) {
+                                for (size_t j = 0; j < yw; j++) {
+                                    size_t maskIndex = ((b - lb) * blockInputChannels * blockOutputChannels + (c - lc) * blockInputChannels + blockInputChannels - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
+                                    size_t originalIndex = b * outputChannels * oyh * oyw + c * oyh * oyw + (si * yh + i) * oyw + (sj * yw + j);
+                                    if (si * yh + i < oyh && sj * yw + j < oyw)  mask[maskIndex] = outputs[originalIndex];
+                                }
+                            }
                         }
                     }
                     Plaintext encoded; encoder.encodePolynomial(mask, encoded);
@@ -861,78 +843,45 @@ namespace LinearHelper {
             return ret;
         }
 
-        void addPlainInplace(
-            const troyn::Evaluator& evaluator, 
-            Cipher2d& y, const Plain2d& x
-        ) {
-            if (y.data.size() != x.data.size()) {
-                throw std::invalid_argument("Size incorrect.");
-            }
-            size_t n = y.data.size();
-            for (size_t i = 0; i < n; i++) {
-                if (y[i].size() != x[i].size()) {
-                    throw std::invalid_argument("Size incorrect.");
-                }
-                size_t m = y[i].size();
-                for (size_t j = 0; j < m; j++) {
-                    evaluator.addPlainInplace(y[i][j], x[i][j]);
-                }
-            }
-        }
-
-        void addInplace(
-            const troyn::Evaluator& evaluator, 
-            Cipher2d& y, const Cipher2d& x
-        ) {
-            if (y.data.size() != x.data.size()) {
-                throw std::invalid_argument("Size incorrect.");
-            }
-            size_t n = y.data.size();
-            for (size_t i = 0; i < n; i++) {
-                if (y[i].size() != x[i].size()) {
-                    throw std::invalid_argument("Size incorrect.");
-                }
-                size_t m = y[i].size();
-                for (size_t j = 0; j < m; j++) {
-                    evaluator.addInplace(y[i][j], x[i][j]);
-                }
-            }
-        }
-
-
         std::vector<uint64_t> decryptOutputs(
             troyn::BatchEncoder& encoder,
             troyn::Decryptor& decryptor,
             const Cipher2d& outputs
         ) {
             size_t interval = blockWidth * blockHeight;
-            size_t channelSlots = (slotCount) / interval;
             auto totalBatchSize = getTotalBatchSize();
             size_t yh = blockHeight - kernelHeight + 1;
             size_t yw = blockWidth  - kernelWidth  + 1;
             size_t oyh = imageHeight - kernelHeight + 1;
             size_t oyw = imageWidth - kernelWidth + 1;
-            std::vector<uint64_t> ret(batchSize * outputChannels * oyh * oyw);
+            std::vector<uint64_t> ret(batchSize * outputChannels * oyh * oyw, 0);
             size_t kh = kernelHeight - 1, kw = kernelWidth - 1;
             size_t sh = ceilDiv(imageHeight - kh, blockHeight - kh);
             size_t sw = ceilDiv(imageWidth - kw, blockWidth - kw);
-            assert(totalBatchSize == batchSize * sh * sw);
+            assert(totalBatchSize == ceilDiv(batchSize, blockBatch) * sh * sw);
             Plaintext encoded;
             std::vector<uint64_t> buffer;
-            for (size_t b = 0; b < totalBatchSize; b++) {
-                size_t ob = b / (sh * sw);
-                size_t si = (b % (sh * sw)) / sw;
-                size_t sj = b % sw;
-                std::vector<Plaintext> group; group.reserve(outputChannels);
-                for (size_t c = 0; c < outputChannels; c++) {
-                    decryptor.decrypt(outputs[b][c], encoded);
+            for (size_t eb = 0; eb < totalBatchSize; eb++) {
+                size_t ob = eb / (sh * sw);
+                size_t si = (eb % (sh * sw)) / sw;
+                size_t sj = eb % sw;
+                size_t lb = ob * blockBatch, ub = std::min(lb + blockBatch, batchSize);
+                for (size_t lc = 0; lc < outputChannels; lc += blockOutputChannels) {
+                    size_t uc = std::min(lc + blockOutputChannels, outputChannels);
+                    // printf("Decrypting block [%lu][%lu]\n", eb, lc / blockOutputChannels);
+                    decryptor.decrypt(outputs[eb][lc / blockOutputChannels], encoded);
                     encoder.decodePolynomial(encoded, buffer);
-                    for (size_t i = 0; i < yh; i++) {
-                        for (size_t j = 0; j < yw; j++) {
-                            size_t maskIndex = (channelSlots - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
-                            size_t originalIndex = ob * outputChannels * oyh * oyw + c * oyh * oyw + (si * yh + i) * oyw + (sj * yw + j);
-                            if (si * yh + i < oyh && sj * yw + j < oyw) {
-                                ret[originalIndex] = buffer[maskIndex];
+                    for (size_t b = lb; b < ub; b++) {
+                        for (size_t c = lc; c < uc; c++) {
+                            for (size_t i = 0; i < yh; i++) {
+                                for (size_t j = 0; j < yw; j++) {
+                                    size_t maskIndex = ((b - lb) * blockInputChannels * blockOutputChannels + (c - lc) * blockInputChannels + blockInputChannels - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
+                                    size_t originalIndex = b * outputChannels * oyh * oyw + c * oyh * oyw + (si * yh + i) * oyw + (sj * yw + j);
+                                    // printf("Original[%lu][%lu][%lu][%lu] <- idx[%lu]\n", b, c, si * yh + i, sj * yw + j, maskIndex);
+                                    if (si * yh + i < oyh && sj * yw + j < oyw) {
+                                        ret[originalIndex] = buffer[maskIndex];
+                                    }
+                                }
                             }
                         }
                     }
@@ -944,12 +893,26 @@ namespace LinearHelper {
         void serializeOutputs(troy::EvaluatorCuda &evaluator, const Cipher2d& x, std::ostream& stream) {
             auto totalBatchSize = getTotalBatchSize();
             size_t interval = blockWidth * blockHeight;
-            size_t channelSlots = (slotCount) / interval;
-            std::vector<size_t> required(interval);
-            size_t st = (channelSlots - 1) * interval;
-            for (size_t i = st; i < st + interval; i++) required[i-st] = i;
+            
+            size_t yh = blockHeight - kernelHeight + 1;
+            size_t yw = blockWidth  - kernelWidth  + 1;
+
+            std::vector<size_t> required;
+            required.reserve(yh * yw * blockBatch * blockOutputChannels);
+
+            for (size_t b = 0; b < blockBatch; b++) {
+                for (size_t c = 0; c < blockOutputChannels; c++) {
+                    for (size_t i = 0; i < yh; i++) {
+                        for (size_t j = 0; j < yw; j++) {
+                            size_t maskIndex = (b * blockInputChannels * blockOutputChannels + c * blockInputChannels + blockInputChannels - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
+                            required.push_back(maskIndex);
+                        }
+                    }
+                }
+            }
+
             for (size_t b = 0; b < totalBatchSize; b++) {
-                for (size_t oc = 0; oc < outputChannels; oc++) 
+                for (size_t oc = 0; oc < ceilDiv(outputChannels, blockOutputChannels); oc++) 
                     x[b][oc].saveTerms(stream, evaluator, required);
             }
         }
@@ -957,14 +920,28 @@ namespace LinearHelper {
         Cipher2d deserializeOutputs(troy::EvaluatorCuda &evaluator, std::istream& stream) {
             auto totalBatchSize = getTotalBatchSize();
             size_t interval = blockWidth * blockHeight;
-            size_t channelSlots = (slotCount) / interval;
-            std::vector<size_t> required(interval);
-            size_t st = (channelSlots - 1) * interval;
-            for (size_t i = st; i < st + interval; i++) required[i-st] = i;
+            
+            size_t yh = blockHeight - kernelHeight + 1;
+            size_t yw = blockWidth  - kernelWidth  + 1;
+
+            std::vector<size_t> required;
+            required.reserve(yh * yw * blockBatch * blockOutputChannels);
+
+            for (size_t b = 0; b < blockBatch; b++) {
+                for (size_t c = 0; c < blockOutputChannels; c++) {
+                    for (size_t i = 0; i < yh; i++) {
+                        for (size_t j = 0; j < yw; j++) {
+                            size_t maskIndex = (b * blockInputChannels * blockOutputChannels + c * blockInputChannels + blockInputChannels - 1) * interval + (blockHeight - yh + i) * blockWidth + (blockWidth - yw + j);
+                            required.push_back(maskIndex);
+                        }
+                    }
+                }
+            }
+
             Cipher2d ret; ret.data.reserve(totalBatchSize);
             for (size_t b = 0; b < totalBatchSize; b++) {
                 std::vector<Ciphertext> row(outputChannels);
-                for (size_t oc = 0; oc < outputChannels; oc++) 
+                for (size_t oc = 0; oc < ceilDiv(outputChannels, blockOutputChannels); oc++) 
                     row[oc].loadTerms(stream, evaluator, required);
                 ret.data.push_back(std::move(row));
             }
