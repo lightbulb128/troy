@@ -467,15 +467,15 @@ namespace troytest {
 
 int main() {
     std::cout << "----- CKKS -----\n";
-    troytest::TimeTestCKKS test(8192, {60, 40, 60});
+    troytest::TimeTestCKKS test(8192, {40, 40, 40, 40});
     test.testAll();
 
     std::cout << "----- BFV -----\n";
-    troytest::TimeTestBFVBGV test2(false, 8192, 59, {60, 60, 60});
+    troytest::TimeTestBFVBGV test2(false, 8192, 59, {40, 40, 40, 40});
     test2.testAll();
 
     std::cout << "----- BGV -----\n";
-    troytest::TimeTestBFVBGV test3(true, 8192, 20, {40, 40, 40});
+    troytest::TimeTestBFVBGV test3(true, 8192, 20, {40, 40, 40, 40});
     test3.testAll();
     return 0;
 }
