@@ -32,8 +32,11 @@ See `test/timetest.cu` for example.
     ./test/timetest
     cd ..
     ```
-2. Make the module for python
+3. Make the module for python
     ```
     bash makepackage.sh
     ```
     
+## Contribute
+Feel free to fork / pull request.
+Please cite this repository if you use it in your work.
