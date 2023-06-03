@@ -32,11 +32,9 @@ cp ./build/src/libtroy.so ./binder/libtroy.so
 
 echo "Copied to ./binder"
 
-echo "Need sudo"
+echo "Need sudo to install the package to /usr/lib/. To skip this step, just stop the script by Ctrl+C."
 
 sudo rm /usr/lib/libtroy.so
 sudo cp ./binder/libtroy.so   /usr/lib
 
-echo "Created soft link in /usr/lib"
-
-cp build/pytroy.cpython-38-x86_64-linux-gnu.so ~/private-training/tools/
+echo "Copied to /usr/lib"

@@ -1,6 +1,12 @@
-# seal-cuda
+# troy := seal-cuda
 
-The homomorphic encryption library implemented on GPU. Seal-cuda includes BFV, BGV, and CKKS scheme. Its implementation referred to the Microsoft SEAL library.
+The homomorphic encryption library implemented on GPU. Troy includes BFV, BGV, and CKKS schemes. Its implementation referred to the [Microsoft SEAL library](https://github.com/Microsoft/SEAL).
+For reference, this library inherently includes a CPU version of the schemes, but you can just use the GPU part by using namespace `troyn`.
+
+## Brief usage
+The interfaces (classes, methods, etc.) are basicly the same as in SEAL, but you need to initialize the CUDA kernels (`troyn::KernelProvider::initialize()`) before using any of the GPU related classes. You can just call this at the beginning of your programs.
+
+See `test/timetest.cu` for example.
 
 ## Code structures
 * `src` includes the implementation of the library. Just include `troy_cuda.cuh` and you are ready to go.
