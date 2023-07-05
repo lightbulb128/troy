@@ -802,7 +802,7 @@ PYBIND11_MODULE(pytroy, m) {
     */
     
     py::class_<MatmulHelper>(m, "MatmulHelper")
-        .def(py::init<size_t, size_t, size_t, size_t>())
+        .def(py::init<size_t, size_t, size_t, size_t, int>())
         .def("encode_weights", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> weights){
             return self.encodeWeights(encoder, getPtrFromBuffer(weights));
         })
@@ -846,7 +846,7 @@ PYBIND11_MODULE(pytroy, m) {
         ;
 
     py::class_<Conv2dHelper>(m, "Conv2dHelper")
-        .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, size_t, size_t>())
+        .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, size_t, size_t, int>())
         .def("encode_weights", [](Conv2dHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> weights){
             return self.encodeWeights(encoder, getVectorFromBuffer(weights));
         })

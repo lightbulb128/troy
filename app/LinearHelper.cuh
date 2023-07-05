@@ -202,6 +202,9 @@ namespace LinearHelper {
         size_t batchSize, inputDims, outputDims;
         size_t slotCount;
         size_t batchBlock, inputBlock, outputBlock;
+        int objective; 
+        // 0: encrypt inputs; 1: encrypt weights
+        // 2: for calculating weight gradient
 
         void determineBlock() {
             size_t bBest = 0, iBest = 0, oBest = 0;
@@ -215,7 +218,16 @@ namespace LinearHelper {
                     if (o > outputDims) o = outputDims;
                     if (i > inputDims) continue;
                     if (o < 1) continue;
-                    size_t c = bc * (ceilDiv(inputDims, i) + ceilDiv(outputDims, o));
+                    size_t c = 0;
+                    if (objective == 0) {
+                        c = bc * (ceilDiv(inputDims, i) + ceilDiv(outputDims, o));
+                    } else if (objective == 1) {
+                        c = (bc + ceilDiv(inputDims, i)) * ceilDiv(outputDims, o);
+                    } else if (objective == 2) {
+                        c = bc * inputDims + (bc + ceilDiv(inputDims, i)) * ceilDiv(outputDims, o);
+                    } else {
+                        throw std::runtime_error("MatmulHelper: invalid objective");
+                    }
                     if (c >= cBest) continue;
                     bBest = b; iBest = i; oBest = o; cBest = c;
                 }
@@ -223,7 +235,7 @@ namespace LinearHelper {
             batchBlock = bBest;
             inputBlock = iBest;
             outputBlock = oBest;
-            // printf("batchBlock=%zu inputBlock=%zu outputBlock=%zu\n", batchBlock, inputBlock, outputBlock);
+            printf("block (%zu, %zu, %zu) -> (%zu, %zu, %zu)\n", batchSize, inputDims, outputDims, batchBlock, inputBlock, outputBlock);
         }
 
         Plaintext encodeWeightSmall(
@@ -249,9 +261,9 @@ namespace LinearHelper {
 
         // Plain2d encodedWeights;
 
-        MatmulHelper(size_t batchSize, size_t inputDims, size_t outputDims, size_t slotCount):
+        MatmulHelper(size_t batchSize, size_t inputDims, size_t outputDims, size_t slotCount, int objective = 0):
             batchSize(batchSize), inputDims(inputDims), outputDims(outputDims),
-            slotCount(slotCount)
+            slotCount(slotCount), objective(objective)
         {
             determineBlock();
         }
@@ -540,6 +552,7 @@ namespace LinearHelper {
         size_t inputChannels, outputChannels;
         size_t blockBatch, blockInputChannels, blockOutputChannels;
         size_t slotCount;
+        int objective;
 
     public:
 
@@ -548,7 +561,7 @@ namespace LinearHelper {
             size_t imageHeight, size_t imageWidth, 
             size_t kernelHeight, size_t kernelWidth,
             size_t inputChannels, size_t outputChannels,
-            size_t slotCount
+            size_t slotCount, int objective = 0
         ):
             batchSize(batchSize),
             imageHeight(imageHeight), 
@@ -557,7 +570,8 @@ namespace LinearHelper {
             kernelWidth(kernelWidth),
             inputChannels(inputChannels),
             outputChannels(outputChannels),
-            slotCount(slotCount)
+            slotCount(slotCount),
+            objective(objective)
         {
             size_t best = 2147483647;
             // find b, h, w, ci, co, such that minimizes (ceil(B/b)*ceil((H-kh+1)/(h-kh+1))*ceil((W-kh+1)/(h-kh+1))*(ceil(Ci/ci)+ceil(Co/co)))
@@ -572,12 +586,32 @@ namespace LinearHelper {
                             size_t ci = slotCount / b / h / w / co;
                             ci = std::min(ci, inputChannels);
                             if (ci == 0) continue;
-                            size_t current = (
+                            size_t inputCipherSize = (
                                 ceilDiv(batchSize, b) * 
                                 ceilDiv(imageHeight - kernelHeight + 1, h - kernelHeight + 1) * 
                                 ceilDiv(imageWidth - kernelWidth + 1, w - kernelWidth + 1) * 
-                                (ceilDiv(inputChannels, ci) + ceilDiv(outputChannels, co))
+                                ceilDiv(inputChannels, ci)
                             );
+                            size_t outputCipherSize = (
+                                ceilDiv(batchSize, b) * 
+                                ceilDiv(imageHeight - kernelHeight + 1, h - kernelHeight + 1) * 
+                                ceilDiv(imageWidth - kernelWidth + 1, w - kernelWidth + 1) * 
+                                ceilDiv(outputChannels, co)
+                            );
+                            size_t weightCipherSize = (
+                                ceilDiv(inputChannels, ci) * 
+                                ceilDiv(outputChannels, co)
+                            );
+                            size_t current = 0;
+                            if (objective == 0) {
+                                current = inputCipherSize + outputCipherSize;
+                            } else if (objective == 1) {
+                                current = weightCipherSize + outputCipherSize;
+                            } else if (objective == 2) {
+                                current = outputCipherSize + inputCipherSize + weightCipherSize;
+                            } else {
+                                throw std::runtime_error("Conv2dHelper: invalid objective");
+                            }
                             if (current < best) {
                                 best = current;
                                 bestB = b;
