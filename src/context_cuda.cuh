@@ -25,40 +25,7 @@ namespace troy {
             // Note that calling this constructor
             // sets the created to have prev-context-data and next-context-data
             // to nullptr. You need to set them up manually.
-            ContextDataCuda(const SEALContext::ContextData& contextData):
-                qualifiers_(contextData.qualifiers()),
-                parms_(contextData.parms()),
-                total_coeff_modulus_bit_count_(contextData.totalCoeffModulusBitCount()),
-                plain_upper_half_threshold_(contextData.plainUpperHalfThreshold()),
-                coeff_modulus_mod_plain_modulus_(contextData.coeffModulusModPlainModulus()),
-                prev_context_data_(),
-                next_context_data_(nullptr),
-                chain_index_(contextData.chainIndex()),
-                total_coeff_modulus_(contextData.total_coeff_modulus_),
-                coeff_div_plain_modulus_(contextData.coeff_div_plain_modulus_),
-                plain_upper_half_increment_(contextData.plain_upper_half_increment_),
-                upper_half_threshold_(contextData.upper_half_threshold_),
-                upper_half_increment_(contextData.upper_half_increment_)
-            { 
-                // std::cout << "constructing context data cuda" << std::endl;
-                rns_tool_ = new util::RNSToolCuda(*contextData.rns_tool_);
-                // std::cout << "constructing context data cuda: rns tool created" << std::endl;
-                size_t n = contextData.small_ntt_tables_.size();
-                small_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
-                for (size_t i = 0; i < n; i++) {
-                    small_ntt_tables_support_[i] = util::NTTTablesCuda(contextData.small_ntt_tables_[i]);
-                }
-                small_ntt_tables_ = util::DeviceArray(small_ntt_tables_support_);
-
-                n = contextData.plain_ntt_tables_.size();
-                plain_ntt_tables_support_ = util::HostArray<util::NTTTablesCuda>(n);
-                for (size_t i = 0; i < n; i++) {
-                    plain_ntt_tables_support_[i] = util::NTTTablesCuda(contextData.plain_ntt_tables_[i]);
-                }
-                plain_ntt_tables_ = util::DeviceArray(plain_ntt_tables_support_);
-                galois_tool_ = new util::GaloisToolCuda(util::getPowerOfTwo(contextData.parms_.polyModulusDegree()));
-                // std::cout << "constructing context data cuda done" << std::endl;
-            }
+            ContextDataCuda(const SEALContext::ContextData& contextData);
 
             const EncryptionParametersCuda& parms() const {return parms_;}
             inline const ParmsID& parmsID() const noexcept {

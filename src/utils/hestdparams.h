@@ -32,6 +32,9 @@ namespace troy
                 return 438;
             case std::size_t(32768):
                 return 881;
+            default:
+                if (poly_modulus_degree % 32768 == 0) return 881 * (poly_modulus_degree / 32768);
+                else return 0;
             }
             return 0;
         }
@@ -53,6 +56,9 @@ namespace troy
                 return 305;
             case std::size_t(32768):
                 return 611;
+            default:
+                if (poly_modulus_degree % 32768 == 0) return 611 * (poly_modulus_degree / 32768);
+                else return 0;
             }
             return 0;
         }
@@ -74,6 +80,9 @@ namespace troy
                 return 237;
             case std::size_t(32768):
                 return 476;
+            default:
+                if (poly_modulus_degree % 32768 == 0) return 476 * (poly_modulus_degree / 32768);
+                else return 0;
             }
             return 0;
         }
@@ -95,6 +104,9 @@ namespace troy
                 return 411;
             case std::size_t(32768):
                 return 827;
+            default:
+                if (poly_modulus_degree % 32768 == 0) return 827 * (poly_modulus_degree / 32768);
+                else return 0;
             }
             return 0;
         }
@@ -116,6 +128,9 @@ namespace troy
                 return 284;
             case std::size_t(32768):
                 return 571;
+            default:
+                if (poly_modulus_degree % 32768 == 0) return 571 * (poly_modulus_degree / 32768);
+                else return 0;
             }
             return 0;
         }
@@ -137,6 +152,9 @@ namespace troy
                 return 220;
             case std::size_t(32768):
                 return 443;
+            default:
+                if (poly_modulus_degree % 32768 == 0) return 443 * (poly_modulus_degree / 32768);
+                else return 0;
             }
             return 0;
         }

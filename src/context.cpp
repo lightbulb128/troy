@@ -434,6 +434,10 @@ namespace troy
 
         // Validate next parameters and create next context_data
         auto next_context_data = validate(next_parms);
+        if (next_context_data.qualifiers_.parameter_error != ErrorType::success) {
+            std::cout << "next_context_data.qualifiers_.parameter_error: "
+                << next_context_data.qualifiers_.parameterErrorName() << std::endl;
+        }
 
         // If not valid then return zero parms_id
         if (!next_context_data.qualifiers_.parametersSet())
@@ -470,7 +474,12 @@ namespace troy
         // Note that this happens even if parameters are not valid
 
         // First create key_parms_id_.
-        context_data_map_.emplace(make_pair(parms.parmsID(), make_shared<const ContextData>(validate(parms))));
+        auto first_context_data = validate(parms);
+        if (first_context_data.qualifiers_.parameter_error != ErrorType::success) {
+            std::cout << "first_context_data.qualifiers_.parameter_error: "
+                << first_context_data.qualifiers_.parameterErrorName() << std::endl;
+        }
+        context_data_map_.emplace(make_pair(parms.parmsID(), make_shared<const ContextData>(std::move(first_context_data))));
         key_parms_id_ = parms.parmsID();
 
         // Then create first_parms_id_ if the parameters are valid and there is

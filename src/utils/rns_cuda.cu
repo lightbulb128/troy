@@ -203,6 +203,71 @@ namespace troy {
             //     std::cout << "temp[" << i << "]=" << p[i] << std::endl;
         }
 
+        RNSToolCuda::RNSToolCuda(const RNSTool& copy):
+            coeff_count_(copy.coeff_count_),
+            base_q_(copy.base_q_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_q_)),
+            base_B_(copy.base_B_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_B_)),
+            base_Bsk_(copy.base_Bsk_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_Bsk_)),
+            base_Bsk_m_tilde_(copy.base_Bsk_m_tilde_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_Bsk_m_tilde_)),
+            base_t_gamma_(copy.base_t_gamma_.isNull() ? nullptr : new RNSBaseCuda(*copy.base_t_gamma_)),
+            base_q_to_Bsk_conv_(copy.base_q_to_Bsk_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_Bsk_conv_)),
+            base_q_to_m_tilde_conv_(copy.base_q_to_m_tilde_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_m_tilde_conv_)),
+            base_B_to_q_conv_(copy.base_B_to_q_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_B_to_q_conv_)),
+            base_B_to_m_sk_conv_(copy.base_B_to_m_sk_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_B_to_m_sk_conv_)),
+            base_q_to_t_gamma_conv_(copy.base_q_to_t_gamma_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_t_gamma_conv_)),
+            base_q_to_t_conv_(copy.base_q_to_t_conv_.isNull() ? nullptr : new BaseConverterCuda(*copy.base_q_to_t_conv_)),
+            inv_prod_q_mod_Bsk_(copy.inv_prod_q_mod_Bsk_),
+            neg_inv_prod_q_mod_m_tilde_(copy.neg_inv_prod_q_mod_m_tilde_),
+            inv_prod_B_mod_m_sk_(copy.inv_prod_B_mod_m_sk_),
+            inv_gamma_mod_t_(copy.inv_gamma_mod_t_),
+            prod_B_mod_q_(copy.prod_B_mod_q_),
+            inv_m_tilde_mod_Bsk_(copy.inv_m_tilde_mod_Bsk_),
+            prod_q_mod_Bsk_(copy.prod_q_mod_Bsk_),
+            neg_inv_q_mod_t_gamma_(copy.neg_inv_q_mod_t_gamma_),
+            prod_t_gamma_mod_q_(copy.prod_t_gamma_mod_q_),
+            inv_q_last_mod_q_(copy.inv_q_last_mod_q_),
+            m_tilde_(copy.m_tilde_),
+            m_sk_(copy.m_sk_),
+            t_(copy.t_),
+            gamma_(copy.gamma_),    
+            inv_q_last_mod_t_(copy.inv_q_last_mod_t_),            
+            q_last_mod_t_(copy.q_last_mod_t_)
+        {
+            size_t n = copy.base_Bsk_ntt_tables_.size();
+            base_Bsk_ntt_tables_support = HostArray<NTTTablesCuda>(n);
+            for (size_t i = 0; i < n; i++) {
+                base_Bsk_ntt_tables_support[i] = NTTTablesCuda(copy.base_Bsk_ntt_tables_[i]);
+            }
+            base_Bsk_ntt_tables_ = DeviceArray<NTTTablesCuda>(base_Bsk_ntt_tables_support);
+            q_last_half_ = (*copy.baseq())[copy.baseq()->size()-1].value() >> 1;
+
+            Modulus* cuda_memory = KernelProvider::malloc<Modulus>(1);
+            KernelProvider::copy<Modulus>(cuda_memory, &m_tilde_, 1);
+            m_tilde_cuda_ = DeviceObject<Modulus>(cuda_memory);
+
+            cuda_memory = KernelProvider::malloc<Modulus>(1);
+            KernelProvider::copy<Modulus>(cuda_memory, &m_sk_, 1);
+            m_sk_cuda_ = DeviceObject<Modulus>(cuda_memory);
+
+            cuda_memory = KernelProvider::malloc<Modulus>(1);
+            KernelProvider::copy<Modulus>(cuda_memory, &t_, 1);
+            t_cuda_ = DeviceObject<Modulus>(cuda_memory);
+
+            cuda_memory = KernelProvider::malloc<Modulus>(1);
+            KernelProvider::copy<Modulus>(cuda_memory, &gamma_, 1);
+            gamma_cuda_ = DeviceObject<Modulus>(cuda_memory);
+
+            // temp = HostObject(new Modulus(m_sk_));
+            // gamma_cuda_ = DeviceObject<Modulus>(temp);
+            
+            // temp = HostObject(new Modulus(t_));
+            // t_cuda_ = DeviceObject<Modulus>(temp);
+            
+            // temp = HostObject(new Modulus(gamma_));
+            // gamma_cuda_ = DeviceObject<Modulus>(temp);
+
+        }
+
         __global__ void gDivideAndRoundqLastInplace(
             uint64_t* input,
             size_t coeff_count,
