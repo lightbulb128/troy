@@ -295,6 +295,8 @@ PYBIND11_MODULE(pytroy, m) {
         })
         ;
 
+    py::class_<LWECiphertext>(m, "LWECiphertext");
+
     py::class_<KeyGenerator>(m, "KeyGenerator")
         .def(py::init<const SEALContext&>())
         .def("secret_key", &KeyGenerator::secretKey)
@@ -322,6 +324,7 @@ PYBIND11_MODULE(pytroy, m) {
         .def("create_galois_keys", py::overload_cast<const vector<int>&, >(
             &KeyGenerator::createGaloisKeys
         ))
+        .def("create_automorphism_keys", &KeyGenerator::createAutomorphismKeys)
         ;
 
     py::class_<SecretKey>(m, "SecretKey")
@@ -694,6 +697,11 @@ PYBIND11_MODULE(pytroy, m) {
         .def("complex_conjugate", [](const Evaluator& self, const Ciphertext& cipher, const GaloisKeys &galois_keys) {
             Ciphertext ret; self.complexConjugate(cipher, galois_keys, ret); return ret;
         })
+
+        .def("extract_lwe", &Evaluator::extractLWE)
+        .def("field_trace_inplace", &Evaluator::fieldTraceInplace)
+        .def("divide_by_poly_modulus_degree_inplace", &Evaluator::divideByPolyModulusDegreeInplace)
+        .def("pack_lwe_ciphertexts", &Evaluator::packLWECiphertexts)
         
         ;
 

@@ -189,6 +189,28 @@ namespace troy {
         inline std::uint64_t seed() const noexcept {return seed_;}
         inline std::uint64_t& seed() {return seed_;}
 
+        static inline CiphertextCuda fromMembers(
+            ParmsID parms_id, 
+            std::size_t size, 
+            std::size_t coeff_modulus_size, 
+            std::size_t poly_modulus_degree, 
+            bool is_ntt_form, 
+            double scale, 
+            std::uint64_t correction_factor, 
+            util::DeviceDynamicArray<ct_coeff_type> &&data)
+        {
+            CiphertextCuda ct;
+            ct.parms_id_ = parms_id;
+            ct.is_ntt_form_ = is_ntt_form;
+            ct.size_ = size;
+            ct.poly_modulus_degree_ = poly_modulus_degree;
+            ct.coeff_modulus_size_ = coeff_modulus_size;
+            ct.scale_ = scale;
+            ct.correction_factor_ = correction_factor;
+            ct.data_ = std::move(data);
+            return ct;
+        }
+
     private:
     
         void reserveInternal(
@@ -243,6 +265,59 @@ namespace troy {
         util::DeviceDynamicArray<ct_coeff_type> data_;
 
         std::uint64_t seed_ = 0;
+    };
+
+    class LWECiphertextCuda {
+
+    public:
+
+        using ct_coeff_type = std::uint64_t;
+
+        inline ParmsID& parmsID() noexcept {return parms_id_;}
+        inline const ParmsID& parmsID() const noexcept {return parms_id_;}
+        inline bool isNttForm() const noexcept {return false;}
+        inline double& scale() noexcept {return scale_;}
+        inline double scale() const noexcept {return scale_;}
+        inline std::uint64_t correctionFactor() const noexcept {return correction_factor_;}
+        inline std::uint64_t& correctionFactor() noexcept {return correction_factor_;}
+        inline util::DevicePointer<uint64_t> c1() {return c1_.asPointer();}
+        inline util::ConstDevicePointer<uint64_t> c1() const {return c1_.asPointer();}
+        inline util::DevicePointer<uint64_t> c0() {return c0_.asPointer();}
+        inline util::ConstDevicePointer<uint64_t> c0() const {return c0_.asPointer();}
+
+        CiphertextCuda assembleLWE() const;
+        
+        inline static LWECiphertextCuda fromMembers(
+            ParmsID parms_id, 
+            std::size_t poly_modulus_degree, 
+            std::size_t coeff_modulus_size, 
+            double scale, 
+            std::uint64_t correction_factor, 
+            util::DeviceDynamicArray<ct_coeff_type> &&c1, 
+            util::DeviceDynamicArray<ct_coeff_type> &&c0)
+        {
+            LWECiphertextCuda ct;
+            ct.parms_id_ = parms_id;
+            ct.poly_modulus_degree_ = poly_modulus_degree;
+            ct.coeff_modulus_size_ = coeff_modulus_size;
+            ct.scale_ = scale;
+            ct.correction_factor_ = correction_factor;
+            ct.c1_ = std::move(c1);
+            ct.c0_ = std::move(c0);
+            return ct;
+        }
+
+    private:
+    
+        ParmsID parms_id_ = parmsIDZero;
+        std::size_t poly_modulus_degree_ = 0;
+        std::size_t coeff_modulus_size_ = 0;
+        double scale_ = 1.0;
+        std::uint64_t correction_factor_ = 1;
+        util::DeviceDynamicArray<ct_coeff_type> c1_; // c1.len() == coeff_modulus_size * poly_modulus_degree
+        util::DeviceDynamicArray<ct_coeff_type> c0_; // c2.len() == coeff_modulus_size
+        
+
     };
 
 }

@@ -534,6 +534,73 @@ namespace troy {
             );
         }
 
+        __global__ void gNegacyclicShiftPolyCoeffmod(
+            const uint64_t* poly,
+            POLY_ARRAY_ARGUMENTS,
+            size_t shift,
+            const Modulus* modulus,
+            uint64_t* result
+        ) {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            uint64_t index_raw = shift + gindex;
+            uint64_t index = index_raw & (static_cast<uint64_t>(poly_modulus_degree) - 1);
+            FOR_N(rns_index, coeff_modulus_size) {
+                const uint64_t modulusValue = DeviceHelper::getModulusValue(modulus[rns_index]);
+                FOR_N(poly_index, poly_size) {
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
+                    size_t rid = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + index;
+                    if (shift == 0) {
+                        result[id] = poly[id];
+                    } else {
+                        if (!(index_raw & static_cast<uint64_t>(poly_modulus_degree)) || !poly[id]) {
+                            result[rid] = poly[id];
+                        } else {
+                            result[rid] = modulusValue - poly[id];
+                        }
+                    }
+                }
+            }
+        }
+
+
+        void kNegacyclicShiftPolyCoeffmod(
+            CPointer poly,
+            POLY_ARRAY_ARGUMENTS,
+            size_t shift,
+            MPointer modulus,
+            Pointer result
+        ) {
+            KERNEL_CALL(gNegacyclicShiftPolyCoeffmod, poly_modulus_degree)(
+                poly.get(), POLY_ARRAY_ARGCALL, shift, modulus.get(), result.get()
+            );
+        }
+
+        __global__ void gMultiplyInvPolyDegreeCoeffmod(
+            const uint64_t* poly_array,
+            POLY_ARRAY_ARGUMENTS,
+            const NTTTablesCuda* ntt_tables,
+            const Modulus* modulus,
+            uint64_t* result)
+        {
+            GET_INDEX_COND_RETURN(poly_modulus_degree);
+            FOR_N(rns_index, coeff_modulus_size) {
+                FOR_N(poly_index, poly_size) {
+                    size_t id = (poly_index * coeff_modulus_size + rns_index) * poly_modulus_degree + gindex;
+                    result[id] = dMultiplyUintMod(poly_array[id], ntt_tables[rns_index].invDegreeModulo(), modulus[rns_index]);
+                }
+            }
+        }
+
+        void kMultiplyInvPolyDegreeCoeffmod(CPointer poly_array, POLY_ARRAY_ARGUMENTS, 
+            ConstDevicePointer<NTTTablesCuda> ntt_tables, 
+            MPointer modulus, Pointer result)
+        {
+            assert(coeff_modulus_size <= 256);
+            KERNEL_CALL(gMultiplyInvPolyDegreeCoeffmod, poly_modulus_degree)(
+                poly_array.get(), POLY_ARRAY_ARGCALL, ntt_tables.get(), 
+                modulus.get(), result.get()
+            ); 
+        }
 
     }
 }

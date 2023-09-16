@@ -40,4 +40,5 @@ namespace troyn {
     using CKKSEncoder = troy::CKKSEncoderCuda;
     using BatchEncoder = troy::BatchEncoderCuda;
     using KernelProvider = troy::KernelProvider;
+    using LWECiphertext = troy::LWECiphertextCuda;
 }

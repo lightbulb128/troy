@@ -705,6 +705,18 @@ namespace troy {
             Pointer result
         );
 
+        void kNegacyclicShiftPolyCoeffmod(
+            CPointer poly,
+            POLY_ARRAY_ARGUMENTS,
+            size_t shift,
+            MPointer modulus,
+            Pointer result
+        );
+
+        void kMultiplyInvPolyDegreeCoeffmod(CPointer poly_array, POLY_ARRAY_ARGUMENTS, 
+            ConstDevicePointer<NTTTablesCuda> ntt_tables, 
+            MPointer modulus, Pointer result);
+
     }
 }
 

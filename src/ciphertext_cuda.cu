@@ -2,6 +2,14 @@
 #include "serialize.h"
 #include "utils/rlwe_cuda.cuh"
 #include "evaluator_cuda.cuh"
+#include "kernelutils.cuh"
+
+#define KERNEL_CALL(funcname, n) size_t block_count = troy::kernel_util::ceilDiv_(n, 256); funcname<<<block_count, 256>>>
+#define POLY_ARRAY_ARGUMENTS size_t poly_size, size_t coeff_modulus_size, size_t poly_modulus_degree
+#define POLY_ARRAY_ARGCALL poly_size, coeff_modulus_size, poly_modulus_degree
+#define GET_INDEX size_t gindex = blockDim.x * blockIdx.x + threadIdx.x
+#define GET_INDEX_COND_RETURN(n) size_t gindex = blockDim.x * blockIdx.x + threadIdx.x; if (gindex >= (n)) return
+#define FOR_N(name, count) for (size_t name = 0; name < count; name++)
 
 namespace troy {
 
@@ -181,6 +189,32 @@ namespace troy {
                 kernel_util::kInverseNttNegacyclicHarvey(data(1), 1, coeff_modulus_size, coeff_power, ntt_tables);
             }
         }
+    }
+
+    __global__ void assembleLWECopyC0(const uint64_t* c0, uint64_t* data, size_t coeff_count, size_t coeff_modulus_size) {
+        GET_INDEX_COND_RETURN(coeff_modulus_size);
+        if (gindex < coeff_modulus_size) {
+            data[coeff_count * gindex] = c0[gindex];
+        }
+    }
+
+    CiphertextCuda LWECiphertextCuda::assembleLWE() const {
+        size_t poly_len = coeff_modulus_size_ * poly_modulus_degree_;
+        auto data = kernel_util::kAllocateZero(poly_len * 2);
+        // copy c1
+        KernelProvider::copy(data.get() + poly_len, c1_.get(), poly_len);
+        // copy c0
+        KERNEL_CALL(assembleLWECopyC0, coeff_modulus_size_)(c0_.get(), data.get(), poly_modulus_degree_, coeff_modulus_size_);
+        return CiphertextCuda::fromMembers(
+            parms_id_,
+            2,
+            coeff_modulus_size_,
+            poly_modulus_degree_,
+            false,
+            scale_,
+            correction_factor_,
+            util::DeviceDynamicArray(std::move(data))
+        );
     }
 
 }

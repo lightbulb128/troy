@@ -287,6 +287,8 @@ namespace troy
             return createGaloisKeysInternal(context_.keyContextData()->galoisTool()->getEltsAll());
         }
 
+        GaloisKeys createAutomorphismKeys();
+
         /**
         Enables access to private members of seal::KeyGenerator for SEAL_C.
         */

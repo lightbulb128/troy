@@ -2162,4 +2162,133 @@ namespace troy {
         }
     }
 
+    __global__ void extractLWECopyC0(const uint64_t* data, size_t offset, uint64_t* c0, size_t coeff_count, size_t coeff_modulus_size) {
+        GET_INDEX_COND_RETURN(coeff_modulus_size);
+        if (gindex < coeff_modulus_size) {
+            c0[gindex] = data[coeff_count * gindex + offset];
+        }
+    }
+
+    LWECiphertextCuda EvaluatorCuda::extractLWE(const CiphertextCuda& encrypted, size_t term) const {
+        if (encrypted.size() != 2) {
+            throw invalid_argument("Encrypted size must be 2 to be extracted.");
+        }
+        if (encrypted.isNttForm()) {
+            CiphertextCuda transformed;
+            this->transformFromNtt(encrypted, transformed);
+            return extractLWE(transformed, term);
+        } else {
+            // gather c1
+            auto context_data = context_.getContextData(encrypted.parmsID());
+            size_t poly_modulus_degree = encrypted.polyModulusDegree();
+            size_t coeff_modulus_size = encrypted.coeffModulusSize();
+            auto coeff_modulus = context_data->parms().coeffModulus();
+            size_t shift = (term == 0) ? 0 : (poly_modulus_degree * 2 - term);
+            
+            auto c1 = kernel_util::kAllocateZero(poly_modulus_degree, coeff_modulus_size);
+            kernel_util::kNegacyclicShiftPolyCoeffmod(
+                encrypted.data(1), 1, coeff_modulus_size, poly_modulus_degree, 
+                shift, coeff_modulus, c1);
+            // gather c0
+            auto c0 = kernel_util::kAllocateZero(coeff_modulus_size);
+            KERNEL_CALL(extractLWECopyC0, coeff_modulus_size)(
+                encrypted.data(0).get(), term, c0.get(), poly_modulus_degree, coeff_modulus_size);
+            return LWECiphertextCuda::fromMembers(
+                encrypted.parmsID(),
+                poly_modulus_degree,
+                coeff_modulus_size,
+                encrypted.scale(),
+                encrypted.correctionFactor(),
+                std::move(c1),
+                std::move(c0)
+            );
+        }
+    }
+    
+    void EvaluatorCuda::fieldTraceInplace(CiphertextCuda& encrypted, GaloisKeysCuda& automorphism_keys, size_t logn) const {
+        size_t poly_degree = encrypted.polyModulusDegree();
+        CiphertextCuda temp;
+        while (poly_degree > (1<<logn)) {
+            uint32_t galois_element = poly_degree + 1;
+            applyGalois(encrypted, galois_element, automorphism_keys, temp);
+            addInplace(encrypted, temp);
+            poly_degree >>= 1;
+        }
+    }
+
+    void EvaluatorCuda::divideByPolyModulusDegreeInplace(CiphertextCuda& encrypted) const {
+        auto context_data = context_.getContextData(encrypted.parmsID());
+        auto size = encrypted.size();
+        auto ntt_tables = context_data->smallNTTTables();
+        auto modulus = context_data->parms().coeffModulus();
+        kernel_util::kMultiplyInvPolyDegreeCoeffmod(
+            encrypted.data(), size, modulus.size(), context_data->parms().polyModulusDegree(), 
+            ntt_tables, modulus, encrypted.data());
+    }
+
+    CiphertextCuda EvaluatorCuda::packLWECiphertexts(const std::vector<LWECiphertextCuda>& lwes, GaloisKeysCuda& automorphism_keys) const {
+        size_t lwes_count = lwes.size();
+        if (lwes_count == 0) {
+            throw invalid_argument("LWE ciphertexts must not be empty.");
+        }
+        auto context_data = context_.getContextData(lwes[0].parmsID());
+        auto poly_modulus_degree = context_data->parms().polyModulusDegree();
+        auto parms_id = lwes[0].parmsID();
+        auto coeff_modulus = context_data->parms().coeffModulus();
+        auto coeff_modulus_size = coeff_modulus.size();
+        // check all have same parmsID
+        for (size_t i = 1; i < lwes_count; i++) {
+            if (lwes[i].parmsID() != parms_id) {
+                throw invalid_argument("LWE ciphertexts must have same parmsID.");
+            }
+        }
+        assert(lwes_count <= poly_modulus_degree);
+        size_t l = 0; while ((1<<l) < lwes_count) l += 1;
+        std::vector<CiphertextCuda> rlwes(1<<l);
+        auto zero_rlwe = lwes[0].assembleLWE();
+        kernel_util::kSetZeroPolyArray(2, coeff_modulus_size, poly_modulus_degree, zero_rlwe.data());
+        for (size_t i = 0; i < (1<<l); i++) {
+            size_t index = util::reverseBits(i, l);
+            if (index < lwes_count) {
+                rlwes[i] = lwes[index].assembleLWE();
+                divideByPolyModulusDegreeInplace(rlwes[i]);
+            } else {
+                rlwes[i] = zero_rlwe;
+            }
+        }
+        auto temp(std::move(zero_rlwe));
+        for (size_t layer = 0; layer < l; layer++) {
+            size_t gap = 1 << layer;
+            size_t offset = 0;
+            size_t shift = poly_modulus_degree >> (layer + 1);
+            while (offset < (1<<l)) {
+                CiphertextCuda& even = rlwes[offset];
+                CiphertextCuda& odd = rlwes[offset + gap];
+                kernel_util::kNegacyclicShiftPolyCoeffmod(
+                    odd.data(), odd.size(), coeff_modulus_size, poly_modulus_degree,
+                    shift, coeff_modulus, temp.data());
+                // add
+                sub(even, temp, odd);
+                addInplace(even, temp);
+                if (context_data->parms().scheme() == SchemeType::ckks) {
+                    transformToNttInplace(odd);
+                }
+                applyGaloisInplace(odd, (1<<(layer+1))+1, automorphism_keys);
+                if (context_data->parms().scheme() == SchemeType::ckks) {
+                    transformFromNttInplace(odd);
+                }
+                addInplace(even, odd);
+                offset += gap * 2;
+            }
+        }
+        // take the first element
+        auto ret = std::move(rlwes[0]);
+        fieldTraceInplace(ret, automorphism_keys, l);
+        if (context_data->parms().scheme() == SchemeType::ckks) {
+            transformToNttInplace(ret);
+        }
+        return ret;
+    }
+
+
 }

@@ -285,6 +285,11 @@ namespace troy
             return GaloisKeysCuda(host.createGaloisKeys());
         }
 
+        inline GaloisKeysCuda createAutomorphismKeys()
+        {
+            return GaloisKeysCuda(host.createAutomorphismKeys());
+        }
+
         /**
         Enables access to private members of seal::KeyGenerator for SEAL_C.
         */

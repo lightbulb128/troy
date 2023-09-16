@@ -346,4 +346,14 @@ namespace troy
             this->generateOneKswitchKey(new_keys + i * coeff_count * coeff_modulus_size, destination.data()[i]);
         }
     }
+
+    GaloisKeys KeyGenerator::createAutomorphismKeys() {
+        size_t poly_degree = this->context_.keyContextData()->parms().polyModulusDegree();
+        vector<uint32_t> galois_elements;
+        while (poly_degree >= 2) {
+            galois_elements.push_back(poly_degree + 1);
+            poly_degree >>= 1;
+        }
+        return this->createGaloisKeysInternal(galois_elements);
+    }
 } // namespace seal
