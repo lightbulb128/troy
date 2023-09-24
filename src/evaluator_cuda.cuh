@@ -338,14 +338,17 @@ namespace troy {
             complexConjugateInplace(destination, galois_keys);
         }
 
-        inline CiphertextCuda assembleLWE(const LWECiphertextCuda &encrypted) {
-            return encrypted.assembleLWE();
-        }
+        CiphertextCuda assembleLWE(const LWECiphertextCuda& encrypted, size_t term) const;
 
         LWECiphertextCuda extractLWE(const CiphertextCuda& encrypted, size_t term) const;
         void fieldTraceInplace(CiphertextCuda& encrypted, GaloisKeysCuda& automorphism_keys, size_t logn) const;
         void divideByPolyModulusDegreeInplace(CiphertextCuda& encrypted) const;
         CiphertextCuda packLWECiphertexts(const std::vector<LWECiphertextCuda>& lwes, GaloisKeysCuda& automorphism_keys) const;
+        void negacyclicShift(const CiphertextCuda& encrypted, size_t shift, CiphertextCuda& destination) const;
+        inline void negacyclicShiftInplace(CiphertextCuda& encrypted, size_t shift) const {
+            CiphertextCuda x = encrypted;
+            negacyclicShift(x, shift, encrypted);
+        }
 
     private:
 

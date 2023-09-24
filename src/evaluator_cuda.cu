@@ -2162,6 +2162,36 @@ namespace troy {
         }
     }
 
+    __global__ void assembleLWECopyC0(const uint64_t* c0, uint64_t* data, size_t offset, size_t coeff_count, size_t coeff_modulus_size) {
+        GET_INDEX_COND_RETURN(coeff_modulus_size);
+        if (gindex < coeff_modulus_size) {
+            data[coeff_count * gindex + offset] = c0[gindex];
+        }
+    }
+
+    CiphertextCuda EvaluatorCuda::assembleLWE(const LWECiphertextCuda& encrypted, size_t term) const {
+        auto context_data = context_.getContextData(encrypted.parmsID());
+        size_t poly_modulus_degree = encrypted.polyModulusDegree();
+        size_t coeff_modulus_size = encrypted.coeffModulusSize();
+        auto coeff_modulus = context_data->parms().coeffModulus();
+        size_t poly_len = coeff_modulus_size * poly_modulus_degree;
+        auto data = kernel_util::kAllocateZero(poly_len * 2);
+        // copy c1
+        kernel_util::kNegacyclicShiftPolyCoeffmod(encrypted.c1().get(), 1, coeff_modulus_size, poly_modulus_degree, term, coeff_modulus.asPointer(), data.get() + poly_len);
+        // copy c0
+        KERNEL_CALL(assembleLWECopyC0, coeff_modulus_size)(encrypted.c0().get(), data.get(), term, poly_modulus_degree, coeff_modulus_size);
+        return CiphertextCuda::fromMembers(
+            encrypted.parmsID(),
+            2,
+            coeff_modulus_size,
+            poly_modulus_degree,
+            false,
+            encrypted.scale(),
+            encrypted.correctionFactor(),
+            util::DeviceDynamicArray(std::move(data))
+        );
+    }
+
     __global__ void extractLWECopyC0(const uint64_t* data, size_t offset, uint64_t* c0, size_t coeff_count, size_t coeff_modulus_size) {
         GET_INDEX_COND_RETURN(coeff_modulus_size);
         if (gindex < coeff_modulus_size) {
@@ -2245,12 +2275,12 @@ namespace troy {
         assert(lwes_count <= poly_modulus_degree);
         size_t l = 0; while ((1<<l) < lwes_count) l += 1;
         std::vector<CiphertextCuda> rlwes(1<<l);
-        auto zero_rlwe = lwes[0].assembleLWE();
+        auto zero_rlwe = assembleLWE(lwes[0], 0);
         kernel_util::kSetZeroPolyArray(2, coeff_modulus_size, poly_modulus_degree, zero_rlwe.data());
         for (size_t i = 0; i < (1<<l); i++) {
             size_t index = util::reverseBits(i, l);
             if (index < lwes_count) {
-                rlwes[i] = lwes[index].assembleLWE();
+                rlwes[i] = assembleLWE(lwes[index], 0);
                 divideByPolyModulusDegreeInplace(rlwes[i]);
             } else {
                 rlwes[i] = zero_rlwe;
@@ -2289,6 +2319,16 @@ namespace troy {
         }
         return ret;
     }
-
+    
+    void EvaluatorCuda::negacyclicShift(const CiphertextCuda& encrypted, size_t shift, CiphertextCuda& destination) const {
+        destination = encrypted;
+        auto context_data = context_.getContextData(encrypted.parmsID());
+        size_t poly_modulus_degree = encrypted.polyModulusDegree();
+        size_t coeff_modulus_size = encrypted.coeffModulusSize();
+        auto coeff_modulus = context_data->parms().coeffModulus();
+        kernel_util::kNegacyclicShiftPolyCoeffmod(
+            encrypted.data(), encrypted.size(), coeff_modulus_size, poly_modulus_degree, 
+            shift, coeff_modulus, destination.data());
+    }
 
 }

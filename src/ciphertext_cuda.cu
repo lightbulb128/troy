@@ -191,30 +191,4 @@ namespace troy {
         }
     }
 
-    __global__ void assembleLWECopyC0(const uint64_t* c0, uint64_t* data, size_t coeff_count, size_t coeff_modulus_size) {
-        GET_INDEX_COND_RETURN(coeff_modulus_size);
-        if (gindex < coeff_modulus_size) {
-            data[coeff_count * gindex] = c0[gindex];
-        }
-    }
-
-    CiphertextCuda LWECiphertextCuda::assembleLWE() const {
-        size_t poly_len = coeff_modulus_size_ * poly_modulus_degree_;
-        auto data = kernel_util::kAllocateZero(poly_len * 2);
-        // copy c1
-        KernelProvider::copy(data.get() + poly_len, c1_.get(), poly_len);
-        // copy c0
-        KERNEL_CALL(assembleLWECopyC0, coeff_modulus_size_)(c0_.get(), data.get(), poly_modulus_degree_, coeff_modulus_size_);
-        return CiphertextCuda::fromMembers(
-            parms_id_,
-            2,
-            coeff_modulus_size_,
-            poly_modulus_degree_,
-            false,
-            scale_,
-            correction_factor_,
-            util::DeviceDynamicArray(std::move(data))
-        );
-    }
-
 }

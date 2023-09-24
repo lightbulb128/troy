@@ -295,7 +295,11 @@ PYBIND11_MODULE(pytroy, m) {
         })
         ;
 
-    py::class_<LWECiphertext>(m, "LWECiphertext");
+    py::class_<LWECiphertext>(m, "LWECiphertext")
+        .def("copy", [](const LWECiphertext& p) {
+            return LWECiphertext(p);
+        })
+        ;
 
     py::class_<KeyGenerator>(m, "KeyGenerator")
         .def(py::init<const SEALContext&>())
@@ -699,10 +703,17 @@ PYBIND11_MODULE(pytroy, m) {
         })
 
         .def("extract_lwe", &Evaluator::extractLWE)
+        .def("assemble_lwe", &Evaluator::assembleLWE)
         .def("field_trace_inplace", &Evaluator::fieldTraceInplace)
         .def("divide_by_poly_modulus_degree_inplace", &Evaluator::divideByPolyModulusDegreeInplace)
         .def("pack_lwe_ciphertexts", &Evaluator::packLWECiphertexts)
-        
+
+        .def("negacyclic_shift", &Evaluator::negacyclicShift)
+        .def("negacyclic_shift", [](const Evaluator& self, const Ciphertext& c1, size_t shift) {
+            Ciphertext ret; self.negacyclicShift(c1, shift, ret); return ret;
+        })
+        .def("negacyclic_shift_inplace", &Evaluator::negacyclicShiftInplace)
+
         ;
 
     py::class_<Cipher2d>(m, "Cipher2d")

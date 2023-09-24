@@ -6321,11 +6321,15 @@ namespace troytest
                 size_t term = 4;
                 auto lwe = evaluator.extractLWE(ciphertext, term);
                 // assemble
-                auto assembled = evaluator.assembleLWE(lwe);
+                auto assembled = evaluator.assembleLWE(lwe, 0);
                 decryptor.decrypt(assembled, plain);
                 vector<uint64_t> decoded;
                 encoder.decodePolynomial(plain, decoded);
                 ASSERT_EQ(coefficients[term], decoded[0]);
+                assembled = evaluator.assembleLWE(lwe, 4);
+                decryptor.decrypt(assembled, plain);
+                encoder.decodePolynomial(plain, decoded);
+                ASSERT_EQ(coefficients[term], decoded[4]);
 
                 // field trace
                 encoder.encodePolynomial(coefficients, plain);
@@ -6375,6 +6379,47 @@ namespace troytest
                 // decoded[i] == coefficients[i][i] for i in lwe_count
                 for (size_t i = 0; i < lwe_count; i++) {
                     ASSERT_EQ(decoded[i], coefficients[i][i]);
+                }
+            }
+
+            
+            {
+                // lwe pack
+                size_t lwe_count = 14;
+                vector<vector<uint64_t>> coefficients;
+                for (size_t i = 0; i < lwe_count; i++) {
+                    vector<uint64_t> current;
+                    for (size_t j = 0; j < poly_degree; j++) {
+                        current.push_back(rand() % t);
+                    }
+                    coefficients.push_back(std::move(current));
+                }
+                vector<Plaintext> plaintexts;
+                for (size_t i = 0; i < lwe_count; i++) {
+                    Plaintext plain;
+                    encoder.encodePolynomial(coefficients[i], plain);
+                    plaintexts.push_back(std::move(plain));
+                }
+                vector<Ciphertext> ciphertexts;
+                for (size_t i = 0; i < lwe_count; i++) {
+                    Ciphertext ciphertext;
+                    encryptor.encrypt(plaintexts[i], ciphertext);
+                    ciphertexts.push_back(std::move(ciphertext));
+                }
+                vector<LWECiphertext> lwes;
+                for (size_t i = 0; i < lwe_count; i++) {
+                    auto lwe = evaluator.extractLWE(ciphertexts[i], i);
+                    lwes.push_back(std::move(lwe));
+                }
+                auto packed_cipher = evaluator.packLWECiphertexts(lwes, auto_key);
+                Plaintext plaintext;
+                decryptor.decrypt(packed_cipher, plaintext);
+                vector<uint64_t> decoded;
+                encoder.decodePolynomial(plaintext, decoded);
+                // decoded[i] == coefficients[i][i] for i in lwe_count
+                for (size_t i = 0; i < lwe_count; i++) {
+                    ASSERT_EQ(decoded[i * 2], coefficients[i][i]);
+                    ASSERT_EQ(decoded[i * 2 + 1], 0);
                 }
             }
         }

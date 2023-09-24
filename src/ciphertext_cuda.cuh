@@ -280,12 +280,12 @@ namespace troy {
         inline double scale() const noexcept {return scale_;}
         inline std::uint64_t correctionFactor() const noexcept {return correction_factor_;}
         inline std::uint64_t& correctionFactor() noexcept {return correction_factor_;}
+        inline size_t polyModulusDegree() const noexcept {return poly_modulus_degree_;}
+        inline size_t coeffModulusSize() const noexcept {return coeff_modulus_size_;}
         inline util::DevicePointer<uint64_t> c1() {return c1_.asPointer();}
         inline util::ConstDevicePointer<uint64_t> c1() const {return c1_.asPointer();}
         inline util::DevicePointer<uint64_t> c0() {return c0_.asPointer();}
         inline util::ConstDevicePointer<uint64_t> c0() const {return c0_.asPointer();}
-
-        CiphertextCuda assembleLWE() const;
         
         inline static LWECiphertextCuda fromMembers(
             ParmsID parms_id, 
