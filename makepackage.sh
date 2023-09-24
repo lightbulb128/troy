@@ -1,5 +1,6 @@
 echo "Making base library"
 
+mkdir -p build
 cd build
 cmake ..
 make
