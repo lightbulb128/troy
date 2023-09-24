@@ -17,6 +17,11 @@ See `test/timetest.cu` for example.
 
 ## How to run
 
+0. Make and install SEAL 4.0
+    This requires `sudo` privilige to install the binary library file.
+    ```
+    bash install_seal.sh
+    ```
 1. Build the basic library
     ```
     mkdir build
