@@ -32,10 +32,3 @@ cp build/pytroy.cpython-38-x86_64-linux-gnu.so ./binder/pytroy.cpython-38-x86_64
 cp ./build/src/libtroy.so ./binder/libtroy.so
 
 echo "Copied to ./binder"
-
-echo "Need sudo to install the package to /usr/lib/. To skip this step, just stop the script by Ctrl+C."
-
-sudo rm /usr/lib/libtroy.so
-sudo cp ./binder/libtroy.so   /usr/lib
-
-echo "Copied to /usr/lib"

@@ -13,7 +13,7 @@ endif()
 
 cmake_minimum_required(VERSION 3.16)
 
-find_package(SEAL 4.0 REQUIRED)
+find_package(SEAL 4.0 REQUIRED PATHS extern/SEAL/build/install/lib/cmake/SEAL-4.0)
 
 add_subdirectory(src)
 
