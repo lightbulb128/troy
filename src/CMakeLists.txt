@@ -14,3 +14,17 @@ target_compile_options(troy INTERFACE
   "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-fPIC>>"
   "$<${nvcc_cxx}:$<BUILD_INTERFACE:--compiler-options=-fPIC>>"
 )
+
+install(TARGETS troy
+  EXPORT troyTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES DESTINATION include
+)
+
+file(GLOB MAIN_DIR_HEADERS *.h *.hpp *.cuh)
+file(GLOB UTILS_HEADERS utils/*.h *.hpp *.cuh)
+
+install(FILES ${MAIN_DIR_HEADERS} DESTINATION include/troy)
+install(FILES ${UTILS_HEADERS} DESTINATION include/troy/utils)

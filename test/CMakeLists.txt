@@ -36,17 +36,23 @@ add_executable(timetest)
 target_sources(timetest PRIVATE timetest.cu)
 target_link_libraries(timetest troy)
 
-add_executable(timetest_seal)
-target_sources(timetest_seal PRIVATE timetest_seal.cpp)
-target_link_libraries(timetest_seal SEAL::seal)
+
 
 add_executable(linear)
 target_sources(linear PRIVATE app/linear.cu)
 target_link_libraries(linear troy)
 
-add_executable(linear_seal)
-target_sources(linear_seal PRIVATE app/linear_seal.cpp)
-target_link_libraries(linear_seal SEAL::seal)
+if(TROY_COMPARE_SEAL)
+    find_package(SEAL 4.0 REQUIRED PATHS extern/SEAL/build/install/lib/cmake/SEAL-4.0)
+
+    add_executable(timetest_seal)
+    target_sources(timetest_seal PRIVATE timetest_seal.cpp)
+    target_link_libraries(timetest_seal SEAL::seal)
+
+    add_executable(linear_seal)
+    target_sources(linear_seal PRIVATE app/linear_seal.cpp)
+    target_link_libraries(linear_seal SEAL::seal)
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(troytest)

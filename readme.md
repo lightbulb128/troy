@@ -17,16 +17,11 @@ See `test/timetest.cu` for example.
 
 ## How to run
 
-0. Make and install SEAL 4.0
-    This requires `sudo` privilige to install the binary library file.
-    ```
-    bash install_seal.sh
-    ```
 1. Build the basic library
     ```
     mkdir build
     cd build
-    cmake ..
+    cmake .. -DTROY_TEST=ON # or OFF(default), if you don't want to run tests
     make
     cd ..
     ```
@@ -40,6 +35,27 @@ See `test/timetest.cu` for example.
 3. Make the module for python
     ```
     bash makepackage.sh
+    ```
+
+## Comparing with CPU Microsoft SEAL-4.0
+
+1. Make and install SEAL 4.0
+    This requires `sudo` privilige to install the binary library file.
+    ```
+    bash install_seal.sh
+    ```
+2. CMake with `TROY_COMPARE_SEAL` and `TROY_TEST` on.
+    ```
+    cd build
+    cmake .. -DTROY_TEST=ON -DTROY_COMPARE_SEAL=ON
+    make
+    cd ..
+    ```
+3. Testing
+    ```
+    cd build
+    ./test/timetest
+    ./test/timetest_seal
     ```
     
 ## Contribute

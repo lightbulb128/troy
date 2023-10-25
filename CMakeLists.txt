@@ -13,10 +13,15 @@ endif()
 
 cmake_minimum_required(VERSION 3.16)
 
-find_package(SEAL 4.0 REQUIRED PATHS extern/SEAL/build/install/lib/cmake/SEAL-4.0)
-
 add_subdirectory(src)
 
-enable_testing()
-add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
-add_subdirectory(test)
+# add TROY_TEST variable
+option(TROY_TEST "Build tests" OFF)
+option(TROY_COMPARE_SEAL "Build tests to compare efficiency with SEAL" OFF)
+
+if(TROY_TEST)
+  message(STATUS "Tests enabled")
+  enable_testing()
+  add_subdirectory("${PROJECT_SOURCE_DIR}/extern/googletest" "extern/googletest")
+  add_subdirectory(test)
+endif()
