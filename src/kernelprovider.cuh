@@ -39,7 +39,7 @@ namespace troy {
             T* ret;
             auto status = cudaMalloc((void**)&ret, length * sizeof(T));
             printCudaError(status, "malloc", __LINE__, __FILE__);
-            printf("Malloc %lu bytes at %p\n", length * sizeof(T), ret);
+            // printf("Malloc %lu bytes at %p\n", length * sizeof(T), ret);
             return ret;
         }
 
@@ -47,8 +47,8 @@ namespace troy {
         static void free(T* pointer) {
             checkInitialized();
             auto status = cudaFree(pointer);
-            printf("Free %p\n", pointer);
-            printCudaError(status, "free", __LINE__, __FILE__);
+            // printf("Free %p\n", pointer);
+            // printCudaError(status, "free", __LINE__, __FILE__);
         }
 
         template <typename T>

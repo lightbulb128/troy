@@ -27,7 +27,7 @@ namespace troy {
                 if (pointers.size() == 0) return 0;
                 size_t released = 0;
                 for (auto& pair: pointers) {
-                    printf("MemoryCuda free %p\n", pair.second);
+                    // printf("MemoryCuda free %p\n", pair.second);
                     KernelProvider::free(pair.second);
                     released += pair.first;
                 }
