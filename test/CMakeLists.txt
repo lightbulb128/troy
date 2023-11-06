@@ -1,7 +1,5 @@
 enable_testing()
 
-find_package(SEAL 4.0 REQUIRED)
-
 add_executable(troytest)
 target_sources(troytest PRIVATE 
 
