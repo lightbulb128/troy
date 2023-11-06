@@ -13,7 +13,8 @@ namespace troy {
             static MemoryPoolCuda singleton;
             MemoryPoolCuda() {
                 allocated = 0;
-                cudaDeviceProp props; cudaGetDeviceProperties(&props, 0);
+                cudaDeviceProp props; auto status = cudaGetDeviceProperties(&props, 0);
+                printCudaError(status, "get-device-properties", __LINE__, __FILE__);
                 totalMemory = props.totalGlobalMem;
                 printf("[MemoryPoolCuda] Total Memory = %ld bytes\n", totalMemory);
             }
@@ -26,6 +27,7 @@ namespace troy {
                 if (pointers.size() == 0) return 0;
                 size_t released = 0;
                 for (auto& pair: pointers) {
+                    printf("MemoryCuda free %p\n", pair.second);
                     KernelProvider::free(pair.second);
                     released += pair.first;
                 }
@@ -37,7 +39,8 @@ namespace troy {
 
             void* tryAllocate(size_t require) {
                 size_t free, total;
-                cudaMemGetInfo(&free, &total);
+                auto status = cudaMemGetInfo(&free, &total);
+                printCudaError(status, "get-memory-info", __LINE__, __FILE__);
                 if (free < require + preservedMemory) release();
                 allocated += require;
                 return reinterpret_cast<void*>(KernelProvider::malloc<char>(require));
