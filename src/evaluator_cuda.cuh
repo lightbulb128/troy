@@ -341,8 +341,8 @@ namespace troy {
         CiphertextCuda assembleLWE(const LWECiphertextCuda& encrypted, size_t term) const;
 
         LWECiphertextCuda extractLWE(const CiphertextCuda& encrypted, size_t term) const;
-        void fieldTraceInplace(CiphertextCuda& encrypted, GaloisKeysCuda& automorphism_keys, size_t logn) const;
-        void divideByPolyModulusDegreeInplace(CiphertextCuda& encrypted) const;
+        void fieldTraceInplace(CiphertextCuda& encrypted, const GaloisKeysCuda& automorphism_keys, size_t logn) const;
+        void divideByPolyModulusDegreeInplace(CiphertextCuda& encrypted, uint64_t mul = 1) const;
         CiphertextCuda packLWECiphertexts(const std::vector<LWECiphertextCuda>& lwes, GaloisKeysCuda& automorphism_keys) const;
         void negacyclicShift(const CiphertextCuda& encrypted, size_t shift, CiphertextCuda& destination) const;
         inline void negacyclicShiftInplace(CiphertextCuda& encrypted, size_t shift) const {

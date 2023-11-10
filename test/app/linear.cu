@@ -57,6 +57,7 @@ class LinearTest {
     RelinKeys rlk;
     PublicKey pk;
     GaloisKeys gk;
+    GaloisKeys autok;
     KeyGenerator* keygen;
     EncryptionParameters parms;
 
@@ -164,11 +165,12 @@ public:
         parms.setPlainModulus(plainModulus);
         modulus = plainModulus;
         parms.setCoeffModulus(CoeffModulus::Create(polyModulusDegree, qs));
-        context = new SEALContext(parms);
+        context = new SEALContext(parms, true, SecurityLevel::none);
         keygen = new KeyGenerator(*context);
         keygen->createPublicKey(pk);
         keygen->createRelinKeys(rlk);
         keygen->createGaloisKeys(gk);
+        autok = keygen->createAutomorphismKeys();
         encoder = new BatchEncoder(*context);
         encryptor = new Encryptor(*context, pk);
         encryptor->setSecretKey(keygen->secretKey());
@@ -282,7 +284,7 @@ public:
 
 
 
-    void testMatmulInts(size_t batchSize, size_t inputDims, size_t outputDims) {
+    void testMatmulInts(size_t batchSize, size_t inputDims, size_t outputDims, bool packLwes) {
         
         auto mod = parms.plainModulus().value();
         auto w = randomVector(inputDims * outputDims, mod);
@@ -291,20 +293,87 @@ public:
         auto lastParmsID = context->lastParmsID();
 
         // initialize helper
-        LinearHelper::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount);
+        LinearHelper::MatmulHelper helper(batchSize, inputDims, outputDims, slotCount, 0, packLwes);
         // printf("Matmul helper created\n");
 
         auto wEncoded = helper.encodeWeights(*encoder, w.data());
         
-        std::cout << "weight plaintext coeffcount = " << wEncoded[0][0].coeffCount() << std::endl;
+        // for (size_t i = 0; i < wEncoded.data.size(); i++) {
+        //     for (size_t j = 0; j < wEncoded.data[i].size(); j++) {
+        //         std::cout << "w[" << i << "][" << j << "] = ";
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(wEncoded.data[i][j], v); 
+        //         printVector(v);
+        //     }
+        // }
+
+        // std::cout << "weight plaintext coeffcount = " << wEncoded[0][0].coeffCount() << std::endl;
 
         // interaction
         auto timer = Timer();
         auto t = timer.registerTimer("Matmul"); timer.tick(t);
         auto xEncoded = helper.encodeInputs(*encoder, x.data());
         auto xEnc = xEncoded.encrypt(*encryptor);
+
+        { // serialize
+            ostringstream sout; xEnc.save(sout);
+            auto p = sout.str(); std::cout << "xEnc length = " << p.size() << std::endl;
+            istringstream sin(p); xEnc = LinearHelper::Cipher2d();
+            xEnc.load(sin, *context);
+        }
+        
+        // for (size_t i = 0; i < xEnc.data.size(); i++) {
+        //     for (size_t j = 0; j < xEnc.data[i].size(); j++) {
+        //         std::cout << "xEnc[" << i << "][" << j << "] = ";
+        //         Plaintext p; decryptor->decrypt(xEnc.data[i][j], p);
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(p, v); 
+        //         printVector(v);
+        //     }
+        // }
+
         auto yEnc = helper.matmul(*evaluator, xEnc, wEncoded);  
+
+        // printf("matmul\n");
+        // for (size_t i = 0; i < yEnc.data.size(); i++) {
+        //     for (size_t j = 0; j < yEnc.data[i].size(); j++) {
+        //         std::cout << "yEnc[" << i << "][" << j << "] = ";
+        //         Plaintext p; decryptor->decrypt(yEnc.data[i][j], p);
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(p, v); 
+        //         printVector(v);
+        //     }
+        // }
+
         yEnc.modSwitchToNext(*evaluator); 
+        
+        // printf("switch to next\n");
+        // for (size_t i = 0; i < yEnc.data.size(); i++) {
+        //     for (size_t j = 0; j < yEnc.data[i].size(); j++) {
+        //         std::cout << "yEnc[" << i << "][" << j << "] = ";
+        //         Plaintext p; decryptor->decrypt(yEnc.data[i][j], p);
+        //         std::vector<uint64_t> v; encoder->decodePolynomial(p, v); 
+        //         printVector(v);
+        //     }
+        // }
+
+        if (packLwes) {
+            yEnc = helper.packOutputs(*evaluator, autok, yEnc);
+            // printf("pack\n");
+            // for (size_t i = 0; i < yEnc.data.size(); i++) {
+            //     for (size_t j = 0; j < yEnc.data[i].size(); j++) {
+            //         std::cout << "yEnc[" << i << "][" << j << "] = ";
+            //         Plaintext p; decryptor->decrypt(yEnc.data[i][j], p);
+            //         std::vector<uint64_t> v; encoder->decodePolynomial(p, v); 
+            //         printVector(v);
+            //     }
+            // }
+        }
+        
+        { // serialize
+            ostringstream sout; helper.serializeOutputs(*evaluator, yEnc, sout);
+            auto p = sout.str(); std::cout << "yEnc length = " << p.size() << std::endl;
+            istringstream sin(p); 
+            yEnc = helper.deserializeOutputs(*evaluator, sin);
+        }
+        
         // printf("Matmul done\n");
 
         auto yDec = helper.decryptOutputs(*encoder, *decryptor, yEnc);
@@ -559,10 +628,11 @@ public:
 int main() {
     KernelProvider::initialize();
     srand(0);
-    LinearTest test(8192, {60, 60, 60}, 16, 1ul<<41, 1ul<<12);
+    LinearTest test(8192, {60, 60, 60}, 16, 1ul<<20, 1ul<<12);
     printf("Setup\n");
-    // test.testMatmulInts(4, 6, 8);
-    // test.testMatmulInts(128, 2048, 1001);
+    // test.testMatmulInts(4, 6, 8, false);
+    test.testMatmulInts(128, 500, 1001, false);
+    test.testMatmulInts(128, 500, 1001, true);
     // test.testConv2d(1, 64, 256, 56, 56, 3, 3);
-    test.testConv2dInt(4, 64, 256, 56, 56, 3, 3);
+    // test.testConv2dInt(4, 64, 256, 56, 56, 3, 3);
 }

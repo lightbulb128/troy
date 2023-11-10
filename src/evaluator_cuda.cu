@@ -2235,7 +2235,7 @@ namespace troy {
         }
     }
     
-    void EvaluatorCuda::fieldTraceInplace(CiphertextCuda& encrypted, GaloisKeysCuda& automorphism_keys, size_t logn) const {
+    void EvaluatorCuda::fieldTraceInplace(CiphertextCuda& encrypted, const GaloisKeysCuda& automorphism_keys, size_t logn) const {
         size_t poly_degree = encrypted.polyModulusDegree();
         CiphertextCuda temp;
         while (poly_degree > (1<<logn)) {
@@ -2246,7 +2246,7 @@ namespace troy {
         }
     }
 
-    void EvaluatorCuda::divideByPolyModulusDegreeInplace(CiphertextCuda& encrypted) const {
+    void EvaluatorCuda::divideByPolyModulusDegreeInplace(CiphertextCuda& encrypted, uint64_t mul) const {
         auto context_data = context_.getContextData(encrypted.parmsID());
         auto size = encrypted.size();
         auto ntt_tables = context_data->smallNTTTables();
@@ -2254,6 +2254,12 @@ namespace troy {
         kernel_util::kMultiplyInvPolyDegreeCoeffmod(
             encrypted.data(), size, modulus.size(), context_data->parms().polyModulusDegree(), 
             ntt_tables, modulus, encrypted.data());
+        if (mul > 1) {
+            kernel_util::kMultiplyPolyScalarCoeffmod(
+                encrypted.data(), size, modulus.size(), context_data->parms().polyModulusDegree(), 
+                mul, modulus, encrypted.data()
+            );
+        }
     }
 
     CiphertextCuda EvaluatorCuda::packLWECiphertexts(const std::vector<LWECiphertextCuda>& lwes, GaloisKeysCuda& automorphism_keys) const {
