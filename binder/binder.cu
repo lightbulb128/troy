@@ -821,7 +821,7 @@ PYBIND11_MODULE(pytroy, m) {
     */
     
     py::class_<MatmulHelper>(m, "MatmulHelper")
-        .def(py::init<size_t, size_t, size_t, size_t, int>())
+        .def(py::init<size_t, size_t, size_t, size_t, int, bool>())
         .def("encode_weights", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> weights){
             return self.encodeWeights(encoder, getPtrFromBuffer(weights));
         })
