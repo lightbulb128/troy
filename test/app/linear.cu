@@ -631,8 +631,8 @@ int main() {
     LinearTest test(8192, {60, 60, 60}, 16, 1ul<<20, 1ul<<12);
     printf("Setup\n");
     // test.testMatmulInts(4, 6, 8, false);
-    test.testMatmulInts(128, 500, 1001, false);
-    test.testMatmulInts(128, 500, 1001, true);
+    // test.testMatmulInts(128, 500, 1001, false);
+    test.testMatmulInts(16, 1500, 3000, true);
     // test.testConv2d(1, 64, 256, 56, 56, 3, 3);
     // test.testConv2dInt(4, 64, 256, 56, 56, 3, 3);
 }

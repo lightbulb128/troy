@@ -840,6 +840,9 @@ PYBIND11_MODULE(pytroy, m) {
         .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Plain2d& a, const Cipher2d& weights){
             return self.matmulReverse(evaluator, a, weights);
         })
+        .def("pack_outputs", [](MatmulHelper& self, const Evaluator& evaluator, const GaloisKeys& autokey, const Cipher2d& x) {
+            return self.packOutputs(evaluator, autokey, x);
+        })
         .def("encode_outputs", [](MatmulHelper& self, BatchEncoder& encoder, py::array_t<uint64_t> outputs){
             return self.encodeOutputs(encoder, getPtrFromBuffer(outputs));
         })
