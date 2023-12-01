@@ -739,6 +739,9 @@ PYBIND11_MODULE(pytroy, m) {
         .def("mod_switch_to_next", [](Cipher2d& self, const Evaluator& evaluator){
             self.modSwitchToNext(evaluator);
         })
+        .def("relinearize", [](Cipher2d& self, const Evaluator& evaluator, const RelinKeys& rlk){
+            self.relinearize(evaluator, rlk);
+        })
         ;
 
     py::class_<Plain2d>(m, "Plain2d")
@@ -746,79 +749,6 @@ PYBIND11_MODULE(pytroy, m) {
             return self.encrypt(encryptor);
         })
         ;
-
-    /*
-
-    py::class_<MatmulHelper>(m, "MatmulHelper")
-        .def(py::init<size_t, size_t, size_t, size_t>())
-        .def("encode_weights", [](MatmulHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> weights, double scale){
-            self.encodeWeights(encoder, parmsID, getVectorFromBuffer(weights), scale);
-        })
-        .def("encode_inputs", [](MatmulHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
-            return self.encodeInputs(encoder, parmsID, getVectorFromBuffer(inputs), scale);
-        })
-        .def("encrypt_inputs", [](MatmulHelper& self, const Encryptor& encryptor, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
-            return self.encryptInputs(encryptor, encoder, parmsID, getVectorFromBuffer(inputs), scale);
-        })
-        .def("matmul", [](MatmulHelper& self, const Evaluator& evaluator, const Cipher2d& a){
-            return self.matmul(evaluator, a);
-        })
-        .def("encode_outputs", [](MatmulHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> outputs, double scale){
-            return self.encodeOutputs(encoder, parmsID, getVectorFromBuffer(outputs), scale);
-        })
-        .def("add_plain_inplace", [](MatmulHelper& self, const Evaluator& evaluator, Cipher2d& y, const Plain2d& x) {
-            self.addPlainInplace(evaluator, y, x);
-        })
-        .def("decrypt_outputs", [](MatmulHelper& self, CKKSEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
-            return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
-        })
-        .def("serialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const Cipher2d& x) {
-            ostringstream stream; self.serializeOutputs(evaluator, x, stream);
-            return py::bytes(stream.str());
-        })
-        .def("deserialize_outputs", [](MatmulHelper& self, Evaluator& evaluator, const py::bytes& str) {
-            istringstream stream(str);
-            return self.deserializeOutputs(evaluator, stream);
-        })
-        ;
-
-    py::class_<Conv2dHelper>(m, "Conv2dHelper")
-        .def(py::init<size_t, size_t, size_t, size_t, size_t, size_t, size_t, size_t>())
-        .def("encode_weights", [](Conv2dHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> weights, double scale){
-            self.encodeWeights(encoder, parmsID, getVectorFromBuffer(weights), scale);
-        })
-        .def("encode_inputs", [](Conv2dHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
-            return self.encodeInputs(encoder, parmsID, getVectorFromBuffer(inputs), scale);
-        })
-        .def("encrypt_inputs", [](Conv2dHelper& self, const Encryptor& encryptor, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> inputs, double scale){
-            return self.encryptInputs(encryptor, encoder, parmsID, getVectorFromBuffer(inputs), scale);
-        })
-        .def("conv2d", [](Conv2dHelper& self, const Evaluator& evaluator, const Cipher2d& a){
-            return self.conv2d(evaluator, a);
-        })
-        .def("encode_outputs", [](Conv2dHelper& self, CKKSEncoder& encoder, ParmsID parmsID, py::array_t<double> outputs, double scale){
-            return self.encodeOutputs(encoder, parmsID, getVectorFromBuffer(outputs), scale);
-        })
-        .def("add_plain_inplace", [](Conv2dHelper& self, const Evaluator& evaluator, Cipher2d& y, const Plain2d& x) {
-            self.addPlainInplace(evaluator, y, x);
-        })
-        .def("add_inplace", [](Conv2dHelper& self, const Evaluator& evaluator, Cipher2d& y, const Cipher2d& x) {
-            self.addInplace(evaluator, y, x);
-        })
-        .def("decrypt_outputs", [](Conv2dHelper& self, CKKSEncoder& encoder, Decryptor& decryptor, const Cipher2d& outputs) {
-            return getBufferFromVector(self.decryptOutputs(encoder, decryptor, outputs));
-        })
-        .def("serialize_outputs", [](Conv2dHelper& self, Evaluator& evaluator, const Cipher2d& x) {
-            ostringstream stream; self.serializeOutputs(evaluator, x, stream);
-            return py::bytes(stream.str());
-        })
-        .def("deserialize_outputs", [](Conv2dHelper& self, Evaluator& evaluator, const py::bytes& str) {
-            istringstream stream(str);
-            return self.deserializeOutputs(evaluator, stream);
-        })
-        ;
-
-    */
     
     py::class_<MatmulHelper>(m, "MatmulHelper")
         .def(py::init<size_t, size_t, size_t, size_t, int, bool>())

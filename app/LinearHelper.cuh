@@ -111,6 +111,16 @@ namespace LinearHelper {
             }
         }
 
+        void relinearize(const troyn::Evaluator& evaluator, const troyn::RelinKeys& rlk) {
+            size_t n = data.size();
+            for (size_t i = 0; i < n; i++) {
+                size_t m = data[i].size();
+                for (size_t j = 0; j < m; j++) {
+                    evaluator.relinearizeInplace(data[i][j], rlk);
+                }
+            }
+        }
+
         void addInplace(
             const troyn::Evaluator& evaluator,
             const Cipher2d& x
