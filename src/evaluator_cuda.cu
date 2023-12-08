@@ -1159,7 +1159,6 @@ namespace troy {
             );
         }
     }
-
     
     void EvaluatorCuda::switchKeyInplace(
         CiphertextCuda &encrypted, ConstDevicePointer<uint64_t> target_iter, const KSwitchKeysCuda &kswitch_keys, size_t kswitch_keys_index) const
@@ -1363,6 +1362,20 @@ namespace troy {
     }
 
     
+    void EvaluatorCuda::applyKeySwitchingInplace(
+        CiphertextCuda &encrypted, const KSwitchKeysCuda &kswitch_keys) const
+    {
+        if (kswitch_keys.data().size() != 1) {
+            throw invalid_argument("kswitch_keys.data().size() != 1");
+        }
+        if (encrypted.size() != 2) {
+            throw invalid_argument("encrypted.size() != 2");
+        }
+        DeviceArray<uint64_t> target(encrypted.polyCoeffSize());
+        kernel_util::kSetPolyArray(encrypted.data(1), 1, encrypted.coeffModulusSize(), encrypted.polyModulusDegree(), target.get());
+        kernel_util::kSetZeroPolyArray(1, encrypted.coeffModulusSize(), encrypted.polyModulusDegree(), encrypted.data(1));
+        switchKeyInplace(encrypted, target, kswitch_keys, 0);
+    }
 
     void EvaluatorCuda::rescaleToNext(const CiphertextCuda &encrypted, CiphertextCuda &destination) const
     {

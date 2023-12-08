@@ -356,4 +356,13 @@ namespace troy
         }
         return this->createGaloisKeysInternal(galois_elements);
     }
+    
+    KSwitchKeys KeyGenerator::createKeySwitchingKeys(const SecretKey& new_key) {
+        KSwitchKeys ret;
+        ret.data().resize(1);
+        this->generateOneKswitchKey(new_key.data().data(), ret.data()[0]);
+        ret.parmsID() = this->context_.keyContextData()->parmsID();
+        return ret;
+    }
+        
 } // namespace seal

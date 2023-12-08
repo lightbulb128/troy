@@ -31,6 +31,7 @@ using CKKSEncoder = troy::CKKSEncoderCuda;
 using BatchEncoder = troy::BatchEncoderCuda;
 using KernelProvider = troy::KernelProvider;
 using LWECiphertext = troy::LWECiphertextCuda;
+using KSwitchKeys = troy::KSwitchKeysCuda;
 
 
 namespace troytest
@@ -2531,6 +2532,54 @@ namespace troytest
         evaluator.modSwitchToNextInplace(encrypted);
         decryptor.decrypt(encrypted, plain2);
         ASSERT_TRUE(plain2.to_string() == "1x^40 + 8x^30 + 18x^20 + 20x^10 + 10");
+    }
+
+    TEST(EvaluatorCudaTest, BFVKeySwitching)
+    {
+        KernelProvider::initialize();
+        EncryptionParameters parms(SchemeType::bfv);
+        Modulus plain_modulus(1 << 6);
+        parms.setPolyModulusDegree(128);
+        parms.setPlainModulus(plain_modulus);
+        parms.setCoeffModulus(CoeffModulus::Create(128, { 40, 40, 40, 40 }));
+
+        SEALContext context(parms, true, SecurityLevel::none);
+        KeyGenerator keygen(context);
+        KeyGenerator keygenOther(context);
+        PublicKey pk;
+        keygen.createPublicKey(pk);
+        RelinKeys rlk;
+        keygen.createRelinKeys(rlk);
+        KSwitchKeys ks = keygen.createKeySwitchingKeys(keygenOther.secretKey());
+
+        Encryptor encryptor(context, pk);
+        Evaluator evaluator(context);
+        Decryptor decryptor(context, keygen.secretKey());
+        BatchEncoder encoder(context);
+
+        vector<uint64_t> message = {1, 2, 3, 4};
+        Plaintext plain;
+        encoder.encodePolynomial(message, plain);
+
+        // PublicKey pkOther;
+        // keygenOther.createPublicKey(pkOther);
+        Encryptor encryptorOther(context, keygenOther.secretKey());
+
+        Ciphertext encrypted;
+        encryptorOther.encrypt(plain, encrypted);
+
+        Ciphertext switched;
+        evaluator.applyKeySwitching(encrypted, ks, switched);
+
+        Plaintext plain2;
+        decryptor.decrypt(switched, plain2);
+
+        vector<uint64_t> result;
+        encoder.decodePolynomial(plain2, result);
+
+        for (size_t i = 0; i < 4; i++) {
+            ASSERT_EQ(message[i], result[i]);
+        }
     }
 
     TEST(EvaluatorCudaTest, BGVRelinearize)

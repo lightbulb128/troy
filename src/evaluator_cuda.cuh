@@ -98,6 +98,16 @@ namespace troy {
 
         void squareInplace(CiphertextCuda& encrypted) const;
 
+        void applyKeySwitchingInplace(
+            CiphertextCuda &encrypted, const KSwitchKeysCuda &kswitch_keys) const;
+
+        inline void applyKeySwitching(
+            const CiphertextCuda &encrypted, const KSwitchKeysCuda &kswitch_keys, CiphertextCuda &destination) const
+        {
+            destination = encrypted;
+            applyKeySwitchingInplace(destination, kswitch_keys);
+        }
+
         inline void relinearizeInplace(
             CiphertextCuda &encrypted, const RelinKeysCuda &relin_keys) const
         {

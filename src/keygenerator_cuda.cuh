@@ -290,6 +290,10 @@ namespace troy
             return GaloisKeysCuda(host.createAutomorphismKeys());
         }
 
+        inline KSwitchKeysCuda createKeySwitchingKeys(const SecretKeyCuda& new_key) {
+            return KSwitchKeysCuda(host.createKeySwitchingKeys(new_key.toHost()));
+        }
+
         /**
         Enables access to private members of seal::KeyGenerator for SEAL_C.
         */
