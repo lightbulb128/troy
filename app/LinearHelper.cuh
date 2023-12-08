@@ -121,6 +121,17 @@ namespace LinearHelper {
             }
         }
 
+        void multiplyScalarInplace(const troyn::BatchEncoder& encoder, const troyn::Evaluator& evaluator, uint64_t scalar) {
+            Plaintext p; encoder.encodePolynomial(std::vector<uint64_t>{scalar}, p);
+            size_t n = data.size();
+            for (size_t i = 0; i < n; i++) {
+                size_t m = data[i].size();
+                for (size_t j = 0; j < m; j++) {
+                    evaluator.multiplyPlainInplace(data[i][j], p);
+                }
+            }
+        }
+
         void addInplace(
             const troyn::Evaluator& evaluator,
             const Cipher2d& x
@@ -262,15 +273,18 @@ namespace LinearHelper {
                     size_t oc = ceilDiv(outputDims, o);
                     size_t c = 0;
                     if (objective == 0) {
-                        c = bc * (ceilDiv(inputDims, i) + ceilDiv(outputDims, o));
+                        c = bc * ceilDiv(inputDims, i);
+                        c += ceilDiv(bc * ceilDiv(outputDims, o), i);
                     } else if (objective == 1) {
-                        c = (bc + ceilDiv(inputDims, i)) * ceilDiv(outputDims, o);
+                        c = ceilDiv(outputDims, o) * ceilDiv(inputDims, i);
+                        c += ceilDiv(bc * ceilDiv(outputDims, o), i);
                     } else if (objective == 2) {
-                        c = bc * inputDims + (bc + ceilDiv(inputDims, i)) * ceilDiv(outputDims, o);
+                        c = bc * ceilDiv(inputDims, i);
+                        c += ceilDiv(outputDims, o) * ceilDiv(inputDims, i);
+                        c += ceilDiv(bc * ceilDiv(outputDims, o), i);
                     } else {
                         throw std::runtime_error("MatmulHelper: invalid objective");
                     }
-                    c = ceilDiv(c, i);
                     if (c >= cBest) {continue;}
                     bBest = b; iBest = i; oBest = o; cBest = c;
                 }

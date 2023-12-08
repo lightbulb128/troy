@@ -742,6 +742,9 @@ PYBIND11_MODULE(pytroy, m) {
         .def("relinearize", [](Cipher2d& self, const Evaluator& evaluator, const RelinKeys& rlk){
             self.relinearize(evaluator, rlk);
         })
+        .def("multiply_scalar_inplace", [](Cipher2d& self, const BatchEncoder& encoder, const Evaluator& evaluator, uint64_t scalar){
+            self.multiplyScalarInplace(encoder, evaluator, scalar);
+        })
         ;
 
     py::class_<Plain2d>(m, "Plain2d")
