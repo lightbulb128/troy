@@ -329,6 +329,7 @@ PYBIND11_MODULE(pytroy, m) {
             &KeyGenerator::createGaloisKeys
         ))
         .def("create_automorphism_keys", &KeyGenerator::createAutomorphismKeys)
+        .def("create_keyswitching_keys", &KeyGenerator::createKeySwitchingKeys)
         ;
 
     py::class_<SecretKey>(m, "SecretKey")
@@ -547,6 +548,12 @@ PYBIND11_MODULE(pytroy, m) {
             Ciphertext ret; self.relinearize(c, relin_keys, ret); return ret;
         })
 
+        .def("apply_keyswitching_inplace",        &Evaluator::applyKeySwitchingInplace)
+        .def("apply_keyswitching",                &Evaluator::applyKeySwitching)
+        .def("apply_keyswitching", [](const Evaluator& self, const Ciphertext& c, const KSwitchKeys& ksk) {
+            Ciphertext ret; self.applyKeySwitching(c, ksk, ret); return ret;
+        })
+
         .def("mod_switch_to_next_inplace", py::overload_cast<Ciphertext&>(
             &Evaluator::modSwitchToNextInplace, py::const_
         ))
@@ -744,6 +751,9 @@ PYBIND11_MODULE(pytroy, m) {
         })
         .def("multiply_scalar_inplace", [](Cipher2d& self, const BatchEncoder& encoder, const Evaluator& evaluator, uint64_t scalar){
             self.multiplyScalarInplace(encoder, evaluator, scalar);
+        })
+        .def("switch_key", [](Cipher2d& self, const Evaluator& evaluator, const KSwitchKeys& ksk){
+            self.switch_key(evaluator, ksk);
         })
         ;
 

@@ -289,6 +289,8 @@ namespace troy
 
         GaloisKeys createAutomorphismKeys();
 
+        KSwitchKeys createKeySwitchingKeys(const SecretKey& new_key);
+        
         /**
         Enables access to private members of seal::KeyGenerator for SEAL_C.
         */
@@ -370,7 +372,6 @@ namespace troy
         @throws std::invalid_argument if the Galois elements are not valid
         */
         GaloisKeys createGaloisKeysInternal(const std::vector<std::uint32_t> &galois_elts);
-
 
         SEALContext context_;
 

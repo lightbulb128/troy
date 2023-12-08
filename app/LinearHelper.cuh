@@ -120,6 +120,16 @@ namespace LinearHelper {
                 }
             }
         }
+        
+        void switch_key(const troyn::Evaluator& evaluator, const troyn::KSwitchKeys& ksk) {
+            size_t n = data.size();
+            for (size_t i = 0; i < n; i++) {
+                size_t m = data[i].size();
+                for (size_t j = 0; j < m; j++) {
+                    evaluator.applyKeySwitchingInplace(data[i][j], ksk);
+                }
+            }
+        }
 
         void multiplyScalarInplace(const troyn::BatchEncoder& encoder, const troyn::Evaluator& evaluator, uint64_t scalar) {
             Plaintext p; encoder.encodePolynomial(std::vector<uint64_t>{scalar}, p);
