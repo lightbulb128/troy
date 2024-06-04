@@ -2,7 +2,9 @@
 
 ## Notice
 
-We have re-implemented this library and introduced a faster NTT-kernel and easier-to-use python packaging workflow. Be sure to checkout our new open-sourced repository at [troy-nova](https://github.com/lightbulb128/troy-nova).
+We have re-implemented this library and introduced a faster NTT-kernel and easier-to-use python packaging workflow. **Be sure to checkout our new open-sourced repository at [troy-nova](https://github.com/lightbulb128/troy-nova).**
+
+## Introduction
 
 The homomorphic encryption library implemented on GPU. Troy includes BFV, BGV, and CKKS schemes. Its implementation referred to the [Microsoft SEAL library](https://github.com/Microsoft/SEAL).
 For reference, this library inherently includes a CPU version of the schemes, but you can just use the GPU part by using namespace `troyn`.
